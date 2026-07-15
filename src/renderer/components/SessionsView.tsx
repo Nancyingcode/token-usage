@@ -1,3 +1,4 @@
+import React from "react";
 import { AlertTriangle } from "lucide-react";
 import type { UsageSession } from "../../shared/usageTypes";
 import { formatNumber } from "./MetricCard";
@@ -12,20 +13,20 @@ export default function SessionsView({ sessions }: SessionsViewProps) {
       <div className="panel-heading">
         <div>
           <p className="eyebrow">Session details</p>
-          <h3>按会话统计</h3>
+          <h3>Sessions</h3>
         </div>
-        <span>{sessions.length} 个会话</span>
+        <span>{sessions.length} sessions</span>
       </div>
       <div className="data-table session-table">
         <div className="table-row table-head">
-          <span>会话</span>
-          <span>项目</span>
-          <span>日期</span>
-          <span>输入</span>
-          <span>缓存</span>
-          <span>输出</span>
-          <span>总计</span>
-          <span>状态</span>
+          <span>Session</span>
+          <span>Project</span>
+          <span>Date</span>
+          <span>Input</span>
+          <span>Cached</span>
+          <span>Output</span>
+          <span>Total</span>
+          <span>Status</span>
         </div>
         {sessions.map((session) => (
           <div className="table-row" key={session.sourceFile}>
@@ -39,8 +40,8 @@ export default function SessionsView({ sessions }: SessionsViewProps) {
             <span>{formatNumber(session.outputTokens)}</span>
             <span>{formatNumber(session.totalTokens)}</span>
             <span className={session.warnings.length ? "warning-cell" : "ok-cell"}>
-              {session.warnings.length ? <AlertTriangle size={15} /> : null}
-              {session.warnings.length ? `${session.warnings.length} 条` : "正常"}
+              {session.warnings.length ? <AlertTriangle size={14} /> : null}
+              {session.warnings.length ? `${session.warnings.length} warnings` : "OK"}
             </span>
           </div>
         ))}
@@ -54,7 +55,7 @@ function shortId(id: string): string {
 }
 
 function formatShortDate(value: string): string {
-  return new Intl.DateTimeFormat("zh-CN", {
+  return new Intl.DateTimeFormat("en", {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",

@@ -1,41 +1,45 @@
-import { RefreshCw, Search } from "lucide-react";
+import React from "react";
+import { RefreshCw, Sidebar as SidebarIcon } from "lucide-react";
+import type { ViewKey } from "./Sidebar";
 
 interface ToolbarProps {
+  activeView: ViewKey;
   loading: boolean;
-  query: string;
   scannedAt?: string;
-  onQueryChange: (query: string) => void;
   onRefresh: () => void;
 }
 
-export default function Toolbar({
-  loading,
-  query,
-  scannedAt,
-  onQueryChange,
-  onRefresh
-}: ToolbarProps) {
+const labels: Record<ViewKey, string> = {
+  overview: "Overview",
+  sessions: "Sessions",
+  tools: "Tools",
+  performance: "Performance",
+  wrapped: "Wrapped"
+};
+
+export default function Toolbar({ activeView, loading, scannedAt, onRefresh }: ToolbarProps) {
   return (
     <header className="toolbar">
-      <div>
-        <p className="eyebrow">本机 Codex sessions</p>
-        <h2>Token 消耗统计</h2>
-        <p className="toolbar-meta">
-          {scannedAt ? `上次扫描 ${formatDateTime(scannedAt)}` : "等待首次扫描"}
-        </p>
+      <div className="toolbar-title">
+        <SidebarIcon size={14} strokeWidth={1.8} />
+        <strong>{labels[activeView]}</strong>
+        <span className="daemon-pill">
+          <i />
+          Daemon
+        </span>
+        {scannedAt ? <span className="scan-time">{formatDateTime(scannedAt)}</span> : null}
       </div>
 
       <div className="toolbar-actions">
-        <label className="search-box">
-          <Search size={16} />
-          <input
-            value={query}
-            onChange={(event) => onQueryChange(event.target.value)}
-            placeholder="搜索项目、会话或线程"
-          />
-        </label>
-        <button className="icon-button" type="button" onClick={onRefresh} disabled={loading} title="刷新">
-          <RefreshCw size={18} className={loading ? "spinning" : undefined} />
+        <div className="period-toggle" aria-label="Date range">
+          <button type="button">Today</button>
+          <button type="button">Week</button>
+          <button type="button" className="active">
+            Month
+          </button>
+        </div>
+        <button className="icon-button" type="button" onClick={onRefresh} disabled={loading} title="Refresh">
+          <RefreshCw size={14} className={loading ? "spinning" : undefined} />
         </button>
       </div>
     </header>
@@ -43,7 +47,7 @@ export default function Toolbar({
 }
 
 function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat("zh-CN", {
+  return new Intl.DateTimeFormat("en", {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",

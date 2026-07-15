@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, Menu } from "electron";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { registerUsageIpc } from "./ipc";
@@ -12,6 +12,7 @@ function createWindow(): void {
     minWidth: 1024,
     minHeight: 680,
     backgroundColor: "#f8f7f4",
+    autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, "../preload/preload.mjs"),
       contextIsolation: true,
@@ -29,6 +30,7 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   registerUsageIpc();
+  Menu.setApplicationMenu(null);
   createWindow();
 
   app.on("activate", () => {

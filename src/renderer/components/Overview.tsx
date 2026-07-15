@@ -1,64 +1,144 @@
-import { Brain, Database, MessageCircle, Sparkles, Zap } from "lucide-react";
-import type { UsageSummary } from "../../shared/usageTypes";
-import MetricCard, { formatNumber } from "./MetricCard";
-import TokenBar from "./TokenBar";
+import React from "react";
+import { Coins, FileCode2, LockKeyhole, MessageSquareText } from "lucide-react";
+import type { UsageDay, UsageSummary } from "../../shared/usageTypes";
+import MetricCard, { formatCompact, formatNumber } from "./MetricCard";
 
 interface OverviewProps {
   summary: UsageSummary;
 }
 
+const chartColors = ["#3b82f6", "#a855f7", "#22c7d9"];
+
 export default function Overview({ summary }: OverviewProps) {
-  const maxDay = Math.max(0, ...summary.byDay.map((day) => day.totalTokens));
-  const topProjects = summary.byProject.slice(0, 6);
+  const days = summary.byDay.slice(-24);
+  const maxDay = Math.max(1, ...days.map((day) => day.totalTokens));
+  const totalCost = estimateCost(summary.totals.totalTokens);
 
   return (
-    <section className="content-grid">
+    <section className="overview-grid">
       <div className="metric-grid">
-        <MetricCard label="总 Token" value={summary.totals.totalTokens} icon={Zap} tone="green" />
-        <MetricCard label="输入" value={summary.totals.inputTokens} icon={MessageCircle} />
-        <MetricCard label="缓存输入" value={summary.totals.cachedInputTokens} icon={Database} tone="blue" />
-        <MetricCard label="输出" value={summary.totals.outputTokens} icon={Sparkles} tone="amber" />
-        <MetricCard label="推理输出" value={summary.totals.reasoningOutputTokens} icon={Brain} />
+        <MetricCard
+          label="Total Cost"
+          value={`$${totalCost.toFixed(1)}`}
+          detail={`~${formatCompact(summary.totals.totalTokens)} tokens processed`}
+          icon={Coins}
+          tone="mint"
+        />
+        <MetricCard
+          label="Tokens"
+          value={formatCompact(summary.totals.totalTokens)}
+          detail={`${cachePercent(summary)}% from cache`}
+          icon={LockKeyhole}
+          tone="blue"
+        />
+        <MetricCard
+          label="Lines Changed"
+          value={formatCompact(summary.totals.outputTokens)}
+          detail={`+${formatCompact(summary.totals.reasoningOutputTokens)} reasoning`}
+          icon={FileCode2}
+          tone="purple"
+        />
+        <MetricCard
+          label="Sessions"
+          value={formatNumber(summary.sessions.length)}
+          detail={`${formatNumber(summary.byProject.length)} projects`}
+          icon={MessageSquareText}
+          tone="orange"
+        />
       </div>
 
-      <article className="panel wide">
-        <div className="panel-heading">
+      <article className="panel chart-panel">
+        <div className="panel-heading compact">
           <div>
-            <p className="eyebrow">Daily usage</p>
-            <h3>每日消耗</h3>
+            <h3>Cost Trends</h3>
+            <p>Total: ${totalCost.toFixed(1)}</p>
           </div>
-          <span>{summary.byDay.length} 天</span>
         </div>
-        <div className="day-list">
-          {summary.byDay.map((day) => (
-            <div className="bar-row" key={day.date}>
-              <span>{day.date}</span>
-              <TokenBar value={day.totalTokens} max={maxDay} />
-              <strong>{formatNumber(day.totalTokens)}</strong>
-            </div>
-          ))}
+        <TrendChart days={days} max={maxDay} />
+        <div className="chart-legend">
+          <span><i style={{ background: chartColors[0] }} /> Input</span>
+          <span><i style={{ background: chartColors[1] }} /> Output</span>
+          <span><i style={{ background: chartColors[2] }} /> Cached</span>
         </div>
       </article>
 
-      <article className="panel">
-        <div className="panel-heading">
+      <article className="panel activity-panel">
+        <div className="panel-heading compact">
           <div>
-            <p className="eyebrow">Projects</p>
-            <h3>项目排行</h3>
+            <h3>Activity</h3>
+            <p>{summary.sessions.length} sessions scanned locally</p>
           </div>
         </div>
-        <div className="rank-list">
-          {topProjects.map((project) => (
-            <div className="rank-row" key={project.projectPath}>
-              <div>
-                <strong>{project.projectName}</strong>
-                <span>{project.sessionCount} 个会话</span>
-              </div>
-              <em>{formatNumber(project.totalTokens)}</em>
-            </div>
-          ))}
-        </div>
+        <ActivityGrid days={summary.byDay.slice(-84)} />
       </article>
     </section>
   );
+}
+
+function TrendChart({ days, max }: { days: UsageDay[]; max: number }) {
+  const points = days.map((day, index) => {
+    const x = days.length <= 1 ? 24 : 24 + (index / (days.length - 1)) * 536;
+    const y = 178 - (day.totalTokens / max) * 136;
+    return { x, y, day };
+  });
+  const path = points.map((point, index) => `${index === 0 ? "M" : "L"}${point.x},${point.y}`).join(" ");
+  const area = points.length ? `${path} L560,178 L24,178 Z` : "";
+
+  return (
+    <div className="trend-chart">
+      <svg viewBox="0 0 584 212" role="img" aria-label="Token trend chart">
+        {[0, 1, 2, 3, 4].map((line) => (
+          <line key={line} x1="24" x2="560" y1={42 + line * 34} y2={42 + line * 34} />
+        ))}
+        {area ? <path className="trend-area" d={area} /> : null}
+        {path ? <path className="trend-line cyan" d={path} /> : null}
+        {points.map((point, index) => (
+          <circle key={`${point.day.date}-${index}`} cx={point.x} cy={point.y} r="2.4" />
+        ))}
+      </svg>
+      <div className="x-axis">
+        {days.filter((_, index) => index % Math.max(1, Math.ceil(days.length / 8)) === 0).map((day) => (
+          <span key={day.date}>{day.date.slice(5)}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ActivityGrid({ days }: { days: UsageDay[] }) {
+  const map = new Map(days.map((day) => [day.date, day.totalTokens]));
+  const max = Math.max(1, ...days.map((day) => day.totalTokens));
+  const cells = Array.from({ length: 84 }, (_, index) => {
+    const day = days[index];
+    const value = day ? map.get(day.date) ?? 0 : 0;
+    const level = value === 0 ? 0 : Math.ceil((value / max) * 4);
+    return { key: day?.date ?? `empty-${index}`, level };
+  });
+
+  return (
+    <div className="activity-wrap">
+      <div className="activity-labels">
+        <span>Mon</span>
+        <span>Wed</span>
+        <span>Fri</span>
+      </div>
+      <div className="activity-grid">
+        {cells.map((cell) => (
+          <i key={cell.key} className={`activity-cell level-${cell.level}`} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function estimateCost(tokens: number): number {
+  return tokens / 1_000_000 * 1.35;
+}
+
+function cachePercent(summary: UsageSummary): number {
+  if (summary.totals.inputTokens <= 0) {
+    return 0;
+  }
+
+  return Math.round((summary.totals.cachedInputTokens / summary.totals.inputTokens) * 100);
 }

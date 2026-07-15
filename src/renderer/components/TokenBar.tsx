@@ -1,14 +1,17 @@
+import React from "react";
+
 interface TokenBarProps {
   value: number;
   max: number;
+  tone?: "blue" | "purple" | "cyan" | "green";
 }
 
-export default function TokenBar({ value, max }: TokenBarProps) {
-  const width = max > 0 ? Math.max(4, Math.round((value / max) * 100)) : 0;
+export default function TokenBar({ value, max, tone = "blue" }: TokenBarProps) {
+  const height = max > 0 ? Math.max(3, Math.round((value / max) * 100)) : 0;
 
   return (
-    <div className="token-bar" aria-hidden="true">
-      <span style={{ width: `${width}%` }} />
-    </div>
+    <span className={`vertical-token-bar tone-${tone}`} aria-hidden="true">
+      <i style={{ height: `${height}%` }} />
+    </span>
   );
 }

@@ -7,13 +7,12 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "tsc -p tsconfig.node.json && tsc -p tsconfig.web.json && electron-vite build",
+    "build:web": "vite build",
+    "build:win": "npm run build && electron-builder --win",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.web.json"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "^5.0.0",
-    "electron": "^31.0.0",
-    "electron-vite": "^2.3.0",
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
@@ -22,6 +21,10 @@
     "@types/node": "^20.14.10",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "electron": "^31.0.0",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^2.3.0",
     "typescript": "^5.5.3",
     "vite": "^5.3.3",
     "vitest": "^2.0.2"
