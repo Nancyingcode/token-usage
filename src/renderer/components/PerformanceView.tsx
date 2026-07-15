@@ -1,6 +1,5 @@
 import React from "react";
 import type { UsageSummary } from "../../shared/usageTypes";
-import { formatNumber } from "./MetricCard";
 import TokenBar from "./TokenBar";
 
 interface PerformanceViewProps {
