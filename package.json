@@ -13,6 +13,7 @@
     "lint": "eslint . --max-warnings=0 && prettier --check .",
     "lint:fix": "eslint . --fix --max-warnings=0 && prettier --write .",
     "lint-staged": "lint-staged",
+    "lint:staged": "lint-staged",
     "prepare": "node scripts/prepare-husky.cjs",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.web.json"

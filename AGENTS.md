@@ -6,8 +6,6 @@
 
 ### 4.1 通用规则
 
-- 代码格式化工具：Prettier + ESLint
-- 提交前必须执行：pnpm lint（自动修复格式问题）
 - 禁止使用：any 类型、var 声明、硬编码魔法值（如直接写 100 代替 MAX_PAGE_SIZE）
 
 ### 4.2 React+TS 专属规则
