@@ -1,5 +1,5 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer } from 'electron';
 
-contextBridge.exposeInMainWorld("codexUsage", {
-  scan: () => ipcRenderer.invoke("usage:scan")
+contextBridge.exposeInMainWorld('codexUsage', {
+  scan: () => ipcRenderer.invoke('usage:scan'),
 });
