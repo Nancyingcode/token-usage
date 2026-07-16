@@ -1,4 +1,10 @@
 import React from "react";
+import {
+  countSessionWarnings,
+  estimateTokenCost,
+  getCachePercentage,
+  getWarningRate
+} from "../../shared/usageMetrics";
 import type { UsageSummary } from "../../shared/usageTypes";
 import TokenBar from "./TokenBar";
 
@@ -13,9 +19,13 @@ export default function PerformanceView({ summary }: PerformanceViewProps) {
     1,
     ...summary.sessions.slice(0, 12).map((session) => session.totalTokens)
   );
-  const cacheRate = summary.totals.inputTokens
-    ? Math.round((summary.totals.cachedInputTokens / summary.totals.inputTokens) * 100)
-    : 0;
+  const cacheRate = getCachePercentage(
+    summary.totals.inputTokens,
+    summary.totals.cachedInputTokens
+  );
+  const totalCost = estimateTokenCost(summary.totals.totalTokens);
+  const warningCount = countSessionWarnings(summary.sessions);
+  const warningRate = getWarningRate(summary.sessions);
 
   return (
     <section className="performance-grid">
@@ -27,7 +37,7 @@ export default function PerformanceView({ summary }: PerformanceViewProps) {
 
       <article className="panel perf-card">
         <h3>Cost Efficiency</h3>
-        <p>${((summary.totals.totalTokens / 1_000_000) * 1.35).toFixed(2)}</p>
+        <p>${totalCost.toFixed(2)}</p>
         <MiniLine days={days} max={maxDay} tone="blue" />
       </article>
 
@@ -52,9 +62,9 @@ export default function PerformanceView({ summary }: PerformanceViewProps) {
       <article className="panel perf-card">
         <h3>Error Rate</h3>
         <p>
-          {errorRate(summary)}% ({warningTotal(summary)}/{summary.sessions.length || 1})
+          {warningRate.toFixed(2)}% ({warningCount}/{summary.sessions.length || 1})
         </p>
-        <Donut value={100 - Number(errorRate(summary))} />
+        <Donut value={100 - warningRate} />
       </article>
     </section>
   );
@@ -116,16 +126,4 @@ function peakHour(summary: UsageSummary): string {
 
   const [hour = 0] = [...hours.entries()].sort((a, b) => b[1] - a[1])[0] ?? [];
   return `${String(hour).padStart(2, "0")}:00`;
-}
-
-function warningTotal(summary: UsageSummary): number {
-  return summary.sessions.reduce((total, session) => total + session.warnings.length, 0);
-}
-
-function errorRate(summary: UsageSummary): string {
-  if (summary.sessions.length === 0) {
-    return "0.00";
-  }
-
-  return ((warningTotal(summary) / summary.sessions.length) * 100).toFixed(2);
 }

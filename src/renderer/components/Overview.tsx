@@ -1,5 +1,6 @@
 import React from "react";
 import { Coins, FileCode2, LockKeyhole, MessageSquareText } from "lucide-react";
+import { estimateTokenCost, getCachePercentage } from "../../shared/usageMetrics";
 import type { UsageDay, UsageSummary } from "../../shared/usageTypes";
 import MetricCard, { formatCompact, formatNumber } from "./MetricCard";
 
@@ -12,7 +13,11 @@ const chartColors = ["#3b82f6", "#a855f7", "#22c7d9"];
 export default function Overview({ summary }: OverviewProps) {
   const days = summary.byDay.slice(-24);
   const maxDay = Math.max(1, ...days.map((day) => day.totalTokens));
-  const totalCost = estimateCost(summary.totals.totalTokens);
+  const totalCost = estimateTokenCost(summary.totals.totalTokens);
+  const cachePercentage = getCachePercentage(
+    summary.totals.inputTokens,
+    summary.totals.cachedInputTokens
+  );
 
   return (
     <section className="overview-grid">
@@ -27,7 +32,7 @@ export default function Overview({ summary }: OverviewProps) {
         <MetricCard
           label="Tokens"
           value={formatCompact(summary.totals.totalTokens)}
-          detail={`${cachePercent(summary)}% from cache`}
+          detail={`${cachePercentage}% from cache`}
           icon={LockKeyhole}
           tone="blue"
         />
@@ -139,16 +144,4 @@ function ActivityGrid({ days }: { days: UsageDay[] }) {
       </div>
     </div>
   );
-}
-
-function estimateCost(tokens: number): number {
-  return (tokens / 1_000_000) * 1.35;
-}
-
-function cachePercent(summary: UsageSummary): number {
-  if (summary.totals.inputTokens <= 0) {
-    return 0;
-  }
-
-  return Math.round((summary.totals.cachedInputTokens / summary.totals.inputTokens) * 100);
 }
