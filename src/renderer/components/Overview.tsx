@@ -22,17 +22,61 @@ const TREND_HISTORY_DAYS = 24;
 const ACTIVITY_HISTORY_DAYS = 84;
 const ACTIVITY_CELL_COUNT = 84;
 const ACTIVITY_LEVEL_COUNT = 4;
+const CHART_LEFT = 24;
+const CHART_RIGHT = 560;
+const CHART_BASELINE = 178;
+const CHART_VERTICAL_RANGE = 136;
+const TOOLTIP_LEFT_BOUNDARY = 160;
+const TOOLTIP_RIGHT_BOUNDARY = 424;
+
+export type TooltipPlacement = 'left' | 'center' | 'right';
+
+export interface TrendPoint {
+  x: number;
+  y: number;
+  day: UsageDay;
+  cost: number;
+  placement: TooltipPlacement;
+}
+
+export function buildTrendPoints(days: UsageDay[], max: number): TrendPoint[] {
+  return days.map((day, index) => {
+    const x =
+      days.length <= 1
+        ? CHART_LEFT
+        : CHART_LEFT + (index / (days.length - 1)) * (CHART_RIGHT - CHART_LEFT);
+    const y = CHART_BASELINE - (day.totalTokens / max) * CHART_VERTICAL_RANGE;
+
+    return {
+      x,
+      y,
+      day,
+      cost: estimateTokenCost(day.totalTokens),
+      placement: getTooltipPlacement(x),
+    };
+  });
+}
+
+function getTooltipPlacement(x: number): TooltipPlacement {
+  if (x < TOOLTIP_LEFT_BOUNDARY) {
+    return 'left';
+  }
+
+  if (x > TOOLTIP_RIGHT_BOUNDARY) {
+    return 'right';
+  }
+
+  return 'center';
+}
 
 const TrendChart: React.FC<TrendChartProps> = ({ days, max }) => {
-  const points = days.map((day, index) => {
-    const x = days.length <= 1 ? 24 : 24 + (index / (days.length - 1)) * 536;
-    const y = 178 - (day.totalTokens / max) * 136;
-    return { x, y, day };
-  });
+  const points = buildTrendPoints(days, max);
   const path = points
     .map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x},${point.y}`)
     .join(' ');
-  const area = points.length ? `${path} L560,178 L24,178 Z` : '';
+  const area = points.length
+    ? `${path} L${CHART_RIGHT},${CHART_BASELINE} L${CHART_LEFT},${CHART_BASELINE} Z`
+    : '';
 
   return (
     <div className="trend-chart">
