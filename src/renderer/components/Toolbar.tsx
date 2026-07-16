@@ -1,8 +1,14 @@
 import React from 'react';
 import { RefreshCw, Sidebar as SidebarIcon } from 'lucide-react';
+import type { UsagePeriod } from '../../shared/usageTypes';
 import type { ViewKey } from './Sidebar';
 
-interface ToolbarProps {
+interface PeriodToggleProps {
+  period: UsagePeriod;
+  onPeriodChange: (period: UsagePeriod) => void;
+}
+
+interface ToolbarProps extends PeriodToggleProps {
   activeView: ViewKey;
   loading: boolean;
   scannedAt?: string;
@@ -17,7 +23,36 @@ const VIEW_LABELS: Record<ViewKey, string> = {
   wrapped: 'Wrapped',
 };
 
-const Toolbar: React.FC<ToolbarProps> = ({ activeView, loading, scannedAt, onRefresh }) => (
+const PERIOD_OPTIONS: Array<{ value: UsagePeriod; label: string }> = [
+  { value: 'today', label: 'Today' },
+  { value: 'week', label: 'Week' },
+  { value: 'month', label: 'Month' },
+];
+
+export const PeriodToggle: React.FC<PeriodToggleProps> = ({ period, onPeriodChange }) => (
+  <div className="period-toggle" aria-label="Date range">
+    {PERIOD_OPTIONS.map((option) => (
+      <button
+        key={option.value}
+        type="button"
+        className={period === option.value ? 'active' : undefined}
+        aria-pressed={period === option.value}
+        onClick={() => onPeriodChange(option.value)}
+      >
+        {option.label}
+      </button>
+    ))}
+  </div>
+);
+
+const Toolbar: React.FC<ToolbarProps> = ({
+  activeView,
+  loading,
+  scannedAt,
+  onRefresh,
+  period,
+  onPeriodChange,
+}) => (
   <header className="toolbar">
     <div className="toolbar-title">
       <SidebarIcon size={14} strokeWidth={1.8} />
@@ -30,13 +65,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ activeView, loading, scannedAt, onRef
     </div>
 
     <div className="toolbar-actions">
-      <div className="period-toggle" aria-label="Date range">
-        <button type="button">Today</button>
-        <button type="button">Week</button>
-        <button type="button" className="active">
-          Month
-        </button>
-      </div>
+      <PeriodToggle period={period} onPeriodChange={onPeriodChange} />
       <button
         className="icon-button"
         type="button"

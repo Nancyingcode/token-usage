@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import tseslint from 'typescript-eslint';
 
 const CONFIG_DIRECTORY = dirname(fileURLToPath(import.meta.url));
-const TYPESCRIPT_FILES = ['src/**/*.{ts,tsx}', 'tests/**/*.ts', '*.config.ts'];
+const TYPESCRIPT_FILES = ['src/**/*.{ts,tsx}', 'tests/**/*.{ts,tsx}', '*.config.ts'];
 const NODE_FILES = [
   'src/main/**/*.ts',
   'src/preload/**/*.ts',
