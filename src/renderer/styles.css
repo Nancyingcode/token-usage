@@ -347,10 +347,16 @@ code {
   height: 216px;
 }
 
+.trend-chart-plot {
+  position: relative;
+  height: 190px;
+}
+
 .trend-chart svg {
   width: 100%;
-  height: 190px;
+  height: 100%;
   display: block;
+  overflow: visible;
 }
 
 .trend-chart line,
@@ -375,8 +381,121 @@ code {
   stroke: #22c7d9;
 }
 
-.trend-chart circle {
+.trend-chart .trend-guide {
+  stroke: #93a3b8;
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.trend-point {
   fill: #22c7d9;
+  transition:
+    r 120ms ease,
+    filter 120ms ease;
+}
+
+.trend-point.active {
+  filter: drop-shadow(0 0 4px rgba(34, 199, 217, 0.65));
+}
+
+.trend-hit-target {
+  fill: transparent;
+  stroke: transparent;
+  cursor: crosshair;
+}
+
+.trend-hit-target:focus {
+  outline: none;
+}
+
+.trend-hit-target:focus-visible {
+  stroke: rgba(59, 130, 246, 0.55);
+  stroke-width: 2;
+}
+
+.trend-tooltip {
+  --tooltip-shift: -50%;
+  position: absolute;
+  z-index: 2;
+  left: var(--tooltip-x);
+  top: clamp(8px, calc(var(--tooltip-y) - 118px), 58px);
+  width: 174px;
+  padding: 10px 12px;
+  transform: translateX(var(--tooltip-shift));
+  border: 1px solid #dedede;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 8px 22px rgba(35, 38, 45, 0.16);
+  color: #292929;
+  pointer-events: none;
+}
+
+.trend-tooltip.left {
+  --tooltip-shift: -8%;
+}
+
+.trend-tooltip.right {
+  --tooltip-shift: -92%;
+}
+
+.trend-tooltip strong,
+.trend-tooltip-cost,
+.trend-tooltip dl div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.trend-tooltip strong {
+  font-size: 11px;
+}
+
+.trend-tooltip-cost {
+  margin: 6px 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #eeeeee;
+  font-size: 11px;
+}
+
+.trend-tooltip dl {
+  margin: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.trend-tooltip dt,
+.trend-tooltip dd {
+  margin: 0;
+  font-size: 10px;
+}
+
+.trend-tooltip dd {
+  font-weight: 600;
+}
+
+.trend-tooltip dl div::before {
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: #777777;
+  content: '';
+}
+
+.trend-tooltip dl div dt {
+  margin-right: auto;
+}
+
+.trend-tooltip dl .input::before {
+  background: #3b82f6;
+}
+
+.trend-tooltip dl .output::before {
+  background: #a855f7;
+}
+
+.trend-tooltip dl .cached::before {
+  background: #22c7d9;
 }
 
 .x-axis {

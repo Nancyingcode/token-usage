@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Coins, FileCode2, LockKeyhole, MessageSquareText } from 'lucide-react';
 import { estimateTokenCost, getCachePercentage } from '../../shared/usageMetrics';
 import type { UsageDay, UsageSummary } from '../../shared/usageTypes';
@@ -22,12 +22,17 @@ const TREND_HISTORY_DAYS = 24;
 const ACTIVITY_HISTORY_DAYS = 84;
 const ACTIVITY_CELL_COUNT = 84;
 const ACTIVITY_LEVEL_COUNT = 4;
+const CHART_VIEWBOX_WIDTH = 584;
+const CHART_VIEWBOX_HEIGHT = 212;
 const CHART_LEFT = 24;
 const CHART_RIGHT = 560;
 const CHART_BASELINE = 178;
 const CHART_VERTICAL_RANGE = 136;
 const TOOLTIP_LEFT_BOUNDARY = 160;
 const TOOLTIP_RIGHT_BOUNDARY = 424;
+const TREND_HIT_RADIUS = 12;
+const ACTIVE_POINT_RADIUS = 4.8;
+const INACTIVE_POINT_RADIUS = 2.4;
 
 export type TooltipPlacement = 'left' | 'center' | 'right';
 
@@ -69,8 +74,17 @@ function getTooltipPlacement(x: number): TooltipPlacement {
   return 'center';
 }
 
+function getTooltipStyle(point: TrendPoint): React.CSSProperties {
+  return {
+    '--tooltip-x': `${(point.x / CHART_VIEWBOX_WIDTH) * 100}%`,
+    '--tooltip-y': `${(point.y / CHART_VIEWBOX_HEIGHT) * 100}%`,
+  } as React.CSSProperties;
+}
+
 const TrendChart: React.FC<TrendChartProps> = ({ days, max }) => {
+  const [activeDate, setActiveDate] = useState<string | null>(null);
   const points = buildTrendPoints(days, max);
+  const activePoint = points.find(({ day }) => day.date === activeDate);
   const path = points
     .map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x},${point.y}`)
     .join(' ');
@@ -80,16 +94,83 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max }) => {
 
   return (
     <div className="trend-chart">
-      <svg viewBox="0 0 584 212" role="img" aria-label="Token trend chart">
-        {[0, 1, 2, 3, 4].map((line) => (
-          <line key={line} x1="24" x2="560" y1={42 + line * 34} y2={42 + line * 34} />
-        ))}
-        {area ? <path className="trend-area" d={area} /> : null}
-        {path ? <path className="trend-line cyan" d={path} /> : null}
-        {points.map((point) => (
-          <circle key={point.day.date} cx={point.x} cy={point.y} r="2.4" />
-        ))}
-      </svg>
+      <div className="trend-chart-plot">
+        <svg viewBox="0 0 584 212" role="img" aria-label="Token trend chart">
+          {[0, 1, 2, 3, 4].map((line) => (
+            <line key={line} x1="24" x2="560" y1={42 + line * 34} y2={42 + line * 34} />
+          ))}
+          {area ? <path className="trend-area" d={area} /> : null}
+          {path ? <path className="trend-line cyan" d={path} /> : null}
+          {activePoint ? (
+            <line
+              className="trend-guide"
+              x1={activePoint.x}
+              x2={activePoint.x}
+              y1={activePoint.y}
+              y2={CHART_BASELINE}
+            />
+          ) : null}
+          {points.map((point) => {
+            const active = point.day.date === activeDate;
+            const ariaLabel = `${point.day.date}, ${formatNumber(point.day.totalTokens)} total tokens, estimated cost $${point.cost.toFixed(2)}`;
+
+            return (
+              <g key={point.day.date}>
+                <circle
+                  className={active ? 'trend-point active' : 'trend-point'}
+                  cx={point.x}
+                  cy={point.y}
+                  r={active ? ACTIVE_POINT_RADIUS : INACTIVE_POINT_RADIUS}
+                />
+                <circle
+                  className="trend-hit-target"
+                  cx={point.x}
+                  cy={point.y}
+                  r={TREND_HIT_RADIUS}
+                  tabIndex={0}
+                  role="img"
+                  aria-label={ariaLabel}
+                  onMouseEnter={() => setActiveDate(point.day.date)}
+                  onMouseLeave={() => setActiveDate(null)}
+                  onFocus={() => setActiveDate(point.day.date)}
+                  onBlur={() => setActiveDate(null)}
+                />
+              </g>
+            );
+          })}
+        </svg>
+        {activePoint ? (
+          <div
+            className={`trend-tooltip ${activePoint.placement}`}
+            style={getTooltipStyle(activePoint)}
+            aria-hidden="true"
+          >
+            <strong>{activePoint.day.date}</strong>
+            <div className="trend-tooltip-cost">
+              <span>Estimated cost</span>
+              <b>${activePoint.cost.toFixed(2)}</b>
+            </div>
+            <dl>
+              <div>
+                <dt>Total</dt>
+                <dd>{formatNumber(activePoint.day.totalTokens)}</dd>
+              </div>
+              <div className="input">
+                <dt>Input</dt>
+                <dd>{formatNumber(activePoint.day.inputTokens)}</dd>
+              </div>
+              <div className="output">
+                <dt>Output</dt>
+                <dd>{formatNumber(activePoint.day.outputTokens)}</dd>
+              </div>
+              <div className="cached">
+                <dt>Cached</dt>
+                <dd>{formatNumber(activePoint.day.cachedInputTokens)}</dd>
+              </div>
+            </dl>
+          </div>
+        ) : null}
+      </div>
       <div className="x-axis">
         {days
           .filter((_, index) => index % Math.max(1, Math.ceil(days.length / 8)) === 0)
