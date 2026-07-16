@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addTokenUsage, buildUsageSummary } from '../src/shared/usageMath';
+import { addTokenUsage, buildUsageSummary, filterUsageSummary } from '../src/shared/usageMath';
 import type { UsageSession } from '../src/shared/usageTypes';
 
 describe('usageMath', () => {
@@ -42,6 +42,45 @@ describe('usageMath', () => {
     expect(summary.byDay.length).toBe(1);
     expect(summary.byProject.map((project) => project.projectName)).toEqual(['alpha', 'beta']);
   });
+
+  it('filters today, week, and month as rolling local calendar days', () => {
+    const now = new Date(2026, 6, 16, 15, 30, 0, 0);
+    const sessions = [
+      makeSession('today', localDaysAgo(now, 0, 10), 'C:\\repo\\today', 10),
+      makeSession('six-days', localDaysAgo(now, 6, 0), 'C:\\repo\\week', 20),
+      makeSession('seven-days', localDaysAgo(now, 7, 12), 'C:\\repo\\month', 30),
+      makeSession('twenty-nine-days', localDaysAgo(now, 29, 0), 'C:\\repo\\month', 40),
+      makeSession('thirty-days', localDaysAgo(now, 30, 12), 'C:\\repo\\old', 50),
+    ];
+    const summary = buildUsageSummary(sessions);
+
+    expect(
+      filterUsageSummary(summary, 'today', now).sessions.map(({ sessionId }) => sessionId)
+    ).toEqual(['today']);
+    expect(
+      filterUsageSummary(summary, 'week', now).sessions.map(({ sessionId }) => sessionId)
+    ).toEqual(['today', 'six-days']);
+    expect(
+      filterUsageSummary(summary, 'month', now).sessions.map(({ sessionId }) => sessionId)
+    ).toEqual(['today', 'six-days', 'seven-days', 'twenty-nine-days']);
+  });
+
+  it('excludes future and invalid sessions and rebuilds every summary group', () => {
+    const now = new Date(2026, 6, 16, 15, 30, 0, 0);
+    const sessions = [
+      makeSession('valid-a', localDaysAgo(now, 1, 9), 'C:\\repo\\alpha', 25),
+      makeSession('valid-b', localDaysAgo(now, 2, 9), 'C:\\repo\\beta', 75),
+      makeSession('future', new Date(now.getTime() + 1).toISOString(), 'C:\\repo\\future', 200),
+      makeSession('invalid', 'not-a-date', 'C:\\repo\\invalid', 300),
+    ];
+
+    const filtered = filterUsageSummary(buildUsageSummary(sessions), 'week', now);
+
+    expect(filtered.totals.totalTokens).toBe(100);
+    expect(filtered.sessions.map(({ sessionId }) => sessionId)).toEqual(['valid-a', 'valid-b']);
+    expect(filtered.byDay).toHaveLength(2);
+    expect(filtered.byProject.map(({ projectName }) => projectName)).toEqual(['beta', 'alpha']);
+  });
 });
 
 function makeSession(
@@ -65,4 +104,11 @@ function makeSession(
     sourceFile: `${sessionId}.jsonl`,
     warnings: [],
   };
+}
+
+function localDaysAgo(now: Date, days: number, hour: number): string {
+  const timestamp = new Date(now);
+  timestamp.setDate(timestamp.getDate() - days);
+  timestamp.setHours(hour, 0, 0, 0);
+  return timestamp.toISOString();
 }

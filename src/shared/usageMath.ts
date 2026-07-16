@@ -1,4 +1,17 @@
-import type { TokenUsage, UsageDay, UsageProject, UsageSession, UsageSummary } from './usageTypes';
+import type {
+  TokenUsage,
+  UsageDay,
+  UsagePeriod,
+  UsageProject,
+  UsageSession,
+  UsageSummary,
+} from './usageTypes';
+
+const PERIOD_DAY_COUNTS: Record<UsagePeriod, number> = {
+  today: 1,
+  week: 7,
+  month: 30,
+};
 
 export function emptyTokenUsage(): TokenUsage {
   return {
@@ -50,6 +63,30 @@ export function buildUsageSummary(sessions: UsageSession[]): UsageSummary {
     byProject: buildProjectTotals(sortedSessions),
     sessions: sortedSessions,
   };
+}
+
+export function filterUsageSummary(
+  summary: UsageSummary,
+  period: UsagePeriod,
+  now: Date = new Date()
+): UsageSummary {
+  const endTime = now.getTime();
+
+  if (Number.isNaN(endTime)) {
+    return buildUsageSummary([]);
+  }
+
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - (PERIOD_DAY_COUNTS[period] - 1));
+  const startTime = start.getTime();
+
+  return buildUsageSummary(
+    summary.sessions.filter((session) => {
+      const startedAt = new Date(session.startedAt).getTime();
+      return !Number.isNaN(startedAt) && startedAt >= startTime && startedAt <= endTime;
+    })
+  );
 }
 
 function buildTotals(sessions: UsageSession[]): TokenUsage {
