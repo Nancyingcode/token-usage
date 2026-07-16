@@ -1,17 +1,17 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { AlertCircle } from "lucide-react";
-import EmptyState from "./components/EmptyState";
-import Overview from "./components/Overview";
-import PerformanceView from "./components/PerformanceView";
-import ProjectsView from "./components/ProjectsView";
-import SessionsView from "./components/SessionsView";
-import SettingsView from "./components/SettingsView";
-import Sidebar, { type ViewKey } from "./components/Sidebar";
-import Toolbar from "./components/Toolbar";
-import type { UsageScanResult } from "../shared/usageTypes";
+import React, { useCallback, useEffect, useState } from 'react';
+import { AlertCircle } from 'lucide-react';
+import EmptyState from './components/EmptyState';
+import Overview from './components/Overview';
+import PerformanceView from './components/PerformanceView';
+import ProjectsView from './components/ProjectsView';
+import SessionsView from './components/SessionsView';
+import SettingsView from './components/SettingsView';
+import Sidebar, { type ViewKey } from './components/Sidebar';
+import Toolbar from './components/Toolbar';
+import type { UsageScanResult } from '../shared/usageTypes';
 
 const App: React.FC = () => {
-  const [activeView, setActiveView] = useState<ViewKey>("overview");
+  const [activeView, setActiveView] = useState<ViewKey>('overview');
   const [result, setResult] = useState<UsageScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,7 +31,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    void refresh();
+    refresh();
   }, [refresh]);
 
   const warningCount = result?.warnings.length ?? 0;
@@ -73,11 +73,11 @@ const App: React.FC = () => {
 
         {!error && !loading && result && result.summary.sessions.length > 0 ? (
           <>
-            {activeView === "overview" ? <Overview summary={result.summary} /> : null}
-            {activeView === "sessions" ? <SessionsView sessions={result.summary.sessions} /> : null}
-            {activeView === "tools" ? <ProjectsView projects={result.summary.byProject} /> : null}
-            {activeView === "performance" ? <PerformanceView summary={result.summary} /> : null}
-            {activeView === "wrapped" ? <SettingsView result={result} /> : null}
+            {activeView === 'overview' ? <Overview summary={result.summary} /> : null}
+            {activeView === 'sessions' ? <SessionsView sessions={result.summary.sessions} /> : null}
+            {activeView === 'tools' ? <ProjectsView projects={result.summary.byProject} /> : null}
+            {activeView === 'performance' ? <PerformanceView summary={result.summary} /> : null}
+            {activeView === 'wrapped' ? <SettingsView result={result} /> : null}
           </>
         ) : null}
       </main>

@@ -1,7 +1,7 @@
-import React from "react";
-import type { UsageProject } from "../../shared/usageTypes";
-import { formatNumber } from "./MetricCard";
-import TokenBar from "./TokenBar";
+import React from 'react';
+import type { UsageProject } from '../../shared/usageTypes';
+import { formatNumber } from './MetricCard';
+import TokenBar from './TokenBar';
 
 interface ProjectsViewProps {
   projects: UsageProject[];
@@ -46,11 +46,11 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ projects }) => {
 };
 
 function formatShortDate(value: string): string {
-  return new Intl.DateTimeFormat("en", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit"
+  return new Intl.DateTimeFormat('en', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
   }).format(new Date(value));
 }
 

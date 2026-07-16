@@ -1,4 +1,4 @@
-import type { UsageScanResult } from "../shared/usageTypes";
+import type { UsageScanResult } from '../shared/usageTypes';
 
 declare global {
   interface Window {
