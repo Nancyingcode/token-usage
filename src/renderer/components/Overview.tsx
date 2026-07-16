@@ -56,9 +56,15 @@ export default function Overview({ summary }: OverviewProps) {
         </div>
         <TrendChart days={days} max={maxDay} />
         <div className="chart-legend">
-          <span><i style={{ background: chartColors[0] }} /> Input</span>
-          <span><i style={{ background: chartColors[1] }} /> Output</span>
-          <span><i style={{ background: chartColors[2] }} /> Cached</span>
+          <span>
+            <i style={{ background: chartColors[0] }} /> Input
+          </span>
+          <span>
+            <i style={{ background: chartColors[1] }} /> Output
+          </span>
+          <span>
+            <i style={{ background: chartColors[2] }} /> Cached
+          </span>
         </div>
       </article>
 
@@ -81,7 +87,9 @@ function TrendChart({ days, max }: { days: UsageDay[]; max: number }) {
     const y = 178 - (day.totalTokens / max) * 136;
     return { x, y, day };
   });
-  const path = points.map((point, index) => `${index === 0 ? "M" : "L"}${point.x},${point.y}`).join(" ");
+  const path = points
+    .map((point, index) => `${index === 0 ? "M" : "L"}${point.x},${point.y}`)
+    .join(" ");
   const area = points.length ? `${path} L560,178 L24,178 Z` : "";
 
   return (
@@ -97,9 +105,11 @@ function TrendChart({ days, max }: { days: UsageDay[]; max: number }) {
         ))}
       </svg>
       <div className="x-axis">
-        {days.filter((_, index) => index % Math.max(1, Math.ceil(days.length / 8)) === 0).map((day) => (
-          <span key={day.date}>{day.date.slice(5)}</span>
-        ))}
+        {days
+          .filter((_, index) => index % Math.max(1, Math.ceil(days.length / 8)) === 0)
+          .map((day) => (
+            <span key={day.date}>{day.date.slice(5)}</span>
+          ))}
       </div>
     </div>
   );
@@ -110,7 +120,7 @@ function ActivityGrid({ days }: { days: UsageDay[] }) {
   const max = Math.max(1, ...days.map((day) => day.totalTokens));
   const cells = Array.from({ length: 84 }, (_, index) => {
     const day = days[index];
-    const value = day ? map.get(day.date) ?? 0 : 0;
+    const value = day ? (map.get(day.date) ?? 0) : 0;
     const level = value === 0 ? 0 : Math.ceil((value / max) * 4);
     return { key: day?.date ?? `empty-${index}`, level };
   });
@@ -132,7 +142,7 @@ function ActivityGrid({ days }: { days: UsageDay[] }) {
 }
 
 function estimateCost(tokens: number): number {
-  return tokens / 1_000_000 * 1.35;
+  return (tokens / 1_000_000) * 1.35;
 }
 
 function cachePercent(summary: UsageSummary): number {

@@ -108,9 +108,7 @@ async function loadThreadNames(
 }
 
 function sessionIdFromPath(file: string): string {
-  const match = file.match(
-    /rollout-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-(.+)\.jsonl$/
-  );
+  const match = file.match(/rollout-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-(.+)\.jsonl$/);
   return match?.[1] ?? file.replace(/\.jsonl$/, "");
 }
 

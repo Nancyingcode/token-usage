@@ -3,9 +3,7 @@ export interface ApplicationMenuPolicy {
   removeApplicationMenu: boolean;
 }
 
-export function getApplicationMenuPolicy(
-  isPackaged: boolean
-): ApplicationMenuPolicy {
+export function getApplicationMenuPolicy(isPackaged: boolean): ApplicationMenuPolicy {
   return {
     autoHideMenuBar: isPackaged,
     removeApplicationMenu: isPackaged

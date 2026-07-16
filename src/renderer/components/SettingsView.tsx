@@ -26,7 +26,9 @@ export default function SettingsView({ result }: SettingsViewProps) {
           <div>
             <p className="eyebrow">Privacy</p>
             <h3>Local Read-only</h3>
-            <p>The app reads local JSONL files only. It does not edit Codex data or upload usage.</p>
+            <p>
+              The app reads local JSONL files only. It does not edit Codex data or upload usage.
+            </p>
           </div>
         </div>
       </article>
@@ -34,7 +36,9 @@ export default function SettingsView({ result }: SettingsViewProps) {
       <article className="panel">
         <p className="eyebrow">Cost estimate</p>
         <h3>Token-based Estimate</h3>
-        <p>Cost is derived from token totals for display only. Raw token statistics stay unchanged.</p>
+        <p>
+          Cost is derived from token totals for display only. Raw token statistics stay unchanged.
+        </p>
       </article>
 
       <article className="panel">

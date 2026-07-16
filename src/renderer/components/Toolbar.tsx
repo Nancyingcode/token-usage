@@ -38,7 +38,13 @@ export default function Toolbar({ activeView, loading, scannedAt, onRefresh }: T
             Month
           </button>
         </div>
-        <button className="icon-button" type="button" onClick={onRefresh} disabled={loading} title="Refresh">
+        <button
+          className="icon-button"
+          type="button"
+          onClick={onRefresh}
+          disabled={loading}
+          title="Refresh"
+        >
           <RefreshCw size={14} className={loading ? "spinning" : undefined} />
         </button>
       </div>

@@ -1,10 +1,4 @@
-import type {
-  TokenUsage,
-  UsageDay,
-  UsageProject,
-  UsageSession,
-  UsageSummary
-} from "./usageTypes";
+import type { TokenUsage, UsageDay, UsageProject, UsageSession, UsageSummary } from "./usageTypes";
 
 export function emptyTokenUsage(): TokenUsage {
   return {

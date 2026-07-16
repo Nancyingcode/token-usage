@@ -34,6 +34,7 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-unused-vars": [
         "error",
         {
@@ -42,7 +43,8 @@ export default tseslint.config(
         }
       ],
       "react-hooks/set-state-in-effect": "off",
-      "react-refresh/only-export-components": "off"
+      "react-refresh/only-export-components": "off",
+      "no-var": "error"
     }
   },
   {

@@ -9,7 +9,10 @@ interface PerformanceViewProps {
 export default function PerformanceView({ summary }: PerformanceViewProps) {
   const days = summary.byDay.slice(-30);
   const maxDay = Math.max(1, ...days.map((day) => day.totalTokens));
-  const maxSession = Math.max(1, ...summary.sessions.slice(0, 12).map((session) => session.totalTokens));
+  const maxSession = Math.max(
+    1,
+    ...summary.sessions.slice(0, 12).map((session) => session.totalTokens)
+  );
   const cacheRate = summary.totals.inputTokens
     ? Math.round((summary.totals.cachedInputTokens / summary.totals.inputTokens) * 100)
     : 0;
@@ -24,7 +27,7 @@ export default function PerformanceView({ summary }: PerformanceViewProps) {
 
       <article className="panel perf-card">
         <h3>Cost Efficiency</h3>
-        <p>${(summary.totals.totalTokens / 1_000_000 * 1.35).toFixed(2)}</p>
+        <p>${((summary.totals.totalTokens / 1_000_000) * 1.35).toFixed(2)}</p>
         <MiniLine days={days} max={maxDay} tone="blue" />
       </article>
 
@@ -32,33 +35,48 @@ export default function PerformanceView({ summary }: PerformanceViewProps) {
         <h3>Peak Hours</h3>
         <p>Most active at {peakHour(summary)}</p>
         <div className="peak-bars">
-          {summary.sessions.slice(0, 12).reverse().map((session, index) => (
-            <TokenBar
-              key={session.sourceFile}
-              value={session.totalTokens}
-              max={maxSession}
-              tone={index % 4 === 0 ? "purple" : "blue"}
-            />
-          ))}
+          {summary.sessions
+            .slice(0, 12)
+            .reverse()
+            .map((session, index) => (
+              <TokenBar
+                key={session.sourceFile}
+                value={session.totalTokens}
+                max={maxSession}
+                tone={index % 4 === 0 ? "purple" : "blue"}
+              />
+            ))}
         </div>
       </article>
 
       <article className="panel perf-card">
         <h3>Error Rate</h3>
-        <p>{errorRate(summary)}% ({warningTotal(summary)}/{summary.sessions.length || 1})</p>
+        <p>
+          {errorRate(summary)}% ({warningTotal(summary)}/{summary.sessions.length || 1})
+        </p>
         <Donut value={100 - Number(errorRate(summary))} />
       </article>
     </section>
   );
 }
 
-function MiniLine({ days, max, tone }: { days: Array<{ date: string; totalTokens: number }>; max: number; tone: "cyan" | "blue" }) {
+function MiniLine({
+  days,
+  max,
+  tone
+}: {
+  days: Array<{ date: string; totalTokens: number }>;
+  max: number;
+  tone: "cyan" | "blue";
+}) {
   const points = days.map((day, index) => {
     const x = days.length <= 1 ? 12 : 12 + (index / (days.length - 1)) * 250;
     const y = 118 - (day.totalTokens / max) * 92;
     return { x, y, date: day.date };
   });
-  const path = points.map((point, index) => `${index === 0 ? "M" : "L"}${point.x},${point.y}`).join(" ");
+  const path = points
+    .map((point, index) => `${index === 0 ? "M" : "L"}${point.x},${point.y}`)
+    .join(" ");
 
   return (
     <svg className={`mini-line ${tone}`} viewBox="0 0 274 138" aria-hidden="true">

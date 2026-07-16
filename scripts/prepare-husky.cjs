@@ -51,11 +51,11 @@ if (existsSync(huskyRuntime)) {
     huskyRunner,
     [
       "#!/usr/bin/env sh",
-      "n=$(basename \"$0\")",
-      "s=$(dirname \"$(dirname \"$0\")\")/$n",
-      "[ ! -f \"$s\" ] && exit 0",
-      "export PATH=\"node_modules/.bin:$PATH\"",
-      "sh -e \"$s\" \"$@\""
+      'n=$(basename "$0")',
+      's=$(dirname "$(dirname "$0")")/$n',
+      '[ ! -f "$s" ] && exit 0',
+      'export PATH="node_modules/.bin:$PATH"',
+      'sh -e "$s" "$@"'
     ].join("\n")
   );
 }
@@ -64,22 +64,19 @@ rmSync(path.join(huskyDir, "husky.sh"), { force: true });
 writeFileSync(
   path.join(huskyDir, "husky.sh"),
   [
-    "echo \"husky - DEPRECATED",
+    'echo "husky - DEPRECATED',
     "",
     "Please remove the following two lines from $0:",
     "",
     "#!/usr/bin/env sh",
-    ". \\\"\\$(dirname -- \\\"\\$0\\\")/_/husky.sh\\\"",
+    '. \\"\\$(dirname -- \\"\\$0\\")/_/husky.sh\\"',
     "",
-    "They WILL FAIL in v10.0.0\""
+    'They WILL FAIL in v10.0.0"'
   ].join("\n")
 );
 
 for (const hookName of hookNames) {
-  writeFileSync(
-    path.join(huskyDir, hookName),
-    `#!/usr/bin/env sh\n. "$(dirname "$0")/h"\n`
-  );
+  writeFileSync(path.join(huskyDir, hookName), `#!/usr/bin/env sh\n. "$(dirname "$0")/h"\n`);
 }
 
 if (git) {

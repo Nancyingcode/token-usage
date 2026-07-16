@@ -127,9 +127,7 @@ function toTokenUsage(raw?: RawTokenUsage): TokenUsage | undefined {
 }
 
 function sessionIdFromFile(sourceName: string): string {
-  const match = sourceName.match(
-    /rollout-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-(.+)\.jsonl$/
-  );
+  const match = sourceName.match(/rollout-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-(.+)\.jsonl$/);
   return match?.[1] ?? sourceName.replace(/\.jsonl$/, "");
 }
 

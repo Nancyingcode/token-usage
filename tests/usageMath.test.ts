@@ -40,10 +40,7 @@ describe("usageMath", () => {
 
     expect(summary.totals.totalTokens).toBe(150);
     expect(summary.byDay.length).toBe(1);
-    expect(summary.byProject.map((project) => project.projectName)).toEqual([
-      "alpha",
-      "beta"
-    ]);
+    expect(summary.byProject.map((project) => project.projectName)).toEqual(["alpha", "beta"]);
   });
 });
 
