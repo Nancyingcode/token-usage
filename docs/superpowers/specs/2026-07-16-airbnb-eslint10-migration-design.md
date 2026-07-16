@@ -69,9 +69,10 @@ Use `eslint-import-resolver-typescript` so Airbnb import rules resolve extension
 Overrides must be narrowly scoped and documented in `eslint.config.js`:
 
 - Require arrow-function component definitions to comply with `AGENTS.md` and the existing `React.FC` convention.
+- Disable `react/prop-types` for TypeScript components because Props interfaces provide the runtime-independent contract.
 - Disable `react/require-default-props` for TypeScript components because optionality is expressed by Props interfaces.
 - Configure `import/extensions` so `.ts` and `.tsx` imports omit extensions while JavaScript module behavior remains Airbnb-compatible.
-- Allow development dependencies only from tests, build/config files, and scripts.
+- Allow development dependencies only from tests, build/config files, scripts, and Electron main/preload modules where the Electron runtime is intentionally a development dependency.
 - Keep the React Refresh export rule disabled because modules intentionally export component-adjacent formatting helpers where already established.
 - Keep `react-hooks/set-state-in-effect` disabled because the initial read-only scan intentionally starts from the mount effect.
 
