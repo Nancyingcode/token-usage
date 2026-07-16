@@ -1,4 +1,4 @@
-import type { UsageSession } from "./usageTypes";
+import type { UsageSession } from './usageTypes';
 
 const TOKENS_PER_MILLION = 1_000_000;
 const ESTIMATED_COST_PER_MILLION_TOKENS = 1.35;

@@ -1,4 +1,4 @@
-import type { TokenUsage, UsageDay, UsageProject, UsageSession, UsageSummary } from "./usageTypes";
+import type { TokenUsage, UsageDay, UsageProject, UsageSession, UsageSummary } from './usageTypes';
 
 export function emptyTokenUsage(): TokenUsage {
   return {
@@ -6,7 +6,7 @@ export function emptyTokenUsage(): TokenUsage {
     cachedInputTokens: 0,
     outputTokens: 0,
     reasoningOutputTokens: 0,
-    totalTokens: 0
+    totalTokens: 0,
   };
 }
 
@@ -16,26 +16,26 @@ export function addTokenUsage(a: TokenUsage, b: TokenUsage): TokenUsage {
     cachedInputTokens: a.cachedInputTokens + b.cachedInputTokens,
     outputTokens: a.outputTokens + b.outputTokens,
     reasoningOutputTokens: a.reasoningOutputTokens + b.reasoningOutputTokens,
-    totalTokens: a.totalTokens + b.totalTokens
+    totalTokens: a.totalTokens + b.totalTokens,
   };
 }
 
 export function getProjectName(projectPath: string): string {
-  const normalized = projectPath.replace(/\\/g, "/").replace(/\/+$/, "");
-  const name = normalized.split("/").filter(Boolean).pop();
-  return name || projectPath || "Unknown Project";
+  const normalized = projectPath.replace(/\\/g, '/').replace(/\/+$/, '');
+  const name = normalized.split('/').filter(Boolean).pop();
+  return name || projectPath || 'Unknown Project';
 }
 
 export function getLocalDateKey(timestamp: string): string {
   const date = new Date(timestamp);
 
   if (Number.isNaN(date.getTime())) {
-    return "Unknown Date";
+    return 'Unknown Date';
   }
 
   const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
@@ -48,7 +48,7 @@ export function buildUsageSummary(sessions: UsageSession[]): UsageSummary {
     totals: buildTotals(sortedSessions),
     byDay: buildDailyTotals(sortedSessions),
     byProject: buildProjectTotals(sortedSessions),
-    sessions: sortedSessions
+    sessions: sortedSessions,
   };
 }
 
@@ -60,41 +60,38 @@ function buildTotals(sessions: UsageSession[]): TokenUsage {
 }
 
 function buildDailyTotals(sessions: UsageSession[]): UsageDay[] {
-  const days = new Map<string, UsageDay>();
-
-  for (const session of sessions) {
+  const days = sessions.reduce<Map<string, UsageDay>>((dailyTotals, session) => {
     const date = getLocalDateKey(session.startedAt);
-    const current = days.get(date) ?? {
+    const current = dailyTotals.get(date) ?? {
       date,
       sessionCount: 0,
-      ...emptyTokenUsage()
+      ...emptyTokenUsage(),
     };
 
-    const next = {
+    dailyTotals.set(date, {
       ...addTokenUsage(current, session),
       date,
-      sessionCount: current.sessionCount + 1
-    };
+      sessionCount: current.sessionCount + 1,
+    });
 
-    days.set(date, next);
-  }
+    return dailyTotals;
+  }, new Map());
 
   return [...days.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
 function buildProjectTotals(sessions: UsageSession[]): UsageProject[] {
-  const projects = new Map<string, UsageProject>();
   const grandTotal = buildTotals(sessions).totalTokens;
 
-  for (const session of sessions) {
-    const projectPath = session.projectPath || "Unknown Project";
-    const current = projects.get(projectPath) ?? {
+  const projects = sessions.reduce<Map<string, UsageProject>>((projectTotals, session) => {
+    const projectPath = session.projectPath || 'Unknown Project';
+    const current = projectTotals.get(projectPath) ?? {
       projectPath,
       projectName: session.projectName || getProjectName(projectPath),
       sessionCount: 0,
       lastActivityAt: session.endedAt,
       shareOfTotal: 0,
-      ...emptyTokenUsage()
+      ...emptyTokenUsage(),
     };
 
     const lastActivityAt =
@@ -102,20 +99,22 @@ function buildProjectTotals(sessions: UsageSession[]): UsageProject[] {
         ? session.endedAt
         : current.lastActivityAt;
 
-    projects.set(projectPath, {
+    projectTotals.set(projectPath, {
       ...addTokenUsage(current, session),
       projectPath,
       projectName: current.projectName,
       sessionCount: current.sessionCount + 1,
       lastActivityAt,
-      shareOfTotal: 0
+      shareOfTotal: 0,
     });
-  }
+
+    return projectTotals;
+  }, new Map());
 
   return [...projects.values()]
     .map((project) => ({
       ...project,
-      shareOfTotal: grandTotal > 0 ? project.totalTokens / grandTotal : 0
+      shareOfTotal: grandTotal > 0 ? project.totalTokens / grandTotal : 0,
     }))
     .sort((a, b) => b.totalTokens - a.totalTokens);
 }

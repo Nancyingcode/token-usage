@@ -1,10 +1,10 @@
-import { promises as fs } from "node:fs";
-import { join } from "node:path";
-import { getSessionId } from "../shared/sessionId";
-import { getDefaultCodexSessionsDir, getDefaultSessionIndexPath } from "./codexPaths";
-import { parseSessionJsonl } from "./sessionParser";
-import { buildUsageSummary } from "../shared/usageMath";
-import type { UsageScanResult, UsageSession, UsageWarning } from "../shared/usageTypes";
+import { promises as fs } from 'node:fs';
+import { join } from 'node:path';
+import getSessionId from '../shared/sessionId';
+import { getDefaultCodexSessionsDir, getDefaultSessionIndexPath } from './codexPaths';
+import parseSessionJsonl from './sessionParser';
+import { buildUsageSummary } from '../shared/usageMath';
+import type { UsageScanResult, UsageSession, UsageWarning } from '../shared/usageTypes';
 
 export interface ScanOptions {
   sessionsDir?: string;
@@ -22,9 +22,11 @@ export async function scanCodexUsage(options: ScanOptions = {}): Promise<UsageSc
   const files = await findJsonlFiles(sessionsDir, warnings);
   const sessions: UsageSession[] = [];
 
-  for (const file of files) {
+  await files.reduce<Promise<void>>(async (previousFile, file) => {
+    await previousFile;
+
     try {
-      const content = await fs.readFile(file, "utf8");
+      const content = await fs.readFile(file, 'utf8');
       const sourceSessionId = getSessionId(file);
       const session = parseSessionJsonl(file, content, threadNames.get(sourceSessionId));
       sessions.push(session);
@@ -32,16 +34,16 @@ export async function scanCodexUsage(options: ScanOptions = {}): Promise<UsageSc
     } catch (error) {
       warnings.push({
         sourceFile: file,
-        message: `Unable to read session file: ${errorMessage(error)}`
+        message: `Unable to read session file: ${errorMessage(error)}`,
       });
     }
-  }
+  }, Promise.resolve());
 
   return {
     sessionsDir,
     scannedAt: new Date().toISOString(),
     summary: buildUsageSummary(sessions),
-    warnings
+    warnings,
   };
 }
 
@@ -51,19 +53,29 @@ async function findJsonlFiles(dir: string, warnings: UsageWarning[]): Promise<st
   try {
     const entries = await fs.readdir(dir, { withFileTypes: true });
 
-    for (const entry of entries) {
-      const fullPath = join(dir, entry.name);
+    const discoveredFiles = await entries.reduce<Promise<string[]>>(
+      async (previousEntries, entry) => {
+        const collectedFiles = await previousEntries;
+        const fullPath = join(dir, entry.name);
 
-      if (entry.isDirectory()) {
-        files.push(...(await findJsonlFiles(fullPath, warnings)));
-      } else if (entry.isFile() && entry.name.endsWith(".jsonl")) {
-        files.push(fullPath);
-      }
-    }
+        if (entry.isDirectory()) {
+          return [...collectedFiles, ...(await findJsonlFiles(fullPath, warnings))];
+        }
+
+        if (entry.isFile() && entry.name.endsWith('.jsonl')) {
+          return [...collectedFiles, fullPath];
+        }
+
+        return collectedFiles;
+      },
+      Promise.resolve([])
+    );
+
+    files.push(...discoveredFiles);
   } catch (error) {
     warnings.push({
       sourceFile: dir,
-      message: `Unable to scan Codex sessions directory: ${errorMessage(error)}`
+      message: `Unable to scan Codex sessions directory: ${errorMessage(error)}`,
     });
   }
 
@@ -77,7 +89,7 @@ async function loadThreadNames(
   const names = new Map<string, string>();
 
   try {
-    const content = await fs.readFile(sessionIndexPath, "utf8");
+    const content = await fs.readFile(sessionIndexPath, 'utf8');
     const lines = content.split(/\r?\n/);
 
     lines.forEach((line, index) => {
@@ -97,7 +109,7 @@ async function loadThreadNames(
         warnings.push({
           sourceFile: sessionIndexPath,
           line: index + 1,
-          message: "Malformed session index line skipped."
+          message: 'Malformed session index line skipped.',
         });
       }
     });

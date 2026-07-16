@@ -1,6 +1,6 @@
-import { ipcMain } from "electron";
-import { scanCodexUsage } from "./usageScanner";
+import { ipcMain } from 'electron';
+import { scanCodexUsage } from './usageScanner';
 
-export function registerUsageIpc(): void {
-  ipcMain.handle("usage:scan", () => scanCodexUsage());
+export default function registerUsageIpc(): void {
+  ipcMain.handle('usage:scan', () => scanCodexUsage());
 }

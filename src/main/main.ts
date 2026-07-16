@@ -1,15 +1,15 @@
-import { app, BrowserWindow, Menu } from "electron";
-import { join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { registerUsageIpc } from "./ipc";
-import { getApplicationMenuPolicy } from "./menuPolicy";
+import { app, BrowserWindow, Menu } from 'electron';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import registerUsageIpc from './ipc';
+import { getApplicationMenuPolicy } from './menuPolicy';
 
-const CURRENT_DIRECTORY = fileURLToPath(new URL(".", import.meta.url));
+const CURRENT_DIRECTORY = fileURLToPath(new URL('.', import.meta.url));
 const DEFAULT_WINDOW_WIDTH = 1280;
 const DEFAULT_WINDOW_HEIGHT = 820;
 const MINIMUM_WINDOW_WIDTH = 1024;
 const MINIMUM_WINDOW_HEIGHT = 680;
-const WINDOW_BACKGROUND_COLOR = "#f8f7f4";
+const WINDOW_BACKGROUND_COLOR = '#f8f7f4';
 
 function createWindow(): void {
   const menuPolicy = getApplicationMenuPolicy(app.isPackaged);
@@ -21,17 +21,17 @@ function createWindow(): void {
     backgroundColor: WINDOW_BACKGROUND_COLOR,
     autoHideMenuBar: menuPolicy.autoHideMenuBar,
     webPreferences: {
-      preload: join(CURRENT_DIRECTORY, "../preload/preload.mjs"),
+      preload: join(CURRENT_DIRECTORY, '../preload/preload.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
-    }
+      sandbox: false,
+    },
   });
 
   if (process.env.ELECTRON_RENDERER_URL) {
-    void window.loadURL(process.env.ELECTRON_RENDERER_URL);
+    window.loadURL(process.env.ELECTRON_RENDERER_URL);
   } else {
-    void window.loadFile(join(CURRENT_DIRECTORY, "../renderer/index.html"));
+    window.loadFile(join(CURRENT_DIRECTORY, '../renderer/index.html'));
   }
 }
 
@@ -45,15 +45,15 @@ app.whenReady().then(() => {
 
   createWindow();
 
-  app.on("activate", () => {
+  app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
     }
   });
 });
 
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
     app.quit();
   }
 });

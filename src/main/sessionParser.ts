@@ -1,6 +1,6 @@
-import { getSessionId } from "../shared/sessionId";
-import { addTokenUsage, emptyTokenUsage, getProjectName } from "../shared/usageMath";
-import type { TokenUsage, UsageSession, UsageWarning } from "../shared/usageTypes";
+import getSessionId from '../shared/sessionId';
+import { addTokenUsage, emptyTokenUsage, getProjectName } from '../shared/usageMath';
+import type { TokenUsage, UsageSession, UsageWarning } from '../shared/usageTypes';
 
 interface RawTokenUsage {
   input_tokens?: number;
@@ -25,7 +25,7 @@ interface ParsedLine {
   };
 }
 
-export function parseSessionJsonl(
+export default function parseSessionJsonl(
   sourceFile: string,
   content: string,
   threadName?: string
@@ -34,9 +34,9 @@ export function parseSessionJsonl(
   const lines = content.split(/\r?\n/);
 
   let sessionId = getSessionId(sourceFile);
-  let projectPath = "";
-  let startedAt = "";
-  let endedAt = "";
+  let projectPath = '';
+  let startedAt = '';
+  let endedAt = '';
   let eventCount = 0;
   let hasIncrementalUsage = false;
   let summedUsage = emptyTokenUsage();
@@ -57,7 +57,7 @@ export function parseSessionJsonl(
       warnings.push({
         sourceFile,
         line: index + 1,
-        message: "Malformed JSONL line skipped."
+        message: 'Malformed JSONL line skipped.',
       });
       return;
     }
@@ -67,14 +67,14 @@ export function parseSessionJsonl(
       endedAt = latestTimestamp(endedAt, record.timestamp);
     }
 
-    if (record.type === "session_meta") {
+    if (record.type === 'session_meta') {
       sessionId = record.payload?.session_id ?? record.payload?.id ?? sessionId;
       projectPath = record.payload?.cwd ?? projectPath;
       return;
     }
 
-    if (record.type === "event_msg" && record.payload?.type === "token_count") {
-      const info = record.payload.info;
+    if (record.type === 'event_msg' && record.payload?.type === 'token_count') {
+      const { info } = record.payload;
       const lastUsage = toTokenUsage(info?.last_token_usage);
       const totalUsage = toTokenUsage(info?.total_token_usage);
 
@@ -95,7 +95,7 @@ export function parseSessionJsonl(
   const fallbackTimestamp = new Date(0).toISOString();
   const safeStartedAt = startedAt || endedAt || fallbackTimestamp;
   const safeEndedAt = endedAt || startedAt || fallbackTimestamp;
-  const safeProjectPath = projectPath || "Unknown Project";
+  const safeProjectPath = projectPath || 'Unknown Project';
 
   return {
     sessionId,
@@ -107,7 +107,7 @@ export function parseSessionJsonl(
     ...usage,
     eventCount,
     sourceFile,
-    warnings
+    warnings,
   };
 }
 
@@ -121,7 +121,7 @@ function toTokenUsage(raw?: RawTokenUsage): TokenUsage | undefined {
     cachedInputTokens: raw.cached_input_tokens ?? 0,
     outputTokens: raw.output_tokens ?? 0,
     reasoningOutputTokens: raw.reasoning_output_tokens ?? 0,
-    totalTokens: raw.total_tokens ?? 0
+    totalTokens: raw.total_tokens ?? 0,
   };
 }
 
