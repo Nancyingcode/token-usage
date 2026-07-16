@@ -9,7 +9,7 @@ interface ToolbarProps {
   onRefresh: () => void;
 }
 
-const labels: Record<ViewKey, string> = {
+const VIEW_LABELS: Record<ViewKey, string> = {
   overview: "Overview",
   sessions: "Sessions",
   tools: "Tools",
@@ -17,12 +17,12 @@ const labels: Record<ViewKey, string> = {
   wrapped: "Wrapped"
 };
 
-export default function Toolbar({ activeView, loading, scannedAt, onRefresh }: ToolbarProps) {
+const Toolbar: React.FC<ToolbarProps> = ({ activeView, loading, scannedAt, onRefresh }) => {
   return (
     <header className="toolbar">
       <div className="toolbar-title">
         <SidebarIcon size={14} strokeWidth={1.8} />
-        <strong>{labels[activeView]}</strong>
+        <strong>{VIEW_LABELS[activeView]}</strong>
         <span className="daemon-pill">
           <i />
           Daemon
@@ -50,7 +50,7 @@ export default function Toolbar({ activeView, loading, scannedAt, onRefresh }: T
       </div>
     </header>
   );
-}
+};
 
 function formatDateTime(value: string): string {
   return new Intl.DateTimeFormat("en", {
@@ -60,3 +60,5 @@ function formatDateTime(value: string): string {
     minute: "2-digit"
   }).format(new Date(value));
 }
+
+export default Toolbar;

@@ -4,19 +4,24 @@ import { fileURLToPath } from "node:url";
 import { registerUsageIpc } from "./ipc";
 import { getApplicationMenuPolicy } from "./menuPolicy";
 
-const __dirname = fileURLToPath(new URL(".", import.meta.url));
+const CURRENT_DIRECTORY = fileURLToPath(new URL(".", import.meta.url));
+const DEFAULT_WINDOW_WIDTH = 1280;
+const DEFAULT_WINDOW_HEIGHT = 820;
+const MINIMUM_WINDOW_WIDTH = 1024;
+const MINIMUM_WINDOW_HEIGHT = 680;
+const WINDOW_BACKGROUND_COLOR = "#f8f7f4";
 
 function createWindow(): void {
   const menuPolicy = getApplicationMenuPolicy(app.isPackaged);
   const window = new BrowserWindow({
-    width: 1280,
-    height: 820,
-    minWidth: 1024,
-    minHeight: 680,
-    backgroundColor: "#f8f7f4",
+    width: DEFAULT_WINDOW_WIDTH,
+    height: DEFAULT_WINDOW_HEIGHT,
+    minWidth: MINIMUM_WINDOW_WIDTH,
+    minHeight: MINIMUM_WINDOW_HEIGHT,
+    backgroundColor: WINDOW_BACKGROUND_COLOR,
     autoHideMenuBar: menuPolicy.autoHideMenuBar,
     webPreferences: {
-      preload: join(__dirname, "../preload/preload.mjs"),
+      preload: join(CURRENT_DIRECTORY, "../preload/preload.mjs"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false
@@ -26,7 +31,7 @@ function createWindow(): void {
   if (process.env.ELECTRON_RENDERER_URL) {
     void window.loadURL(process.env.ELECTRON_RENDERER_URL);
   } else {
-    void window.loadFile(join(__dirname, "../renderer/index.html"));
+    void window.loadFile(join(CURRENT_DIRECTORY, "../renderer/index.html"));
   }
 }
 

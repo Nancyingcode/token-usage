@@ -9,7 +9,9 @@ interface MetricCardProps {
   tone: "mint" | "blue" | "purple" | "orange";
 }
 
-export default function MetricCard({ label, value, detail, icon: Icon, tone }: MetricCardProps) {
+const COMPACT_NUMBER_THRESHOLD = 1_000;
+
+const MetricCard: React.FC<MetricCardProps> = ({ label, value, detail, icon: Icon, tone }) => {
   return (
     <article className={`metric-card tone-${tone}`}>
       <div className="metric-copy">
@@ -22,15 +24,17 @@ export default function MetricCard({ label, value, detail, icon: Icon, tone }: M
       </div>
     </article>
   );
-}
+};
 
 export function formatCompact(value: number): string {
   return new Intl.NumberFormat("en", {
     notation: "compact",
-    maximumFractionDigits: value >= 1000 ? 1 : 0
+    maximumFractionDigits: value >= COMPACT_NUMBER_THRESHOLD ? 1 : 0
   }).format(value);
 }
 
 export function formatNumber(value: number): string {
   return new Intl.NumberFormat("en").format(value);
 }
+
+export default MetricCard;

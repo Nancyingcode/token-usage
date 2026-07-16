@@ -9,7 +9,7 @@ interface SidebarProps {
   onChange: (view: ViewKey) => void;
 }
 
-const navItems: Array<{ key: ViewKey; label: string; icon: typeof BarChart3 }> = [
+const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: typeof BarChart3 }> = [
   { key: "overview", label: "Overview", icon: BarChart3 },
   { key: "sessions", label: "Sessions", icon: MessageSquareText },
   { key: "tools", label: "Tools", icon: Wrench },
@@ -17,11 +17,11 @@ const navItems: Array<{ key: ViewKey; label: string; icon: typeof BarChart3 }> =
   { key: "wrapped", label: "Wrapped", icon: Boxes }
 ];
 
-export default function Sidebar({ activeView, warningCount, onChange }: SidebarProps) {
+const Sidebar: React.FC<SidebarProps> = ({ activeView, warningCount, onChange }) => {
   return (
     <aside className="sidebar">
       <nav className="nav-list" aria-label="Primary navigation">
-        {navItems.map((item) => {
+        {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
 
           return (
@@ -43,4 +43,6 @@ export default function Sidebar({ activeView, warningCount, onChange }: SidebarP
       </nav>
     </aside>
   );
-}
+};
+
+export default Sidebar;

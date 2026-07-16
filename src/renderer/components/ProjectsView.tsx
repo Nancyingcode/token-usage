@@ -7,7 +7,7 @@ interface ProjectsViewProps {
   projects: UsageProject[];
 }
 
-export default function ProjectsView({ projects }: ProjectsViewProps) {
+const ProjectsView: React.FC<ProjectsViewProps> = ({ projects }) => {
   const max = Math.max(0, ...projects.map((project) => project.totalTokens));
 
   return (
@@ -43,7 +43,7 @@ export default function ProjectsView({ projects }: ProjectsViewProps) {
       </div>
     </section>
   );
-}
+};
 
 function formatShortDate(value: string): string {
   return new Intl.DateTimeFormat("en", {
@@ -53,3 +53,5 @@ function formatShortDate(value: string): string {
     minute: "2-digit"
   }).format(new Date(value));
 }
+
+export default ProjectsView;

@@ -6,7 +6,9 @@ interface SettingsViewProps {
   result: UsageScanResult;
 }
 
-export default function SettingsView({ result }: SettingsViewProps) {
+const MAX_VISIBLE_WARNINGS = 8;
+
+const SettingsView: React.FC<SettingsViewProps> = ({ result }) => {
   return (
     <section className="settings-grid">
       <article className="panel">
@@ -45,7 +47,7 @@ export default function SettingsView({ result }: SettingsViewProps) {
         <p className="eyebrow">Warnings</p>
         <h3>{result.warnings.length} scan warnings</h3>
         <div className="warning-list">
-          {result.warnings.slice(0, 8).map((warning, index) => (
+          {result.warnings.slice(0, MAX_VISIBLE_WARNINGS).map((warning, index) => (
             <p key={`${warning.sourceFile}-${warning.line}-${index}`}>
               {warning.sourceFile ? `${warning.sourceFile}: ` : ""}
               {warning.message}
@@ -56,4 +58,6 @@ export default function SettingsView({ result }: SettingsViewProps) {
       </article>
     </section>
   );
-}
+};
+
+export default SettingsView;

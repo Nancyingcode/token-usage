@@ -6,12 +6,20 @@ interface TokenBarProps {
   tone?: "blue" | "purple" | "cyan" | "green";
 }
 
-export default function TokenBar({ value, max, tone = "blue" }: TokenBarProps) {
-  const height = max > 0 ? Math.max(3, Math.round((value / max) * 100)) : 0;
+const MINIMUM_VISIBLE_HEIGHT_PERCENT = 3;
+const PERCENT_SCALE = 100;
+
+const TokenBar: React.FC<TokenBarProps> = ({ value, max, tone = "blue" }) => {
+  const height =
+    max > 0
+      ? Math.max(MINIMUM_VISIBLE_HEIGHT_PERCENT, Math.round((value / max) * PERCENT_SCALE))
+      : 0;
 
   return (
     <span className={`vertical-token-bar tone-${tone}`} aria-hidden="true">
       <i style={{ height: `${height}%` }} />
     </span>
   );
-}
+};
+
+export default TokenBar;

@@ -8,10 +8,23 @@ interface OverviewProps {
   summary: UsageSummary;
 }
 
-const chartColors = ["#3b82f6", "#a855f7", "#22c7d9"];
+interface TrendChartProps {
+  days: UsageDay[];
+  max: number;
+}
 
-export default function Overview({ summary }: OverviewProps) {
-  const days = summary.byDay.slice(-24);
+interface ActivityGridProps {
+  days: UsageDay[];
+}
+
+const CHART_COLORS = ["#3b82f6", "#a855f7", "#22c7d9"];
+const TREND_HISTORY_DAYS = 24;
+const ACTIVITY_HISTORY_DAYS = 84;
+const ACTIVITY_CELL_COUNT = 84;
+const ACTIVITY_LEVEL_COUNT = 4;
+
+const Overview: React.FC<OverviewProps> = ({ summary }) => {
+  const days = summary.byDay.slice(-TREND_HISTORY_DAYS);
   const maxDay = Math.max(1, ...days.map((day) => day.totalTokens));
   const totalCost = estimateTokenCost(summary.totals.totalTokens);
   const cachePercentage = getCachePercentage(
@@ -62,13 +75,13 @@ export default function Overview({ summary }: OverviewProps) {
         <TrendChart days={days} max={maxDay} />
         <div className="chart-legend">
           <span>
-            <i style={{ background: chartColors[0] }} /> Input
+            <i style={{ background: CHART_COLORS[0] }} /> Input
           </span>
           <span>
-            <i style={{ background: chartColors[1] }} /> Output
+            <i style={{ background: CHART_COLORS[1] }} /> Output
           </span>
           <span>
-            <i style={{ background: chartColors[2] }} /> Cached
+            <i style={{ background: CHART_COLORS[2] }} /> Cached
           </span>
         </div>
       </article>
@@ -80,13 +93,13 @@ export default function Overview({ summary }: OverviewProps) {
             <p>{summary.sessions.length} sessions scanned locally</p>
           </div>
         </div>
-        <ActivityGrid days={summary.byDay.slice(-84)} />
+        <ActivityGrid days={summary.byDay.slice(-ACTIVITY_HISTORY_DAYS)} />
       </article>
     </section>
   );
-}
+};
 
-function TrendChart({ days, max }: { days: UsageDay[]; max: number }) {
+const TrendChart: React.FC<TrendChartProps> = ({ days, max }) => {
   const points = days.map((day, index) => {
     const x = days.length <= 1 ? 24 : 24 + (index / (days.length - 1)) * 536;
     const y = 178 - (day.totalTokens / max) * 136;
@@ -118,15 +131,15 @@ function TrendChart({ days, max }: { days: UsageDay[]; max: number }) {
       </div>
     </div>
   );
-}
+};
 
-function ActivityGrid({ days }: { days: UsageDay[] }) {
+const ActivityGrid: React.FC<ActivityGridProps> = ({ days }) => {
   const map = new Map(days.map((day) => [day.date, day.totalTokens]));
   const max = Math.max(1, ...days.map((day) => day.totalTokens));
-  const cells = Array.from({ length: 84 }, (_, index) => {
+  const cells = Array.from({ length: ACTIVITY_CELL_COUNT }, (_, index) => {
     const day = days[index];
     const value = day ? (map.get(day.date) ?? 0) : 0;
-    const level = value === 0 ? 0 : Math.ceil((value / max) * 4);
+    const level = value === 0 ? 0 : Math.ceil((value / max) * ACTIVITY_LEVEL_COUNT);
     return { key: day?.date ?? `empty-${index}`, level };
   });
 
@@ -144,4 +157,6 @@ function ActivityGrid({ days }: { days: UsageDay[] }) {
       </div>
     </div>
   );
-}
+};
+
+export default Overview;

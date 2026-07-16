@@ -7,7 +7,7 @@ interface EmptyStateProps {
   warnings: UsageWarning[];
 }
 
-export default function EmptyState({ sessionsDir, warnings }: EmptyStateProps) {
+const EmptyState: React.FC<EmptyStateProps> = ({ sessionsDir, warnings }) => {
   return (
     <section className="state-panel">
       <Inbox size={24} />
@@ -18,4 +18,6 @@ export default function EmptyState({ sessionsDir, warnings }: EmptyStateProps) {
       </div>
     </section>
   );
-}
+};
+
+export default EmptyState;

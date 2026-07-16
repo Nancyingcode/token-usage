@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { AlertCircle } from "lucide-react";
 import EmptyState from "./components/EmptyState";
 import Overview from "./components/Overview";
@@ -8,11 +8,10 @@ import SessionsView from "./components/SessionsView";
 import SettingsView from "./components/SettingsView";
 import Sidebar, { type ViewKey } from "./components/Sidebar";
 import Toolbar from "./components/Toolbar";
-import type { UsageScanResult, UsageSession } from "../shared/usageTypes";
+import type { UsageScanResult } from "../shared/usageTypes";
 
-export default function App() {
+const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ViewKey>("overview");
-  const [query] = useState("");
   const [result, setResult] = useState<UsageScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,17 +33,6 @@ export default function App() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
-
-  const filteredSessions = useMemo(() => {
-    const sessions = result?.summary.sessions ?? [];
-    const normalizedQuery = query.trim().toLowerCase();
-
-    if (!normalizedQuery) {
-      return sessions;
-    }
-
-    return sessions.filter((session) => sessionMatchesQuery(session, normalizedQuery));
-  }, [query, result]);
 
   const warningCount = result?.warnings.length ?? 0;
 
@@ -86,7 +74,7 @@ export default function App() {
         {!error && !loading && result && result.summary.sessions.length > 0 ? (
           <>
             {activeView === "overview" ? <Overview summary={result.summary} /> : null}
-            {activeView === "sessions" ? <SessionsView sessions={filteredSessions} /> : null}
+            {activeView === "sessions" ? <SessionsView sessions={result.summary.sessions} /> : null}
             {activeView === "tools" ? <ProjectsView projects={result.summary.byProject} /> : null}
             {activeView === "performance" ? <PerformanceView summary={result.summary} /> : null}
             {activeView === "wrapped" ? <SettingsView result={result} /> : null}
@@ -95,14 +83,6 @@ export default function App() {
       </main>
     </div>
   );
-}
+};
 
-function sessionMatchesQuery(session: UsageSession, query: string): boolean {
-  return [
-    session.sessionId,
-    session.threadName ?? "",
-    session.projectName,
-    session.projectPath,
-    session.sourceFile
-  ].some((value) => value.toLowerCase().includes(query));
-}
+export default App;

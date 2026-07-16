@@ -7,7 +7,11 @@ interface SessionsViewProps {
   sessions: UsageSession[];
 }
 
-export default function SessionsView({ sessions }: SessionsViewProps) {
+const SHORT_ID_MAX_LENGTH = 12;
+const SHORT_ID_PREFIX_LENGTH = 8;
+const SHORT_ID_SUFFIX_LENGTH = 4;
+
+const SessionsView: React.FC<SessionsViewProps> = ({ sessions }) => {
   return (
     <section className="panel table-panel">
       <div className="panel-heading">
@@ -48,10 +52,12 @@ export default function SessionsView({ sessions }: SessionsViewProps) {
       </div>
     </section>
   );
-}
+};
 
 function shortId(id: string): string {
-  return id.length > 12 ? `${id.slice(0, 8)}...${id.slice(-4)}` : id;
+  return id.length > SHORT_ID_MAX_LENGTH
+    ? `${id.slice(0, SHORT_ID_PREFIX_LENGTH)}...${id.slice(-SHORT_ID_SUFFIX_LENGTH)}`
+    : id;
 }
 
 function formatShortDate(value: string): string {
@@ -62,3 +68,5 @@ function formatShortDate(value: string): string {
     minute: "2-digit"
   }).format(new Date(value));
 }
+
+export default SessionsView;

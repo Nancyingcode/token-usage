@@ -12,12 +12,28 @@ interface PerformanceViewProps {
   summary: UsageSummary;
 }
 
-export default function PerformanceView({ summary }: PerformanceViewProps) {
-  const days = summary.byDay.slice(-30);
+interface MiniLineProps {
+  days: Array<{ date: string; totalTokens: number }>;
+  max: number;
+  tone: "cyan" | "blue";
+}
+
+interface DonutProps {
+  value: number;
+}
+
+const PERFORMANCE_HISTORY_DAYS = 30;
+const PEAK_SESSION_COUNT = 12;
+const HIGHLIGHT_BAR_INTERVAL = 4;
+const DONUT_RADIUS = 48;
+const PERCENT_SCALE = 100;
+
+const PerformanceView: React.FC<PerformanceViewProps> = ({ summary }) => {
+  const days = summary.byDay.slice(-PERFORMANCE_HISTORY_DAYS);
   const maxDay = Math.max(1, ...days.map((day) => day.totalTokens));
   const maxSession = Math.max(
     1,
-    ...summary.sessions.slice(0, 12).map((session) => session.totalTokens)
+    ...summary.sessions.slice(0, PEAK_SESSION_COUNT).map((session) => session.totalTokens)
   );
   const cacheRate = getCachePercentage(
     summary.totals.inputTokens,
@@ -46,14 +62,14 @@ export default function PerformanceView({ summary }: PerformanceViewProps) {
         <p>Most active at {peakHour(summary)}</p>
         <div className="peak-bars">
           {summary.sessions
-            .slice(0, 12)
+            .slice(0, PEAK_SESSION_COUNT)
             .reverse()
             .map((session, index) => (
               <TokenBar
                 key={session.sourceFile}
                 value={session.totalTokens}
                 max={maxSession}
-                tone={index % 4 === 0 ? "purple" : "blue"}
+                tone={index % HIGHLIGHT_BAR_INTERVAL === 0 ? "purple" : "blue"}
               />
             ))}
         </div>
@@ -64,21 +80,13 @@ export default function PerformanceView({ summary }: PerformanceViewProps) {
         <p>
           {warningRate.toFixed(2)}% ({warningCount}/{summary.sessions.length || 1})
         </p>
-        <Donut value={100 - warningRate} />
+        <Donut value={PERCENT_SCALE - warningRate} />
       </article>
     </section>
   );
-}
+};
 
-function MiniLine({
-  days,
-  max,
-  tone
-}: {
-  days: Array<{ date: string; totalTokens: number }>;
-  max: number;
-  tone: "cyan" | "blue";
-}) {
+const MiniLine: React.FC<MiniLineProps> = ({ days, max, tone }) => {
   const points = days.map((day, index) => {
     const x = days.length <= 1 ? 12 : 12 + (index / (days.length - 1)) * 250;
     const y = 118 - (day.totalTokens / max) * 92;
@@ -96,25 +104,25 @@ function MiniLine({
       <path d={path} />
     </svg>
   );
-}
+};
 
-function Donut({ value }: { value: number }) {
-  const circumference = 2 * Math.PI * 48;
-  const dash = (value / 100) * circumference;
+const Donut: React.FC<DonutProps> = ({ value }) => {
+  const circumference = 2 * Math.PI * DONUT_RADIUS;
+  const dash = (value / PERCENT_SCALE) * circumference;
 
   return (
     <svg className="donut" viewBox="0 0 120 120" aria-hidden="true">
-      <circle className="donut-track" cx="60" cy="60" r="48" />
+      <circle className="donut-track" cx="60" cy="60" r={DONUT_RADIUS} />
       <circle
         className="donut-value"
         cx="60"
         cy="60"
-        r="48"
+        r={DONUT_RADIUS}
         strokeDasharray={`${dash} ${circumference - dash}`}
       />
     </svg>
   );
-}
+};
 
 function peakHour(summary: UsageSummary): string {
   const hours = new Map<number, number>();
@@ -127,3 +135,5 @@ function peakHour(summary: UsageSummary): string {
   const [hour = 0] = [...hours.entries()].sort((a, b) => b[1] - a[1])[0] ?? [];
   return `${String(hour).padStart(2, "0")}:00`;
 }
+
+export default PerformanceView;
