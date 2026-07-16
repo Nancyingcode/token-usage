@@ -1,4 +1,4 @@
-import { basename } from "node:path";
+import { getSessionId } from "../shared/sessionId";
 import { addTokenUsage, emptyTokenUsage, getProjectName } from "../shared/usageMath";
 import type { TokenUsage, UsageSession, UsageWarning } from "../shared/usageTypes";
 
@@ -31,10 +31,9 @@ export function parseSessionJsonl(
   threadName?: string
 ): UsageSession {
   const warnings: UsageWarning[] = [];
-  const sourceName = basename(sourceFile);
   const lines = content.split(/\r?\n/);
 
-  let sessionId = sessionIdFromFile(sourceName);
+  let sessionId = getSessionId(sourceFile);
   let projectPath = "";
   let startedAt = "";
   let endedAt = "";
@@ -124,11 +123,6 @@ function toTokenUsage(raw?: RawTokenUsage): TokenUsage | undefined {
     reasoningOutputTokens: raw.reasoning_output_tokens ?? 0,
     totalTokens: raw.total_tokens ?? 0
   };
-}
-
-function sessionIdFromFile(sourceName: string): string {
-  const match = sourceName.match(/rollout-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-(.+)\.jsonl$/);
-  return match?.[1] ?? sourceName.replace(/\.jsonl$/, "");
 }
 
 function earliestTimestamp(current: string, candidate: string): string {

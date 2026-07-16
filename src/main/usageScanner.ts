@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
+import { getSessionId } from "../shared/sessionId";
 import { getDefaultCodexSessionsDir, getDefaultSessionIndexPath } from "./codexPaths";
 import { parseSessionJsonl } from "./sessionParser";
 import { buildUsageSummary } from "../shared/usageMath";
@@ -24,7 +25,7 @@ export async function scanCodexUsage(options: ScanOptions = {}): Promise<UsageSc
   for (const file of files) {
     try {
       const content = await fs.readFile(file, "utf8");
-      const sourceSessionId = sessionIdFromPath(file);
+      const sourceSessionId = getSessionId(file);
       const session = parseSessionJsonl(file, content, threadNames.get(sourceSessionId));
       sessions.push(session);
       warnings.push(...session.warnings);
@@ -105,11 +106,6 @@ async function loadThreadNames(
   }
 
   return names;
-}
-
-function sessionIdFromPath(file: string): string {
-  const match = file.match(/rollout-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-(.+)\.jsonl$/);
-  return match?.[1] ?? file.replace(/\.jsonl$/, "");
 }
 
 function errorMessage(error: unknown): string {
