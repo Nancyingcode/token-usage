@@ -35,7 +35,7 @@
 
 ---
 
-### 任务 1：为 JSONL 解析增加运行时类型边界
+### Task 1：为 JSONL 解析增加运行时类型边界
 
 **文件：**
 - 新建：`src/shared/runtimeTypes.ts`
@@ -196,7 +196,7 @@ git commit -m "fix: validate session records at runtime"
 
 ---
 
-### 任务 2：把 Error Rate 与扫描 warning 解耦
+### Task 2：把 Error Rate 与扫描 warning 解耦
 
 **文件：**
 - 修改：`src/shared/usageMetrics.ts`
@@ -294,7 +294,7 @@ git commit -m "fix: separate errors from scan warnings"
 
 ---
 
-### 任务 3：重构扫描器为无参数副作用的有限并发流程
+### Task 3：重构扫描器为无参数副作用的有限并发流程
 
 **文件：**
 - 修改：`src/main/usageScanner.ts`
@@ -433,7 +433,7 @@ git commit -m "refactor: bound session scan concurrency"
 
 ---
 
-### 任务 4：提取 renderer 格式化工具
+### Task 4：提取 renderer 格式化工具
 
 **文件：**
 - 新建：`src/renderer/utils/formatters.ts`
@@ -534,7 +534,7 @@ git commit -m "refactor: centralize renderer formatters"
 
 ---
 
-### 任务 5：集中 IPC 与图表布局常量
+### Task 5：集中 IPC 与图表布局常量
 
 **文件：**
 - 新建：`src/shared/ipcChannels.ts`
@@ -617,7 +617,7 @@ git commit -m "refactor: centralize application constants"
 
 ---
 
-### 任务 6：使用 ESLint 原生规则落实函数和参数规范
+### Task 6：使用 ESLint 原生规则落实函数和参数规范
 
 **文件：**
 - 修改：`eslint.config.js`
@@ -751,7 +751,7 @@ git commit -m "refactor: enforce native code style rules"
 
 ---
 
-### 任务 7：全量验证与范围审计
+### Task 7：全量验证与范围审计
 
 **文件：**
 - 检查：`package.json`
