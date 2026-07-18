@@ -120,25 +120,25 @@ export default tseslint.config(
         },
         {
           selector:
-            'JSXExpressionContainer > LogicalExpression[left.type="LogicalExpression"]:has(JSXElement)',
+            'JSXExpressionContainer > LogicalExpression[operator="&&"][left.type="LogicalExpression"]:has(JSXElement)',
           message:
             'Extract compound JSX conditions into a named boolean, pure function, or render model.',
         },
         {
           selector:
-            'JSXExpressionContainer > LogicalExpression[left.type="LogicalExpression"]:has(JSXFragment)',
+            'JSXExpressionContainer > LogicalExpression[operator="&&"][left.type="LogicalExpression"]:has(JSXFragment)',
           message:
             'Extract compound JSX conditions into a named boolean, pure function, or render model.',
         },
         {
           selector:
-            'JSXExpressionContainer > LogicalExpression[right.type="LogicalExpression"]:has(JSXElement)',
+            'JSXExpressionContainer > LogicalExpression[operator="&&"][right.type="LogicalExpression"]:has(JSXElement)',
           message:
             'Extract compound JSX conditions into a named boolean, pure function, or render model.',
         },
         {
           selector:
-            'JSXExpressionContainer > LogicalExpression[right.type="LogicalExpression"]:has(JSXFragment)',
+            'JSXExpressionContainer > LogicalExpression[operator="&&"][right.type="LogicalExpression"]:has(JSXFragment)',
           message:
             'Extract compound JSX conditions into a named boolean, pure function, or render model.',
         },

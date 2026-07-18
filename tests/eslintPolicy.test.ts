@@ -36,7 +36,9 @@ describe('JSX compound condition lint policy', () => {
       export default Example;
     `);
     const fallbackRules = await lintSource(`
-      const Example = ({ name }: { name?: string }) => <span>{name || 'Unknown'}</span>;
+      const Example = ({ primary, secondary }: { primary?: string; secondary?: string }) => (
+        <>{primary || secondary || <span>Unknown</span>}</>
+      );
       export default Example;
     `);
 
