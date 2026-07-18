@@ -1,35 +1,64 @@
 import getSessionId from '../shared/sessionId';
+import { isRecord } from '../shared/runtimeTypes';
 import { addTokenUsage, emptyTokenUsage, getProjectName } from '../shared/usageMath';
 import type { TokenUsage, UsageSession, UsageWarning } from '../shared/usageTypes';
-
-interface RawTokenUsage {
-  input_tokens?: number;
-  cached_input_tokens?: number;
-  output_tokens?: number;
-  reasoning_output_tokens?: number;
-  total_tokens?: number;
-}
 
 interface ParsedLine {
   timestamp?: string;
   type?: string;
-  payload?: {
-    session_id?: string;
-    id?: string;
-    cwd?: string;
-    type?: string;
-    info?: {
-      last_token_usage?: RawTokenUsage;
-      total_token_usage?: RawTokenUsage;
-    };
-  };
+  payload?: Record<string, unknown>;
 }
 
-export default function parseSessionJsonl(
+const TOKEN_USAGE_KEYS = [
+  'input_tokens',
+  'cached_input_tokens',
+  'output_tokens',
+  'reasoning_output_tokens',
+  'total_tokens',
+] as const;
+
+type TokenUsageRecord = Record<(typeof TOKEN_USAGE_KEYS)[number], number | undefined>;
+
+const isOptionalString = (value: unknown): value is string | undefined =>
+  value === undefined || typeof value === 'string';
+
+const isParsedLine = (value: unknown): value is ParsedLine => {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  if (!isOptionalString(value.timestamp) || !isOptionalString(value.type)) {
+    return false;
+  }
+
+  return value.payload === undefined || isRecord(value.payload);
+};
+
+const isValidTokenValue = (value: unknown): value is number | undefined =>
+  value === undefined || (typeof value === 'number' && Number.isFinite(value) && value >= 0);
+
+const isTokenUsageRecord = (raw: Record<string, unknown>): raw is TokenUsageRecord =>
+  TOKEN_USAGE_KEYS.every((key) => isValidTokenValue(raw[key]));
+
+const toTokenUsage = (raw: unknown): TokenUsage | undefined => {
+  if (!isRecord(raw) || !isTokenUsageRecord(raw)) {
+    return undefined;
+  }
+
+  return {
+    inputTokens: raw.input_tokens ?? 0,
+    cachedInputTokens: raw.cached_input_tokens ?? 0,
+    outputTokens: raw.output_tokens ?? 0,
+    reasoningOutputTokens: raw.reasoning_output_tokens ?? 0,
+    totalTokens: raw.total_tokens ?? 0,
+  };
+};
+
+export const parseSessionJsonl = (
   sourceFile: string,
   content: string,
   threadName?: string
-): UsageSession {
+): UsageSession => {
   const warnings: UsageWarning[] = [];
   const lines = content.split(/\r?\n/);
 
@@ -49,15 +78,24 @@ export default function parseSessionJsonl(
       return;
     }
 
-    let record: ParsedLine;
+    let record: unknown;
 
     try {
-      record = JSON.parse(trimmed) as ParsedLine;
+      record = JSON.parse(trimmed);
     } catch {
       warnings.push({
         sourceFile,
         line: index + 1,
         message: 'Malformed JSONL line skipped.',
+      });
+      return;
+    }
+
+    if (!isParsedLine(record)) {
+      warnings.push({
+        sourceFile,
+        line: index + 1,
+        message: 'Invalid JSONL record skipped.',
       });
       return;
     }
@@ -68,15 +106,42 @@ export default function parseSessionJsonl(
     }
 
     if (record.type === 'session_meta') {
-      sessionId = record.payload?.session_id ?? record.payload?.id ?? sessionId;
-      projectPath = record.payload?.cwd ?? projectPath;
+      const sessionIdValue = record.payload?.session_id ?? record.payload?.id;
+      const projectPathValue = record.payload?.cwd;
+
+      if (typeof sessionIdValue === 'string') {
+        sessionId = sessionIdValue;
+      }
+
+      if (typeof projectPathValue === 'string') {
+        projectPath = projectPathValue;
+      }
+
       return;
     }
 
     if (record.type === 'event_msg' && record.payload?.type === 'token_count') {
-      const { info } = record.payload;
-      const lastUsage = toTokenUsage(info?.last_token_usage);
-      const totalUsage = toTokenUsage(info?.total_token_usage);
+      const info = isRecord(record.payload.info) ? record.payload.info : undefined;
+      const lastTokenUsage = info?.last_token_usage;
+      const totalTokenUsage = info?.total_token_usage;
+      const lastUsage = lastTokenUsage === undefined ? undefined : toTokenUsage(lastTokenUsage);
+      const totalUsage = totalTokenUsage === undefined ? undefined : toTokenUsage(totalTokenUsage);
+
+      if (
+        (lastTokenUsage !== undefined && !lastUsage) ||
+        (totalTokenUsage !== undefined && !totalUsage)
+      ) {
+        warnings.push({
+          sourceFile,
+          line: index + 1,
+          message: 'Invalid token usage skipped.',
+        });
+        return;
+      }
+
+      if (!lastUsage && !totalUsage) {
+        return;
+      }
 
       eventCount += 1;
 
@@ -109,21 +174,9 @@ export default function parseSessionJsonl(
     sourceFile,
     warnings,
   };
-}
+};
 
-function toTokenUsage(raw?: RawTokenUsage): TokenUsage | undefined {
-  if (!raw) {
-    return undefined;
-  }
-
-  return {
-    inputTokens: raw.input_tokens ?? 0,
-    cachedInputTokens: raw.cached_input_tokens ?? 0,
-    outputTokens: raw.output_tokens ?? 0,
-    reasoningOutputTokens: raw.reasoning_output_tokens ?? 0,
-    totalTokens: raw.total_tokens ?? 0,
-  };
-}
+export default parseSessionJsonl;
 
 function earliestTimestamp(current: string, candidate: string): string {
   if (!current) {

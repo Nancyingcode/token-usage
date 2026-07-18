@@ -88,15 +88,74 @@ describe('sessionParser', () => {
     expect(session.totalTokens).toBe(2);
     expect(session.warnings.length).toBe(1);
   });
+
+  it('skips non-object JSON records without losing valid usage', () => {
+    const content = [
+      'null',
+      '[]',
+      JSON.stringify({
+        timestamp: '2026-07-11T01:01:00.000Z',
+        type: 'event_msg',
+        payload: {
+          type: 'token_count',
+          info: { last_token_usage: usage(4, 1, 2, 0, 6) },
+        },
+      }),
+    ].join('\n');
+
+    const session = parseSessionJsonl('invalid-records.jsonl', content);
+
+    expect(session.totalTokens).toBe(6);
+    expect(session.warnings).toHaveLength(2);
+    expect(session.warnings.map(({ line }) => line)).toEqual([1, 2]);
+  });
+
+  it('rejects invalid token fields without contaminating totals', () => {
+    const content = [
+      JSON.stringify({
+        timestamp: '2026-07-11T01:00:00.000Z',
+        type: 'event_msg',
+        payload: {
+          type: 'token_count',
+          info: {
+            last_token_usage: {
+              input_tokens: '10',
+              total_tokens: -1,
+            },
+          },
+        },
+      }),
+      JSON.stringify({
+        timestamp: '2026-07-11T01:01:00.000Z',
+        type: 'event_msg',
+        payload: {
+          type: 'token_count',
+          info: { last_token_usage: usage(3, 0, 2, 0, 5) },
+        },
+      }),
+    ].join('\n');
+
+    const session = parseSessionJsonl('invalid-token.jsonl', content);
+
+    expect(session.totalTokens).toBe(5);
+    expect(session.eventCount).toBe(1);
+    expect(session.warnings).toHaveLength(1);
+  });
 });
 
-function usage(
+const usage = (
   inputTokens: number,
   cachedInputTokens: number,
   outputTokens: number,
   reasoningOutputTokens: number,
   totalTokens: number
-) {
+): {
+  input_tokens: number;
+  cached_input_tokens: number;
+  output_tokens: number;
+  reasoning_output_tokens: number;
+  total_tokens: number;
+} => {
   return {
     input_tokens: inputTokens,
     cached_input_tokens: cachedInputTokens,
@@ -104,4 +163,4 @@ function usage(
     reasoning_output_tokens: reasoningOutputTokens,
     total_tokens: totalTokens,
   };
-}
+};
