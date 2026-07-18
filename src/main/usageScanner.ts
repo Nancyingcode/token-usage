@@ -1,43 +1,54 @@
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
+import { isRecord } from '../shared/runtimeTypes';
 import getSessionId from '../shared/sessionId';
-import { getDefaultCodexSessionsDir, getDefaultSessionIndexPath } from './codexPaths';
-import parseSessionJsonl from './sessionParser';
 import { buildUsageSummary } from '../shared/usageMath';
 import type { UsageScanResult, UsageSession, UsageWarning } from '../shared/usageTypes';
+import { getDefaultCodexSessionsDir, getDefaultSessionIndexPath } from './codexPaths';
+import parseSessionJsonl from './sessionParser';
 
 export interface ScanOptions {
   sessionsDir?: string;
 }
 
-interface SessionIndexLine {
-  id?: string;
-  thread_name?: string;
+interface FileDiscoveryResult {
+  files: string[];
+  warnings: UsageWarning[];
 }
 
-export async function scanCodexUsage(options: ScanOptions = {}): Promise<UsageScanResult> {
+interface ThreadNameResult {
+  names: Map<string, string>;
+  warnings: UsageWarning[];
+}
+
+interface SessionFileResult {
+  session?: UsageSession;
+  warnings: UsageWarning[];
+}
+
+interface IndexedResult<Value> {
+  value: Value;
+}
+
+const MAX_CONCURRENT_FILE_READS = 8;
+
+export const scanCodexUsage = async (options: ScanOptions = {}): Promise<UsageScanResult> => {
   const sessionsDir = options.sessionsDir ?? getDefaultCodexSessionsDir();
-  const warnings: UsageWarning[] = [];
-  const threadNames = await loadThreadNames(getDefaultSessionIndexPath(), warnings);
-  const files = await findJsonlFiles(sessionsDir, warnings);
-  const sessions: UsageSession[] = [];
-
-  await files.reduce<Promise<void>>(async (previousFile, file) => {
-    await previousFile;
-
-    try {
-      const content = await fs.readFile(file, 'utf8');
-      const sourceSessionId = getSessionId(file);
-      const session = parseSessionJsonl(file, content, threadNames.get(sourceSessionId));
-      sessions.push(session);
-      warnings.push(...session.warnings);
-    } catch (error) {
-      warnings.push({
-        sourceFile: file,
-        message: `Unable to read session file: ${errorMessage(error)}`,
-      });
-    }
-  }, Promise.resolve());
+  const [discovery, threadNameResult] = await Promise.all([
+    findJsonlFiles(sessionsDir),
+    loadThreadNames(getDefaultSessionIndexPath()),
+  ]);
+  const fileResults = await mapWithConcurrency(
+    discovery.files,
+    MAX_CONCURRENT_FILE_READS,
+    async (file) => readSessionFile(file, threadNameResult.names)
+  );
+  const sessions = fileResults.flatMap(({ session }) => (session ? [session] : []));
+  const warnings = [
+    ...discovery.warnings,
+    ...threadNameResult.warnings,
+    ...fileResults.flatMap((result) => result.warnings),
+  ];
 
   return {
     sessionsDir,
@@ -45,48 +56,47 @@ export async function scanCodexUsage(options: ScanOptions = {}): Promise<UsageSc
     summary: buildUsageSummary(sessions),
     warnings,
   };
-}
+};
 
-async function findJsonlFiles(dir: string, warnings: UsageWarning[]): Promise<string[]> {
-  const files: string[] = [];
-
+const findJsonlFiles = async (dir: string): Promise<FileDiscoveryResult> => {
   try {
     const entries = await fs.readdir(dir, { withFileTypes: true });
-
-    const discoveredFiles = await entries.reduce<Promise<string[]>>(
-      async (previousEntries, entry) => {
-        const collectedFiles = await previousEntries;
+    const discoveries = await Promise.all(
+      entries.map(async (entry): Promise<FileDiscoveryResult> => {
         const fullPath = join(dir, entry.name);
 
         if (entry.isDirectory()) {
-          return [...collectedFiles, ...(await findJsonlFiles(fullPath, warnings))];
+          return findJsonlFiles(fullPath);
         }
 
         if (entry.isFile() && entry.name.endsWith('.jsonl')) {
-          return [...collectedFiles, fullPath];
+          return { files: [fullPath], warnings: [] };
         }
 
-        return collectedFiles;
-      },
-      Promise.resolve([])
+        return { files: [], warnings: [] };
+      })
     );
 
-    files.push(...discoveredFiles);
+    return {
+      files: discoveries.flatMap((discovery) => discovery.files).sort((a, b) => a.localeCompare(b)),
+      warnings: discoveries.flatMap((discovery) => discovery.warnings),
+    };
   } catch (error) {
-    warnings.push({
-      sourceFile: dir,
-      message: `Unable to scan Codex sessions directory: ${errorMessage(error)}`,
-    });
+    return {
+      files: [],
+      warnings: [
+        {
+          sourceFile: dir,
+          message: `Unable to scan Codex sessions directory: ${errorMessage(error)}`,
+        },
+      ],
+    };
   }
+};
 
-  return files.sort((a, b) => a.localeCompare(b));
-}
-
-async function loadThreadNames(
-  sessionIndexPath: string,
-  warnings: UsageWarning[]
-): Promise<Map<string, string>> {
+const loadThreadNames = async (sessionIndexPath: string): Promise<ThreadNameResult> => {
   const names = new Map<string, string>();
+  const warnings: UsageWarning[] = [];
 
   try {
     const content = await fs.readFile(sessionIndexPath, 'utf8');
@@ -100,9 +110,13 @@ async function loadThreadNames(
       }
 
       try {
-        const record = JSON.parse(trimmed) as SessionIndexLine;
+        const record: unknown = JSON.parse(trimmed);
 
-        if (record.id && record.thread_name) {
+        if (!isRecord(record)) {
+          throw new TypeError('Session index line must be an object.');
+        }
+
+        if (typeof record.id === 'string' && typeof record.thread_name === 'string') {
           names.set(record.id, record.thread_name);
         }
       } catch {
@@ -114,12 +128,67 @@ async function loadThreadNames(
       }
     });
   } catch {
-    return names;
+    return { names, warnings };
   }
 
-  return names;
-}
+  return { names, warnings };
+};
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
+const readSessionFile = async (
+  file: string,
+  threadNames: Map<string, string>
+): Promise<SessionFileResult> => {
+  try {
+    const content = await fs.readFile(file, 'utf8');
+    const sourceSessionId = getSessionId(file);
+    const session = parseSessionJsonl(file, content, threadNames.get(sourceSessionId));
+
+    return { session, warnings: session.warnings };
+  } catch (error) {
+    return {
+      warnings: [
+        {
+          sourceFile: file,
+          message: `Unable to read session file: ${errorMessage(error)}`,
+        },
+      ],
+    };
+  }
+};
+
+const mapWithConcurrency = async <Input, Output>(
+  items: Input[],
+  concurrency: number,
+  mapper: (item: Input) => Promise<Output>
+): Promise<Output[]> => {
+  const results = new Map<number, IndexedResult<Output>>();
+  let nextIndex = 0;
+
+  const runNext = async (): Promise<void> => {
+    const currentIndex = nextIndex;
+    nextIndex += 1;
+
+    if (currentIndex >= items.length) {
+      return;
+    }
+
+    results.set(currentIndex, { value: await mapper(items[currentIndex]) });
+    await runNext();
+  };
+
+  const workerCount = Math.min(concurrency, items.length);
+  await Promise.all(Array.from({ length: workerCount }, () => runNext()));
+
+  return items.map((_, index) => {
+    const result = results.get(index);
+
+    if (!result) {
+      throw new Error(`Missing concurrent result at index ${index}.`);
+    }
+
+    return result.value;
+  });
+};
+
+const errorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
