@@ -1,7 +1,7 @@
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
 import type { UsageSession } from '../../shared/usageTypes';
-import { formatNumber } from './MetricCard';
+import { formatNumber, formatShortDateTime } from '../utils/formatters';
 
 interface SessionsViewProps {
   sessions: UsageSession[];
@@ -37,7 +37,7 @@ const SessionsView: React.FC<SessionsViewProps> = ({ sessions }) => (
             {session.threadName || shortId(session.sessionId)}
           </span>
           <span title={session.projectPath}>{session.projectName}</span>
-          <span>{formatShortDate(session.startedAt)}</span>
+          <span>{formatShortDateTime(session.startedAt)}</span>
           <span>{formatNumber(session.inputTokens)}</span>
           <span>{formatNumber(session.cachedInputTokens)}</span>
           <span>{formatNumber(session.outputTokens)}</span>
@@ -56,15 +56,6 @@ function shortId(id: string): string {
   return id.length > SHORT_ID_MAX_LENGTH
     ? `${id.slice(0, SHORT_ID_PREFIX_LENGTH)}...${id.slice(-SHORT_ID_SUFFIX_LENGTH)}`
     : id;
-}
-
-function formatShortDate(value: string): string {
-  return new Intl.DateTimeFormat('en', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value));
 }
 
 export default SessionsView;

@@ -1,6 +1,7 @@
 import React from 'react';
 import { RefreshCw, Sidebar as SidebarIcon } from 'lucide-react';
 import type { UsagePeriod } from '../../shared/usageTypes';
+import { formatShortDateTime } from '../utils/formatters';
 import type { ViewKey } from './Sidebar';
 
 interface PeriodToggleProps {
@@ -61,7 +62,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
         <i />
         Daemon
       </span>
-      {scannedAt ? <span className="scan-time">{formatDateTime(scannedAt)}</span> : null}
+      {scannedAt ? <span className="scan-time">{formatShortDateTime(scannedAt)}</span> : null}
     </div>
 
     <div className="toolbar-actions">
@@ -78,14 +79,5 @@ const Toolbar: React.FC<ToolbarProps> = ({
     </div>
   </header>
 );
-
-function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat('en', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value));
-}
 
 export default Toolbar;

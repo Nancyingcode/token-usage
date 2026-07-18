@@ -1,6 +1,6 @@
 import React from 'react';
 import type { UsageProject } from '../../shared/usageTypes';
-import { formatNumber } from './MetricCard';
+import { formatNumber, formatShortDateTime } from '../utils/formatters';
 import TokenBar from './TokenBar';
 
 interface ProjectsViewProps {
@@ -37,21 +37,12 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ projects }) => {
             </span>
             <span>{project.sessionCount}</span>
             <span>{formatNumber(project.totalTokens)}</span>
-            <span>{formatShortDate(project.lastActivityAt)}</span>
+            <span>{formatShortDateTime(project.lastActivityAt)}</span>
           </div>
         ))}
       </div>
     </section>
   );
 };
-
-function formatShortDate(value: string): string {
-  return new Intl.DateTimeFormat('en', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value));
-}
 
 export default ProjectsView;

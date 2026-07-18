@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Coins, FileCode2, LockKeyhole, MessageSquareText } from 'lucide-react';
 import { estimateTokenCost, getCachePercentage } from '../../shared/usageMetrics';
 import type { UsageDay, UsageSummary } from '../../shared/usageTypes';
-import MetricCard, { formatCompact, formatNumber } from './MetricCard';
+import { formatCompactNumber, formatNumber } from '../utils/formatters';
+import MetricCard from './MetricCard';
 
 interface OverviewProps {
   summary: UsageSummary;
@@ -223,21 +224,21 @@ const Overview: React.FC<OverviewProps> = ({ summary }) => {
         <MetricCard
           label="Total Cost"
           value={`$${totalCost.toFixed(1)}`}
-          detail={`~${formatCompact(summary.totals.totalTokens)} tokens processed`}
+          detail={`~${formatCompactNumber(summary.totals.totalTokens)} tokens processed`}
           icon={Coins}
           tone="mint"
         />
         <MetricCard
           label="Tokens"
-          value={formatCompact(summary.totals.totalTokens)}
+          value={formatCompactNumber(summary.totals.totalTokens)}
           detail={`${cachePercentage}% from cache`}
           icon={LockKeyhole}
           tone="blue"
         />
         <MetricCard
           label="Lines Changed"
-          value={formatCompact(summary.totals.outputTokens)}
-          detail={`+${formatCompact(summary.totals.reasoningOutputTokens)} reasoning`}
+          value={formatCompactNumber(summary.totals.outputTokens)}
+          detail={`+${formatCompactNumber(summary.totals.reasoningOutputTokens)} reasoning`}
           icon={FileCode2}
           tone="purple"
         />
