@@ -38,3 +38,38 @@ export const UserList: React.FC<UserListProps> = ({ users }) => {
   );
 };
 ```
+
+- JSX/DOM 内部的渲染判断如果组合两个或更多业务谓词，应优先提取为具名布尔变量或纯函数；多个互斥界面分支应建立明确的渲染状态模型。只有条件具有独立生命周期并由事件直接改变时，才定义为 React state，禁止保存可由 props 或现有 state 推导出的重复状态。
+
+```ts
+// 错误示例
+type ViewKey = 'overview' | 'wrapped';
+
+interface WarningBadgeProps {
+  view: ViewKey;
+  count: number;
+}
+
+export const WarningBadge: React.FC<WarningBadgeProps> = ({ view, count }) => (
+  <>{view === 'wrapped' && count > 0 ? <em className="nav-badge">{count}</em> : null}</>
+);
+```
+
+```ts
+// 正确示例
+type ViewKey = 'overview' | 'wrapped';
+
+interface WarningBadgeProps {
+  view: ViewKey;
+  count: number;
+}
+
+const shouldShowWarningBadge = (view: ViewKey, count: number): boolean =>
+  view === 'wrapped' && count > 0;
+
+export const WarningBadge: React.FC<WarningBadgeProps> = ({ view, count }) => {
+  const showWarningBadge = shouldShowWarningBadge(view, count);
+
+  return <>{showWarningBadge ? <em className="nav-badge">{count}</em> : null}</>;
+};
+```

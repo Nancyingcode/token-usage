@@ -108,5 +108,42 @@ export default tseslint.config(
       },
     },
   },
+  {
+    files: ['src/renderer/**/*.tsx'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'JSXExpressionContainer > ConditionalExpression[test.type="LogicalExpression"]',
+          message:
+            'Extract compound JSX conditions into a named boolean, pure function, or render model.',
+        },
+        {
+          selector:
+            'JSXExpressionContainer > LogicalExpression[left.type="LogicalExpression"]:has(JSXElement)',
+          message:
+            'Extract compound JSX conditions into a named boolean, pure function, or render model.',
+        },
+        {
+          selector:
+            'JSXExpressionContainer > LogicalExpression[left.type="LogicalExpression"]:has(JSXFragment)',
+          message:
+            'Extract compound JSX conditions into a named boolean, pure function, or render model.',
+        },
+        {
+          selector:
+            'JSXExpressionContainer > LogicalExpression[right.type="LogicalExpression"]:has(JSXElement)',
+          message:
+            'Extract compound JSX conditions into a named boolean, pure function, or render model.',
+        },
+        {
+          selector:
+            'JSXExpressionContainer > LogicalExpression[right.type="LogicalExpression"]:has(JSXFragment)',
+          message:
+            'Extract compound JSX conditions into a named boolean, pure function, or render model.',
+        },
+      ],
+    },
+  },
   prettierConfig
 );
