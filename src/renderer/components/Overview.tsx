@@ -41,6 +41,7 @@ const TOOLTIP_RIGHT_BOUNDARY = 424;
 const TREND_HIT_RADIUS = 12;
 const ACTIVE_POINT_RADIUS = 4.8;
 const INACTIVE_POINT_RADIUS = 2.4;
+const PERCENT_SCALE = 100;
 
 export type TooltipPlacement = 'left' | 'center' | 'right';
 
@@ -52,7 +53,7 @@ export interface TrendPoint {
   placement: TooltipPlacement;
 }
 
-export function buildTrendPoints(days: UsageDay[], max: number): TrendPoint[] {
+export const buildTrendPoints = (days: UsageDay[], max: number): TrendPoint[] => {
   return days.map((day, index) => {
     const x =
       days.length <= 1
@@ -68,9 +69,9 @@ export function buildTrendPoints(days: UsageDay[], max: number): TrendPoint[] {
       placement: getTooltipPlacement(x),
     };
   });
-}
+};
 
-function getTooltipPlacement(x: number): TooltipPlacement {
+const getTooltipPlacement = (x: number): TooltipPlacement => {
   if (x < TOOLTIP_LEFT_BOUNDARY) {
     return 'left';
   }
@@ -80,14 +81,14 @@ function getTooltipPlacement(x: number): TooltipPlacement {
   }
 
   return 'center';
-}
+};
 
-function getTooltipStyle(point: TrendPoint): React.CSSProperties {
+const getTooltipStyle = (point: TrendPoint): React.CSSProperties => {
   return {
-    '--tooltip-x': `${(point.x / CHART_VIEWBOX_WIDTH) * 100}%`,
-    '--tooltip-y': `${(point.y / CHART_VIEWBOX_HEIGHT) * 100}%`,
+    '--tooltip-x': `${(point.x / CHART_VIEWBOX_WIDTH) * PERCENT_SCALE}%`,
+    '--tooltip-y': `${(point.y / CHART_VIEWBOX_HEIGHT) * PERCENT_SCALE}%`,
   } as React.CSSProperties;
-}
+};
 
 const TrendChart: React.FC<TrendChartProps> = ({ days, max }) => {
   const [activeDate, setActiveDate] = useState<string | null>(null);

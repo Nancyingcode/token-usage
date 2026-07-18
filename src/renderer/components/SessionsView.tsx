@@ -53,10 +53,10 @@ const SessionsView: React.FC<SessionsViewProps> = ({ sessions }) => (
   </section>
 );
 
-function shortId(id: string): string {
+const shortId = (id: string): string => {
   return id.length > SHORT_ID_MAX_LENGTH
     ? `${id.slice(0, SHORT_ID_PREFIX_LENGTH)}...${id.slice(-SHORT_ID_SUFFIX_LENGTH)}`
     : id;
-}
+};
 
 export default SessionsView;

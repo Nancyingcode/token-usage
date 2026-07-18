@@ -1,14 +1,9 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-export function getCodexHomeDir(): string {
-  return join(homedir(), '.codex');
-}
+export const getCodexHomeDir = (): string => join(homedir(), '.codex');
 
-export function getDefaultCodexSessionsDir(): string {
-  return join(getCodexHomeDir(), 'sessions');
-}
+export const getDefaultCodexSessionsDir = (): string => join(getCodexHomeDir(), 'sessions');
 
-export function getDefaultSessionIndexPath(): string {
-  return join(getCodexHomeDir(), 'session_index.jsonl');
-}
+export const getDefaultSessionIndexPath = (): string =>
+  join(getCodexHomeDir(), 'session_index.jsonl');

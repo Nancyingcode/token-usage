@@ -83,32 +83,30 @@ describe('usageMath', () => {
   });
 });
 
-function makeSession(
+const makeSession = (
   sessionId: string,
   startedAt: string,
   projectPath: string,
   totalTokens: number
-): UsageSession {
-  return {
-    sessionId,
-    startedAt,
-    endedAt: startedAt,
-    projectPath,
-    projectName: projectPath.split('\\').pop() ?? projectPath,
-    inputTokens: totalTokens,
-    cachedInputTokens: 0,
-    outputTokens: 0,
-    reasoningOutputTokens: 0,
-    totalTokens,
-    eventCount: 1,
-    sourceFile: `${sessionId}.jsonl`,
-    warnings: [],
-  };
-}
+): UsageSession => ({
+  sessionId,
+  startedAt,
+  endedAt: startedAt,
+  projectPath,
+  projectName: projectPath.split('\\').pop() ?? projectPath,
+  inputTokens: totalTokens,
+  cachedInputTokens: 0,
+  outputTokens: 0,
+  reasoningOutputTokens: 0,
+  totalTokens,
+  eventCount: 1,
+  sourceFile: `${sessionId}.jsonl`,
+  warnings: [],
+});
 
-function localDaysAgo(now: Date, days: number, hour: number): string {
+const localDaysAgo = (now: Date, days: number, hour: number): string => {
   const timestamp = new Date(now);
   timestamp.setDate(timestamp.getDate() - days);
   timestamp.setHours(hour, 0, 0, 0);
   return timestamp.toISOString();
-}
+};

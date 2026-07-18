@@ -178,18 +178,18 @@ export const parseSessionJsonl = (
 
 export default parseSessionJsonl;
 
-function earliestTimestamp(current: string, candidate: string): string {
+const earliestTimestamp = (current: string, candidate: string): string => {
   if (!current) {
     return candidate;
   }
 
   return new Date(candidate).getTime() < new Date(current).getTime() ? candidate : current;
-}
+};
 
-function latestTimestamp(current: string, candidate: string): string {
+const latestTimestamp = (current: string, candidate: string): string => {
   if (!current) {
     return candidate;
   }
 
   return new Date(candidate).getTime() > new Date(current).getTime() ? candidate : current;
-}
+};

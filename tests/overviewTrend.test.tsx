@@ -23,14 +23,12 @@ describe('buildTrendPoints', () => {
   });
 });
 
-function makeDay(date: string, totalTokens: number): UsageDay {
-  return {
-    date,
-    inputTokens: 60,
-    cachedInputTokens: 15,
-    outputTokens: 25,
-    reasoningOutputTokens: 10,
-    totalTokens,
-    sessionCount: 1,
-  };
-}
+const makeDay = (date: string, totalTokens: number): UsageDay => ({
+  date,
+  inputTokens: 60,
+  cachedInputTokens: 15,
+  outputTokens: 25,
+  reasoningOutputTokens: 10,
+  totalTokens,
+  sessionCount: 1,
+});

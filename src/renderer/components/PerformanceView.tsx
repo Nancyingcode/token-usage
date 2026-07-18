@@ -142,7 +142,7 @@ const PerformanceView: React.FC<PerformanceViewProps> = ({ summary }) => {
   );
 };
 
-function peakHour(summary: UsageSummary): string {
+const peakHour = (summary: UsageSummary): string => {
   const hours = summary.sessions.reduce<Map<number, number>>((hourTotals, session) => {
     const hour = new Date(session.startedAt).getHours();
     hourTotals.set(hour, (hourTotals.get(hour) ?? 0) + session.totalTokens);
@@ -151,6 +151,6 @@ function peakHour(summary: UsageSummary): string {
 
   const [hour = 0] = [...hours.entries()].sort((a, b) => b[1] - a[1])[0] ?? [];
   return `${String(hour).padStart(2, '0')}:00`;
-}
+};
 
 export default PerformanceView;

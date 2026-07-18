@@ -20,7 +20,7 @@ describe('PeriodToggle', () => {
   });
 });
 
-function getButtons(element: React.ReactNode): Array<React.ReactElement<PeriodButtonProps>> {
+const getButtons = (element: React.ReactNode): Array<React.ReactElement<PeriodButtonProps>> => {
   if (!React.isValidElement<{ children: React.ReactNode }>(element)) {
     return [];
   }
@@ -29,4 +29,4 @@ function getButtons(element: React.ReactNode): Array<React.ReactElement<PeriodBu
     (child): child is React.ReactElement<PeriodButtonProps> =>
       React.isValidElement<PeriodButtonProps>(child) && child.type === 'button'
   );
-}
+};

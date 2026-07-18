@@ -11,7 +11,7 @@ const MINIMUM_WINDOW_WIDTH = 1024;
 const MINIMUM_WINDOW_HEIGHT = 680;
 const WINDOW_BACKGROUND_COLOR = '#f8f7f4';
 
-function createWindow(): void {
+const createWindow = (): void => {
   const menuPolicy = getApplicationMenuPolicy(app.isPackaged);
   const window = new BrowserWindow({
     width: DEFAULT_WINDOW_WIDTH,
@@ -33,7 +33,7 @@ function createWindow(): void {
   } else {
     window.loadFile(join(CURRENT_DIRECTORY, '../renderer/index.html'));
   }
-}
+};
 
 app.whenReady().then(() => {
   registerUsageIpc();
