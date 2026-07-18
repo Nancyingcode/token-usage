@@ -18,11 +18,15 @@ const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: typeof BarChart3 }> 
   { key: 'wrapped', label: 'Wrapped', icon: Boxes },
 ];
 
+const shouldShowWarningBadge = (view: ViewKey, warningCount: number): boolean =>
+  view === 'wrapped' && warningCount > 0;
+
 const Sidebar: React.FC<SidebarProps> = ({ activeView, warningCount, onChange }) => (
   <aside className="sidebar">
     <nav className="nav-list" aria-label="Primary navigation">
       {NAV_ITEMS.map((item) => {
         const Icon = item.icon;
+        const showWarningBadge = shouldShowWarningBadge(item.key, warningCount);
 
         return (
           <button
@@ -34,9 +38,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, warningCount, onChange })
           >
             <Icon size={ICON_SIZE_SMALL} strokeWidth={NAV_ICON_STROKE_WIDTH} />
             <span>{item.label}</span>
-            {item.key === 'wrapped' && warningCount > 0 ? (
-              <em className="nav-badge">{warningCount}</em>
-            ) : null}
+            {showWarningBadge ? <em className="nav-badge">{warningCount}</em> : null}
           </button>
         );
       })}
