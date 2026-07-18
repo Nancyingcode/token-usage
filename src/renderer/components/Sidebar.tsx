@@ -1,5 +1,6 @@
 import React from 'react';
 import { BarChart3, Boxes, Gauge, MessageSquareText, Wrench } from 'lucide-react';
+import { ICON_SIZE_SMALL, NAV_ICON_STROKE_WIDTH } from '../constants/ui';
 
 export type ViewKey = 'overview' | 'sessions' | 'tools' | 'performance' | 'wrapped';
 
@@ -31,7 +32,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, warningCount, onChange })
             onClick={() => onChange(item.key)}
             title={item.label}
           >
-            <Icon size={14} strokeWidth={1.9} />
+            <Icon size={ICON_SIZE_SMALL} strokeWidth={NAV_ICON_STROKE_WIDTH} />
             <span>{item.label}</span>
             {item.key === 'wrapped' && warningCount > 0 ? (
               <em className="nav-badge">{warningCount}</em>

@@ -1,5 +1,6 @@
 import React from 'react';
 import type { LucideIcon } from 'lucide-react';
+import { ICON_SIZE_SMALL } from '../constants/ui';
 
 interface MetricCardProps {
   label: string;
@@ -17,7 +18,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ label, value, detail, icon: Ico
       <span>{detail}</span>
     </div>
     <div className="metric-icon">
-      <Icon size={14} />
+      <Icon size={ICON_SIZE_SMALL} />
     </div>
   </article>
 );

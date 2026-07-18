@@ -1,6 +1,7 @@
 import React from 'react';
 import { Inbox } from 'lucide-react';
 import type { UsageWarning } from '../../shared/usageTypes';
+import { ICON_SIZE_EMPTY_STATE } from '../constants/ui';
 
 interface EmptyStateProps {
   sessionsDir: string;
@@ -9,7 +10,7 @@ interface EmptyStateProps {
 
 const EmptyState: React.FC<EmptyStateProps> = ({ sessionsDir, warnings }) => (
   <section className="state-panel">
-    <Inbox size={24} />
+    <Inbox size={ICON_SIZE_EMPTY_STATE} />
     <div>
       <h2>No Codex sessions found</h2>
       <p>Scanned: {sessionsDir}</p>

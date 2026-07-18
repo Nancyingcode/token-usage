@@ -1,6 +1,7 @@
 import React from 'react';
 import { Folder, ShieldCheck } from 'lucide-react';
 import type { UsageScanResult } from '../../shared/usageTypes';
+import { ICON_SIZE_MEDIUM } from '../constants/ui';
 
 interface SettingsViewProps {
   result: UsageScanResult;
@@ -12,7 +13,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ result }) => (
   <section className="settings-grid">
     <article className="panel">
       <div className="settings-item">
-        <Folder size={18} />
+        <Folder size={ICON_SIZE_MEDIUM} />
         <div>
           <p className="eyebrow">Data path</p>
           <h3>Codex Sessions</h3>
@@ -23,7 +24,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ result }) => (
 
     <article className="panel">
       <div className="settings-item">
-        <ShieldCheck size={18} />
+        <ShieldCheck size={ICON_SIZE_MEDIUM} />
         <div>
           <p className="eyebrow">Privacy</p>
           <h3>Local Read-only</h3>

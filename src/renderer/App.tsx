@@ -11,6 +11,7 @@ import SessionsView from './components/SessionsView';
 import SettingsView from './components/SettingsView';
 import Sidebar, { type ViewKey } from './components/Sidebar';
 import Toolbar from './components/Toolbar';
+import { ICON_SIZE_LARGE } from './constants/ui';
 
 const DEFAULT_USAGE_PERIOD: UsagePeriod = 'month';
 
@@ -60,7 +61,7 @@ const App: React.FC = () => {
 
         {error ? (
           <section className="state-panel">
-            <AlertCircle size={22} />
+            <AlertCircle size={ICON_SIZE_LARGE} />
             <div>
               <h2>Scan failed</h2>
               <p>{error}</p>

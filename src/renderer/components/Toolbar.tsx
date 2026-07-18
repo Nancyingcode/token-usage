@@ -1,6 +1,7 @@
 import React from 'react';
 import { RefreshCw, Sidebar as SidebarIcon } from 'lucide-react';
 import type { UsagePeriod } from '../../shared/usageTypes';
+import { ICON_SIZE_SMALL, ICON_STROKE_WIDTH } from '../constants/ui';
 import { formatShortDateTime } from '../utils/formatters';
 import type { ViewKey } from './Sidebar';
 
@@ -56,7 +57,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
 }) => (
   <header className="toolbar">
     <div className="toolbar-title">
-      <SidebarIcon size={14} strokeWidth={1.8} />
+      <SidebarIcon size={ICON_SIZE_SMALL} strokeWidth={ICON_STROKE_WIDTH} />
       <strong>{VIEW_LABELS[activeView]}</strong>
       <span className="daemon-pill">
         <i />
@@ -74,7 +75,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
         disabled={loading}
         title="Refresh"
       >
-        <RefreshCw size={14} className={loading ? 'spinning' : undefined} />
+        <RefreshCw size={ICON_SIZE_SMALL} className={loading ? 'spinning' : undefined} />
       </button>
     </div>
   </header>

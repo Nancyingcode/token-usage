@@ -1,6 +1,7 @@
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
 import type { UsageSession } from '../../shared/usageTypes';
+import { ICON_SIZE_SMALL } from '../constants/ui';
 import { formatNumber, formatShortDateTime } from '../utils/formatters';
 
 interface SessionsViewProps {
@@ -43,7 +44,7 @@ const SessionsView: React.FC<SessionsViewProps> = ({ sessions }) => (
           <span>{formatNumber(session.outputTokens)}</span>
           <span>{formatNumber(session.totalTokens)}</span>
           <span className={session.warnings.length ? 'warning-cell' : 'ok-cell'}>
-            {session.warnings.length ? <AlertTriangle size={14} /> : null}
+            {session.warnings.length ? <AlertTriangle size={ICON_SIZE_SMALL} /> : null}
             {session.warnings.length ? `${session.warnings.length} warnings` : 'OK'}
           </span>
         </div>

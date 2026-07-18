@@ -25,10 +25,17 @@ const ACTIVITY_CELL_COUNT = 84;
 const ACTIVITY_LEVEL_COUNT = 4;
 const CHART_VIEWBOX_WIDTH = 584;
 const CHART_VIEWBOX_HEIGHT = 212;
+const CHART_VIEWBOX = `0 0 ${CHART_VIEWBOX_WIDTH} ${CHART_VIEWBOX_HEIGHT}`;
 const CHART_LEFT = 24;
 const CHART_RIGHT = 560;
 const CHART_BASELINE = 178;
 const CHART_VERTICAL_RANGE = 136;
+const CHART_GRID_LINE_COUNT = 5;
+const CHART_GRID_TOP = 42;
+const CHART_GRID_GAP = 34;
+const DATE_LABEL_START_INDEX = 5;
+const MAX_X_AXIS_LABEL_COUNT = 8;
+const CHART_GRID_LINES = Array.from({ length: CHART_GRID_LINE_COUNT }, (_, index) => index);
 const TOOLTIP_LEFT_BOUNDARY = 160;
 const TOOLTIP_RIGHT_BOUNDARY = 424;
 const TREND_HIT_RADIUS = 12;
@@ -96,9 +103,15 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max }) => {
   return (
     <div className="trend-chart">
       <div className="trend-chart-plot">
-        <svg viewBox="0 0 584 212" role="img" aria-label="Token trend chart">
-          {[0, 1, 2, 3, 4].map((line) => (
-            <line key={line} x1="24" x2="560" y1={42 + line * 34} y2={42 + line * 34} />
+        <svg viewBox={CHART_VIEWBOX} role="img" aria-label="Token trend chart">
+          {CHART_GRID_LINES.map((line) => (
+            <line
+              key={line}
+              x1={CHART_LEFT}
+              x2={CHART_RIGHT}
+              y1={CHART_GRID_TOP + line * CHART_GRID_GAP}
+              y2={CHART_GRID_TOP + line * CHART_GRID_GAP}
+            />
           ))}
           {area ? <path className="trend-area" d={area} /> : null}
           {path ? <path className="trend-line cyan" d={path} /> : null}
@@ -174,9 +187,11 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max }) => {
       </div>
       <div className="x-axis">
         {days
-          .filter((_, index) => index % Math.max(1, Math.ceil(days.length / 8)) === 0)
+          .filter(
+            (_, index) => index % Math.max(1, Math.ceil(days.length / MAX_X_AXIS_LABEL_COUNT)) === 0
+          )
           .map((day) => (
-            <span key={day.date}>{day.date.slice(5)}</span>
+            <span key={day.date}>{day.date.slice(DATE_LABEL_START_INDEX)}</span>
           ))}
       </div>
     </div>
