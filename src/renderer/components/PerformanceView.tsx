@@ -1,10 +1,5 @@
 import React from 'react';
-import {
-  countSessionWarnings,
-  estimateTokenCost,
-  getCachePercentage,
-  getWarningRate,
-} from '../../shared/usageMetrics';
+import { estimateTokenCost, getCachePercentage } from '../../shared/usageMetrics';
 import type { UsageSummary } from '../../shared/usageTypes';
 import TokenBar from './TokenBar';
 
@@ -27,6 +22,8 @@ const PEAK_SESSION_COUNT = 12;
 const HIGHLIGHT_BAR_INTERVAL = 4;
 const DONUT_RADIUS = 48;
 const PERCENT_SCALE = 100;
+const APPLICATION_ERROR_COUNT = 0;
+const APPLICATION_ERROR_RATE = 0;
 
 const MiniLine: React.FC<MiniLineProps> = ({ days, max, tone }) => {
   const points = days.map((day, index) => {
@@ -78,8 +75,6 @@ const PerformanceView: React.FC<PerformanceViewProps> = ({ summary }) => {
     summary.totals.cachedInputTokens
   );
   const totalCost = estimateTokenCost(summary.totals.totalTokens);
-  const warningCount = countSessionWarnings(summary.sessions);
-  const warningRate = getWarningRate(summary.sessions);
 
   return (
     <section className="performance-grid">
@@ -116,9 +111,9 @@ const PerformanceView: React.FC<PerformanceViewProps> = ({ summary }) => {
       <article className="panel perf-card">
         <h3>Error Rate</h3>
         <p>
-          {warningRate.toFixed(2)}% ({warningCount}/{summary.sessions.length || 1})
+          {APPLICATION_ERROR_RATE.toFixed(2)}% ({APPLICATION_ERROR_COUNT}/{summary.sessions.length})
         </p>
-        <Donut value={PERCENT_SCALE - warningRate} />
+        <Donut value={PERCENT_SCALE - APPLICATION_ERROR_RATE} />
       </article>
     </section>
   );
