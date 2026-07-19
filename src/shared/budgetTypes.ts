@@ -115,6 +115,10 @@ export interface CostEstimate {
   unpricedModelIds: string[];
 }
 
+export interface DailyCostEstimate extends CostEstimate {
+  date: string;
+}
+
 export interface NaturalPeriodRange {
   start: Date;
   end: Date;
