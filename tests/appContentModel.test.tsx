@@ -12,6 +12,7 @@ const SESSION: UsageSession = {
   endedAt: '2026-07-19T08:10:00.000Z',
   projectPath: 'C:\\repo',
   projectName: 'repo',
+  usageSlices: [],
   inputTokens: 10,
   cachedInputTokens: 2,
   outputTokens: 4,

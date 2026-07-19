@@ -12,6 +12,11 @@ export interface UsageWarning {
   line?: number;
 }
 
+export interface UsageSlice extends TokenUsage {
+  occurredAt: string;
+  modelId?: string;
+}
+
 export interface UsageSession extends TokenUsage {
   sessionId: string;
   startedAt: string;
@@ -19,6 +24,7 @@ export interface UsageSession extends TokenUsage {
   projectPath: string;
   projectName: string;
   threadName?: string;
+  usageSlices: UsageSlice[];
   eventCount: number;
   sourceFile: string;
   warnings: UsageWarning[];

@@ -1,7 +1,7 @@
 import getSessionId from '../shared/sessionId';
 import { isRecord } from '../shared/runtimeTypes';
 import { addTokenUsage, emptyTokenUsage, getProjectName } from '../shared/usageMath';
-import type { TokenUsage, UsageSession, UsageWarning } from '../shared/usageTypes';
+import type { TokenUsage, UsageSession, UsageSlice, UsageWarning } from '../shared/usageTypes';
 
 interface ParsedLine {
   timestamp?: string;
@@ -68,8 +68,11 @@ export const parseSessionJsonl = (
   let endedAt = '';
   let eventCount = 0;
   let hasIncrementalUsage = false;
+  let activeModelId: string | undefined;
   let summedUsage = emptyTokenUsage();
   let largestTotalUsage = emptyTokenUsage();
+  let largestTotalSlice: UsageSlice | undefined;
+  const incrementalSlices: UsageSlice[] = [];
 
   lines.forEach((line, index) => {
     const trimmed = line.trim();
@@ -103,6 +106,16 @@ export const parseSessionJsonl = (
     if (record.timestamp) {
       startedAt = earliestTimestamp(startedAt, record.timestamp);
       endedAt = latestTimestamp(endedAt, record.timestamp);
+    }
+
+    const recordModelId = record.payload?.model;
+
+    if (
+      (record.type === 'turn_context' || record.type === 'session_meta') &&
+      typeof recordModelId === 'string' &&
+      recordModelId.trim()
+    ) {
+      activeModelId = recordModelId.trim();
     }
 
     if (record.type === 'session_meta') {
@@ -148,10 +161,20 @@ export const parseSessionJsonl = (
       if (lastUsage) {
         hasIncrementalUsage = true;
         summedUsage = addTokenUsage(summedUsage, lastUsage);
+        incrementalSlices.push({
+          ...lastUsage,
+          occurredAt: getUsageTimestamp(record.timestamp, endedAt),
+          modelId: activeModelId,
+        });
       }
 
       if (totalUsage && totalUsage.totalTokens >= largestTotalUsage.totalTokens) {
         largestTotalUsage = totalUsage;
+        largestTotalSlice = {
+          ...totalUsage,
+          occurredAt: getUsageTimestamp(record.timestamp, endedAt),
+          modelId: activeModelId,
+        };
       }
     }
   });
@@ -161,6 +184,11 @@ export const parseSessionJsonl = (
   const safeStartedAt = startedAt || endedAt || fallbackTimestamp;
   const safeEndedAt = endedAt || startedAt || fallbackTimestamp;
   const safeProjectPath = projectPath || 'Unknown Project';
+  const usageSlices = hasIncrementalUsage
+    ? incrementalSlices
+    : largestTotalSlice
+      ? [largestTotalSlice]
+      : [];
 
   return {
     sessionId,
@@ -169,12 +197,16 @@ export const parseSessionJsonl = (
     projectPath: safeProjectPath,
     projectName: getProjectName(safeProjectPath),
     threadName,
+    usageSlices,
     ...usage,
     eventCount,
     sourceFile,
     warnings,
   };
 };
+
+const getUsageTimestamp = (recordTimestamp: string | undefined, endedAt: string): string =>
+  recordTimestamp || endedAt || new Date(0).toISOString();
 
 export default parseSessionJsonl;
 

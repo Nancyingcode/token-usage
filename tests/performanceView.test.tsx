@@ -11,6 +11,7 @@ const makeSession = (warningCount: number): UsageSession => ({
   endedAt: '2026-07-16T00:00:00.000Z',
   projectPath: 'C:\\repo',
   projectName: 'repo',
+  usageSlices: [],
   inputTokens: 10,
   cachedInputTokens: 0,
   outputTokens: 0,

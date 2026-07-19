@@ -141,7 +141,70 @@ describe('sessionParser', () => {
     expect(session.eventCount).toBe(1);
     expect(session.warnings).toHaveLength(1);
   });
+
+  it('attributes incremental token slices to the active model', () => {
+    const content = [
+      JSON.stringify({
+        timestamp: '2026-07-20T00:00:00.000Z',
+        type: 'turn_context',
+        payload: { model: 'gpt-5.2-codex' },
+      }),
+      tokenLine('2026-07-20T00:01:00.000Z', usage(10, 2, 3, 1, 13)),
+      JSON.stringify({
+        timestamp: '2026-07-20T00:02:00.000Z',
+        type: 'turn_context',
+        payload: { model: 'gpt-5.3-codex' },
+      }),
+      tokenLine('2026-07-20T00:03:00.000Z', usage(20, 5, 4, 2, 24)),
+    ].join('\n');
+
+    const session = parseSessionJsonl('models.jsonl', content);
+
+    expect(
+      session.usageSlices.map(({ occurredAt, modelId, totalTokens }) => ({
+        occurredAt,
+        modelId,
+        totalTokens,
+      }))
+    ).toEqual([
+      {
+        occurredAt: '2026-07-20T00:01:00.000Z',
+        modelId: 'gpt-5.2-codex',
+        totalTokens: 13,
+      },
+      {
+        occurredAt: '2026-07-20T00:03:00.000Z',
+        modelId: 'gpt-5.3-codex',
+        totalTokens: 24,
+      },
+    ]);
+  });
+
+  it('leaves an ambiguous total-only slice unpriced', () => {
+    const session = parseSessionJsonl(
+      'unknown-model.jsonl',
+      tokenTotalLine(usage(10, 0, 2, 1, 12))
+    );
+
+    expect(session.usageSlices).toEqual([
+      expect.objectContaining({ modelId: undefined, totalTokens: 12 }),
+    ]);
+  });
 });
+
+const tokenLine = (timestamp: string, lastUsage: ReturnType<typeof usage>): string =>
+  JSON.stringify({
+    timestamp,
+    type: 'event_msg',
+    payload: { type: 'token_count', info: { last_token_usage: lastUsage } },
+  });
+
+const tokenTotalLine = (totalUsage: ReturnType<typeof usage>): string =>
+  JSON.stringify({
+    timestamp: '2026-07-20T00:00:00.000Z',
+    type: 'event_msg',
+    payload: { type: 'token_count', info: { total_token_usage: totalUsage } },
+  });
 
 const usage = (
   inputTokens: number,
