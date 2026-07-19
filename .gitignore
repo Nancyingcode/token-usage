@@ -4,5 +4,6 @@ dist-electron/
 out/
 .vite/
 coverage/
+.superpowers/
 *.tsbuildinfo
 *.log
