@@ -527,6 +527,10 @@ Expected: FAIL，提示价格模块不存在。
 
 ```ts
 export const DEFAULT_MODEL_PRICING: ModelPricingEntry[] = [
+  pricing('gpt-5.5', 5, 0.5, 30, 'https://developers.openai.com/api/docs/models/gpt-5.5'),
+  pricing('gpt-5.6-sol', 5, 0.5, 30, 'https://developers.openai.com/api/docs/models/gpt-5.6-sol', ['gpt-5.6']),
+  pricing('gpt-5.6-terra', 2.5, 0.25, 15, 'https://developers.openai.com/api/docs/models/gpt-5.6-terra'),
+  pricing('gpt-5.6-luna', 1, 0.1, 6, 'https://developers.openai.com/api/docs/models/gpt-5.6-luna'),
   pricing('gpt-5.3-codex', 1.75, 0.175, 14, 'https://developers.openai.com/api/docs/models/gpt-5.3-codex'),
   pricing('gpt-5.2-codex', 1.75, 0.175, 14, 'https://developers.openai.com/api/docs/models/gpt-5.2-codex'),
   pricing('gpt-5.1-codex', 1.25, 0.125, 10, 'https://developers.openai.com/api/docs/models/gpt-5.1-codex'),
@@ -537,7 +541,9 @@ export const DEFAULT_MODEL_PRICING: ModelPricingEntry[] = [
 ];
 ```
 
-`pricing` 是文件内纯构造函数，统一写入 `effectiveAt: '2026-07-20'`、空别名和 `sourceKind: 'built-in'`。
+`pricing` 是文件内纯构造函数，最后一个参数为可选别名列表，统一写入 `effectiveAt: '2026-07-20'` 和 `sourceKind: 'built-in'`。`gpt-5.6` 是 `gpt-5.6-sol` 的官方别名，其余条目默认使用空别名。
+
+首版只按官方公布的标准文本 Token 单价估算。Codex 会话日志没有提供可靠的单次请求上下文长度和缓存写入类型，因此不计算超过 272K 输入 Token 的长上下文倍率，也不计算 GPT-5.6 缓存写入附加费；README 和价格页面必须明确显示这一估算边界。
 
 - [ ] **Step 4: 实现价格覆盖合并和费用公式**
 

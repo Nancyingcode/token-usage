@@ -145,6 +145,8 @@ interface UsageSlice extends TokenUsage {
 
 单价均按每百万 Token 换算。`reasoningOutputTokens` 作为输出 Token 的明细展示，不额外计价，避免与 `outputTokens` 重复。
 
+内置价格覆盖本机当前日志中出现的 `gpt-5.5`、`gpt-5.6-sol`、`gpt-5.6-terra`、`gpt-5.6-luna`，并将官方别名 `gpt-5.6` 归入 `gpt-5.6-sol`。首版使用官方公布的标准文本 Token 单价。由于 Codex 会话日志没有提供可靠的单次请求上下文长度和缓存写入类型，费用估算不包含超过 272K 输入 Token 的长上下文倍率，也不包含 GPT-5.6 缓存写入附加费；模型价格页面和 README 必须明确说明这一限制。
+
 无法识别模型或价格缺失时：
 
 - Token 继续正常统计和参与 Token 预算。
