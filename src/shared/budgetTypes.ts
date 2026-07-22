@@ -109,6 +109,16 @@ export interface BudgetSnapshot {
   unpricedModels: UnpricedModelSummary[];
 }
 
+export interface EvaluateBudgetsInput {
+  sessions: import('./usageTypes').UsageSession[];
+  policies: BudgetPolicy[];
+  thresholds: BudgetThresholds;
+  pricing: ModelPricingEntry[];
+  now?: Date;
+  dataState: BudgetDataState;
+  staleReason?: string;
+}
+
 export interface CostEstimate {
   pricedCostUsd: number;
   unpricedTokens: number;
