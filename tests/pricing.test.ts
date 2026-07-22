@@ -16,6 +16,7 @@ const TEST_PRICING: ModelPricingEntry = {
   outputUsdPerMillion: 10,
   effectiveAt: '2026-07-20',
   sourceKind: 'built-in',
+  sourceUrl: 'https://developers.openai.com/api/docs/models/gpt-test',
 };
 
 describe('pricing', () => {
@@ -69,6 +70,7 @@ describe('pricing', () => {
         inputUsdPerMillion: 3,
         effectiveAt: override.updatedAt,
         sourceKind: 'override',
+        sourceUrl: TEST_PRICING.sourceUrl,
       }),
     ]);
   });

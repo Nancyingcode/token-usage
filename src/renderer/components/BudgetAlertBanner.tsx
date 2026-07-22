@@ -8,6 +8,7 @@ interface BudgetAlertBannerProps {
   alerts: BudgetAlert[];
   unpricedModels: UnpricedModelSummary[];
   onDismiss: (alertId: string) => void;
+  onAddPrice?: (modelId: string) => void;
 }
 
 const getAlertClassName = (alert: BudgetAlert): string =>
@@ -17,6 +18,7 @@ const BudgetAlertBanner: React.FC<BudgetAlertBannerProps> = ({
   alerts,
   unpricedModels,
   onDismiss,
+  onAddPrice,
 }) => {
   const showUnpricedAlert = unpricedModels.length > 0;
 
@@ -40,18 +42,29 @@ const BudgetAlertBanner: React.FC<BudgetAlertBannerProps> = ({
         </div>
       ))}
       {showUnpricedAlert ? (
-        <div className="budget-alert neutral">
+        <div className="budget-alert neutral unpriced-alert">
           <CircleDollarSign size={ICON_SIZE_SMALL} />
           <div>
             <strong>Unpriced models</strong>
-            <span>
-              {unpricedModels
-                .map(
-                  ({ modelId, totalTokens }) =>
-                    `${modelId ?? 'Unknown model'} (${formatNumber(totalTokens)} tokens)`
-                )
-                .join(', ')}
-            </span>
+            {unpricedModels.map(({ modelId, totalTokens }) => {
+              const canAddPrice = Boolean(modelId && onAddPrice);
+              return (
+                <span className="unpriced-alert-row" key={modelId ?? 'unknown-model'}>
+                  <span>
+                    {modelId ?? 'Unknown model'} ({formatNumber(totalTokens)} tokens)
+                  </span>
+                  {canAddPrice ? (
+                    <button
+                      type="button"
+                      className="secondary-button compact-button"
+                      onClick={() => onAddPrice?.(modelId ?? '')}
+                    >
+                      Add price
+                    </button>
+                  ) : null}
+                </span>
+              );
+            })}
           </div>
         </div>
       ) : null}

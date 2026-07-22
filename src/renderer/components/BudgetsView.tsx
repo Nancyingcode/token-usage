@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, SlidersHorizontal } from 'lucide-react';
 import type { BudgetPolicy, BudgetSnapshot } from '../../shared/budgetTypes';
 import { ICON_SIZE_SMALL } from '../constants/ui';
@@ -9,6 +9,7 @@ import BudgetDrawer, { type BudgetDrawerModel } from './BudgetDrawer';
 import BudgetList from './BudgetList';
 import BudgetSummary from './BudgetSummary';
 import ConfirmDialog from './ConfirmDialog';
+import ModelPricingView from './ModelPricingView';
 
 interface BudgetsViewProps {
   snapshot: BudgetSnapshot;
@@ -20,6 +21,7 @@ interface BudgetsViewProps {
 const DEFAULT_FILTERS: BudgetFilters = { scope: 'all', period: 'all' };
 
 type BudgetEditorModel = { kind: 'closed' } | BudgetDrawerModel;
+type BudgetTab = 'overview' | 'pricing';
 
 const BudgetsView: React.FC<BudgetsViewProps> = ({
   snapshot,
@@ -31,6 +33,8 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
   const [dismissedAlertIds, setDismissedAlertIds] = useState<Set<string>>(() => new Set());
   const [editorModel, setEditorModel] = useState<BudgetEditorModel>({ kind: 'closed' });
   const [deletePolicy, setDeletePolicy] = useState<BudgetPolicy | null>(null);
+  const [activeTab, setActiveTab] = useState<BudgetTab>('overview');
+  const [pricingTarget, setPricingTarget] = useState<string | null>(null);
   const model = useMemo(() => buildBudgetViewModel(snapshot, filters), [filters, snapshot]);
   const visibleAlerts = model.alerts.filter(({ id }) => !dismissedAlertIds.has(id));
   const showStaleWarning = snapshot.dataState === 'stale';
@@ -61,6 +65,12 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
   };
 
   const closeEditor = (): void => setEditorModel({ kind: 'closed' });
+  const clearPricingTarget = useCallback(() => setPricingTarget(null), []);
+
+  const handleAddPrice = (modelId: string): void => {
+    setActiveTab('pricing');
+    setPricingTarget(modelId);
+  };
 
   const handleDeleteConfirm = async (): Promise<void> => {
     if (!deletePolicy) {
@@ -89,49 +99,14 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
       onCancel={() => setDeletePolicy(null)}
     />
   ) : null;
-
-  return (
-    <section className="budgets-page">
-      <header className="budget-page-heading">
-        <div>
-          <h2>Budget center</h2>
-          <p>Natural-period controls for tokens and estimated cost.</p>
-        </div>
-        <div className="budget-heading-actions">
-          <div className="budget-thresholds" aria-label="Alert thresholds">
-            <span>Warning {snapshot.thresholds.warningPercent}%</span>
-            <span>Critical {snapshot.thresholds.criticalPercent}%</span>
-          </div>
-          <button
-            type="button"
-            className="secondary-button icon-command"
-            onClick={() => setEditorModel({ kind: 'thresholds' })}
-          >
-            <SlidersHorizontal size={ICON_SIZE_SMALL} />
-            Thresholds
-          </button>
-          <button
-            type="button"
-            className="primary-button icon-command"
-            onClick={() => setEditorModel({ kind: 'policy' })}
-          >
-            <Plus size={ICON_SIZE_SMALL} />
-            Add budget
-          </button>
-        </div>
-      </header>
-
-      {showStaleWarning ? (
-        <div className="budget-stale-banner">
-          Showing the last successful scan. {snapshot.staleReason ?? 'Usage data is stale.'}
-        </div>
-      ) : null}
-
+  const overviewContent = (
+    <>
       <BudgetSummary summary={model.summary} />
       <BudgetAlertBanner
         alerts={visibleAlerts}
         unpricedModels={snapshot.unpricedModels}
         onDismiss={handleDismissAlert}
+        onAddPrice={handleAddPrice}
       />
 
       <div className="budget-filter-bar">
@@ -175,6 +150,81 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
         onEdit={(policy) => setEditorModel({ kind: 'policy', policy })}
         onDelete={setDeletePolicy}
       />
+    </>
+  );
+  const pricingContent = (
+    <ModelPricingView
+      pricing={snapshot.pricing}
+      unpricedModels={snapshot.unpricedModels}
+      actions={actions}
+      initialModelId={pricingTarget}
+      onInitialModelConsumed={clearPricingTarget}
+    />
+  );
+  const pageContent = activeTab === 'overview' ? overviewContent : pricingContent;
+  const showOverviewActions = activeTab === 'overview';
+  const headingActions = showOverviewActions ? (
+    <>
+      <div className="budget-thresholds" aria-label="Alert thresholds">
+        <span>Warning {snapshot.thresholds.warningPercent}%</span>
+        <span>Critical {snapshot.thresholds.criticalPercent}%</span>
+      </div>
+      <button
+        type="button"
+        className="secondary-button icon-command"
+        onClick={() => setEditorModel({ kind: 'thresholds' })}
+      >
+        <SlidersHorizontal size={ICON_SIZE_SMALL} />
+        Thresholds
+      </button>
+      <button
+        type="button"
+        className="primary-button icon-command"
+        onClick={() => setEditorModel({ kind: 'policy' })}
+      >
+        <Plus size={ICON_SIZE_SMALL} />
+        Add budget
+      </button>
+    </>
+  ) : null;
+
+  return (
+    <section className="budgets-page">
+      <header className="budget-page-heading">
+        <div>
+          <h2>Budget center</h2>
+          <p>Natural-period controls for tokens and estimated cost.</p>
+        </div>
+        <div className="budget-heading-actions">{headingActions}</div>
+      </header>
+
+      {showStaleWarning ? (
+        <div className="budget-stale-banner">
+          Showing the last successful scan. {snapshot.staleReason ?? 'Usage data is stale.'}
+        </div>
+      ) : null}
+
+      <div className="budget-tabs" role="tablist" aria-label="Budget views">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'overview'}
+          className={activeTab === 'overview' ? 'active' : undefined}
+          onClick={() => setActiveTab('overview')}
+        >
+          Budget overview
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'pricing'}
+          className={activeTab === 'pricing' ? 'active' : undefined}
+          onClick={() => setActiveTab('pricing')}
+        >
+          Model pricing
+        </button>
+      </div>
+      {pageContent}
       {drawer}
       {deleteDialog}
     </section>

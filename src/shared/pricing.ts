@@ -12,13 +12,14 @@ const DATE_PART_LENGTH = 2;
 
 const normalizeModelId = (modelId: string): string => modelId.trim().toLocaleLowerCase('en-US');
 
-const toOverrideEntry = (override: ModelPricingOverride): ModelPricingEntry => {
+const toOverrideEntry = (override: ModelPricingOverride, sourceUrl?: string): ModelPricingEntry => {
   const { updatedAt, ...pricing } = override;
 
   return {
     ...pricing,
     effectiveAt: updatedAt,
     sourceKind: 'override',
+    ...(sourceUrl ? { sourceUrl } : {}),
   };
 };
 
@@ -32,11 +33,11 @@ export const mergeModelPricing = (
   const defaultIds = new Set(defaults.map(({ modelId }) => normalizeModelId(modelId)));
   const mergedDefaults = defaults.map((entry) => {
     const override = overridesById.get(normalizeModelId(entry.modelId));
-    return override ? toOverrideEntry(override) : entry;
+    return override ? toOverrideEntry(override, entry.sourceUrl) : entry;
   });
   const customEntries = overrides
     .filter(({ modelId }) => !defaultIds.has(normalizeModelId(modelId)))
-    .map(toOverrideEntry);
+    .map((override) => toOverrideEntry(override));
 
   return [...mergedDefaults, ...customEntries];
 };
