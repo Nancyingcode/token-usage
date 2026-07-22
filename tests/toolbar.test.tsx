@@ -1,6 +1,7 @@
 import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { PeriodToggle } from '../src/renderer/components/Toolbar';
+import Toolbar, { PeriodToggle } from '../src/renderer/components/Toolbar';
 
 interface PeriodButtonProps {
   'aria-pressed': boolean;
@@ -17,6 +18,21 @@ describe('PeriodToggle', () => {
 
     buttons[0].props.onClick();
     expect(onPeriodChange).toHaveBeenCalledWith('today');
+  });
+
+  it('hides rolling period controls on Budgets', () => {
+    const markup = renderToStaticMarkup(
+      <Toolbar
+        activeView="budgets"
+        loading={false}
+        onRefresh={vi.fn()}
+        period="month"
+        onPeriodChange={vi.fn()}
+      />
+    );
+
+    expect(markup).not.toContain('Date range');
+    expect(markup).toContain('Budgets');
   });
 });
 

@@ -19,4 +19,13 @@ describe('Sidebar', () => {
 
     expect(markup).not.toContain('nav-badge');
   });
+
+  it('shows budget alerts on the Budgets navigation item', () => {
+    const markup = renderToStaticMarkup(
+      <Sidebar activeView="overview" warningCount={0} budgetAlertCount={2} onChange={vi.fn()} />
+    );
+
+    expect(markup).toContain('Budgets');
+    expect(markup).toContain('<em class="nav-badge">2</em>');
+  });
 });

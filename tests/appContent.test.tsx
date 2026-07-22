@@ -66,4 +66,29 @@ describe('AppContent', () => {
 
     expect(markup).toBe('');
   });
+
+  it('renders budget state before usage scan errors', () => {
+    const markup = renderToStaticMarkup(
+      <AppContent
+        activeView="budgets"
+        model={{ kind: 'error', message: 'Disk unavailable' }}
+        budgetModel={{
+          kind: 'ready',
+          snapshot: {
+            generatedAt: '2026-07-20T00:00:00.000Z',
+            dataState: 'fresh',
+            thresholds: { warningPercent: 80, criticalPercent: 100 },
+            statuses: [],
+            alerts: [],
+            summary: { warningCount: 0, overCount: 0, unpricedModelCount: 0 },
+            pricing: [],
+            unpricedModels: [],
+          },
+        }}
+      />
+    );
+
+    expect(markup).toContain('Budget center');
+    expect(markup).not.toContain('Scan failed');
+  });
 });

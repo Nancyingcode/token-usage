@@ -19,6 +19,7 @@ interface ToolbarProps extends PeriodToggleProps {
 
 const VIEW_LABELS: Record<ViewKey, string> = {
   overview: 'Overview',
+  budgets: 'Budgets',
   sessions: 'Sessions',
   tools: 'Tools',
   performance: 'Performance',
@@ -54,31 +55,35 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onRefresh,
   period,
   onPeriodChange,
-}) => (
-  <header className="toolbar">
-    <div className="toolbar-title">
-      <SidebarIcon size={ICON_SIZE_SMALL} strokeWidth={ICON_STROKE_WIDTH} />
-      <strong>{VIEW_LABELS[activeView]}</strong>
-      <span className="daemon-pill">
-        <i />
-        Daemon
-      </span>
-      {scannedAt ? <span className="scan-time">{formatShortDateTime(scannedAt)}</span> : null}
-    </div>
+}) => {
+  const showPeriodToggle = activeView !== 'budgets';
 
-    <div className="toolbar-actions">
-      <PeriodToggle period={period} onPeriodChange={onPeriodChange} />
-      <button
-        className="icon-button"
-        type="button"
-        onClick={onRefresh}
-        disabled={loading}
-        title="Refresh"
-      >
-        <RefreshCw size={ICON_SIZE_SMALL} className={loading ? 'spinning' : undefined} />
-      </button>
-    </div>
-  </header>
-);
+  return (
+    <header className="toolbar">
+      <div className="toolbar-title">
+        <SidebarIcon size={ICON_SIZE_SMALL} strokeWidth={ICON_STROKE_WIDTH} />
+        <strong>{VIEW_LABELS[activeView]}</strong>
+        <span className="daemon-pill">
+          <i />
+          Daemon
+        </span>
+        {scannedAt ? <span className="scan-time">{formatShortDateTime(scannedAt)}</span> : null}
+      </div>
+
+      <div className="toolbar-actions">
+        {showPeriodToggle ? <PeriodToggle period={period} onPeriodChange={onPeriodChange} /> : null}
+        <button
+          className="icon-button"
+          type="button"
+          onClick={onRefresh}
+          disabled={loading}
+          title="Refresh"
+        >
+          <RefreshCw size={ICON_SIZE_SMALL} className={loading ? 'spinning' : undefined} />
+        </button>
+      </div>
+    </header>
+  );
+};
 
 export default Toolbar;
