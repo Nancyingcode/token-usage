@@ -100,6 +100,7 @@ const App: React.FC = () => {
           activeView={activeView}
           model={contentModel}
           budgetModel={budgetModel}
+          budgetActions={budgetState.actions}
           focusedPolicyId={focusedPolicyId}
         />
       </main>

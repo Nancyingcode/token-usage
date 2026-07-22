@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   formatCompactNumber,
   formatNumber,
+  formatPercent,
   formatShortDateTime,
+  formatUsd,
 } from '../src/renderer/utils/formatters';
 
 describe('renderer formatters', () => {
@@ -13,5 +15,10 @@ describe('renderer formatters', () => {
 
   it('returns a stable fallback for invalid dates', () => {
     expect(formatShortDateTime('not-a-date')).toBe('Unknown date');
+  });
+
+  it('formats budget costs and actual percentages', () => {
+    expect(formatUsd(12.3456)).toBe('$12.3456');
+    expect(formatPercent(111.6)).toBe('112%');
   });
 });

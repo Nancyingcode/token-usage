@@ -2,7 +2,9 @@ import React from 'react';
 import { AlertCircle } from 'lucide-react';
 import { ICON_SIZE_LARGE } from '../constants/ui';
 import type { BudgetSnapshot } from '../../shared/budgetTypes';
+import type { BudgetActions } from '../hooks/useBudgetSnapshot';
 import type { AppContentModel } from '../utils/appContentModel';
+import BudgetsView from './BudgetsView';
 import EmptyState from './EmptyState';
 import Overview from './Overview';
 import PeriodEmptyState from './PeriodEmptyState';
@@ -16,6 +18,7 @@ interface AppContentProps {
   activeView: ViewKey;
   model: AppContentModel;
   budgetModel?: BudgetContentModel;
+  budgetActions?: BudgetActions;
   focusedPolicyId?: string | null;
 }
 
@@ -24,7 +27,11 @@ export type BudgetContentModel =
   | { kind: 'error'; message: string }
   | { kind: 'ready'; snapshot: BudgetSnapshot };
 
-const renderBudgetContent = (model: BudgetContentModel | undefined): React.ReactNode => {
+const renderBudgetContent = (
+  model: BudgetContentModel | undefined,
+  actions: BudgetActions | undefined,
+  focusedPolicyId: string | null | undefined
+): React.ReactNode => {
   if (!model || model.kind === 'loading') {
     return (
       <section className="state-panel">
@@ -49,22 +56,25 @@ const renderBudgetContent = (model: BudgetContentModel | undefined): React.React
     );
   }
 
-  return (
+  return actions ? (
+    <BudgetsView snapshot={model.snapshot} actions={actions} focusedPolicyId={focusedPolicyId} />
+  ) : (
     <section className="panel budget-placeholder">
-      <div className="panel-heading compact">
-        <div>
-          <h3>Budget center</h3>
-          <p>Token and estimated cost controls</p>
-        </div>
-      </div>
+      <h3>Budget center</h3>
       <p>{model.snapshot.statuses.length} budget policies configured.</p>
     </section>
   );
 };
 
-const AppContent: React.FC<AppContentProps> = ({ activeView, model, budgetModel }) => {
+const AppContent: React.FC<AppContentProps> = ({
+  activeView,
+  model,
+  budgetModel,
+  budgetActions,
+  focusedPolicyId,
+}) => {
   if (activeView === 'budgets') {
-    return renderBudgetContent(budgetModel);
+    return renderBudgetContent(budgetModel, budgetActions, focusedPolicyId);
   }
 
   switch (model.kind) {
