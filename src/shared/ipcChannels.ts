@@ -1,1 +1,11 @@
 export const USAGE_SCAN_CHANNEL = 'usage:scan';
+export const USAGE_UPDATED_CHANNEL = 'usage:updated';
+export const BUDGET_GET_SNAPSHOT_CHANNEL = 'budget:get-snapshot';
+export const BUDGET_SAVE_POLICY_CHANNEL = 'budget:save-policy';
+export const BUDGET_DELETE_POLICY_CHANNEL = 'budget:delete-policy';
+export const BUDGET_UPDATE_THRESHOLDS_CHANNEL = 'budget:update-thresholds';
+export const BUDGET_SAVE_PRICING_CHANNEL = 'budget:save-pricing';
+export const BUDGET_RESET_PRICING_CHANNEL = 'budget:reset-pricing';
+export const BUDGET_UPDATED_CHANNEL = 'budget:updated';
+export const BUDGET_NAVIGATE_CHANNEL = 'budget:navigate';
+export const OPEN_EXTERNAL_CHANNEL = 'app:open-external';
