@@ -9,6 +9,16 @@ import parseSessionJsonl from './sessionParser';
 
 export interface ScanOptions {
   sessionsDir?: string;
+  sessionIndexPath?: string;
+}
+
+export interface UsageScanner {
+  scan: (options?: ScanOptions) => Promise<UsageScanResult>;
+}
+
+export interface UsageScannerDependencies {
+  readFile: (path: string, encoding: 'utf8') => Promise<string>;
+  stat: (path: string) => Promise<{ size: number; mtimeMs: number }>;
 }
 
 interface FileDiscoveryResult {
@@ -30,33 +40,92 @@ interface IndexedResult<Value> {
   value: Value;
 }
 
+interface CachedSessionFile {
+  fingerprint: string;
+  session: UsageSession;
+}
+
 const MAX_CONCURRENT_FILE_READS = 8;
 
-export const scanCodexUsage = async (options: ScanOptions = {}): Promise<UsageScanResult> => {
-  const sessionsDir = options.sessionsDir ?? getDefaultCodexSessionsDir();
-  const [discovery, threadNameResult] = await Promise.all([
-    findJsonlFiles(sessionsDir),
-    loadThreadNames(getDefaultSessionIndexPath()),
-  ]);
-  const fileResults = await mapWithConcurrency(
-    discovery.files,
-    MAX_CONCURRENT_FILE_READS,
-    async (file) => readSessionFile(file, threadNameResult.names)
-  );
-  const sessions = fileResults.flatMap(({ session }) => (session ? [session] : []));
-  const warnings = [
-    ...discovery.warnings,
-    ...threadNameResult.warnings,
-    ...fileResults.flatMap((result) => result.warnings),
-  ];
+export const createUsageScanner = (
+  dependencies: Partial<UsageScannerDependencies> = {}
+): UsageScanner => {
+  const readFile =
+    dependencies.readFile ??
+    ((path: string, encoding: 'utf8'): Promise<string> => fs.readFile(path, encoding));
+  const stat =
+    dependencies.stat ??
+    (async (path: string): Promise<{ size: number; mtimeMs: number }> => fs.stat(path));
+  const cache = new Map<string, CachedSessionFile>();
 
-  return {
-    sessionsDir,
-    scannedAt: new Date().toISOString(),
-    summary: buildUsageSummary(sessions),
-    warnings,
+  const scan = async (options: ScanOptions = {}): Promise<UsageScanResult> => {
+    const sessionsDir = options.sessionsDir ?? getDefaultCodexSessionsDir();
+    const sessionIndexPath = options.sessionIndexPath ?? getDefaultSessionIndexPath();
+    const [discovery, threadNameResult] = await Promise.all([
+      findJsonlFiles(sessionsDir),
+      loadThreadNames(sessionIndexPath, readFile),
+    ]);
+    const discoveredPaths = new Set(discovery.files);
+
+    [...cache.keys()]
+      .filter((path) => !discoveredPaths.has(path))
+      .forEach((path) => cache.delete(path));
+
+    const fileResults = await mapWithConcurrency(
+      discovery.files,
+      MAX_CONCURRENT_FILE_READS,
+      async (file): Promise<SessionFileResult> => {
+        try {
+          const fileStat = await stat(file);
+          const fingerprint = `${fileStat.size}:${fileStat.mtimeMs}`;
+          const cached = cache.get(file);
+          const parsedSession =
+            cached?.fingerprint === fingerprint
+              ? cached.session
+              : parseSessionJsonl(file, await readFile(file, 'utf8'));
+
+          cache.set(file, { fingerprint, session: parsedSession });
+
+          const session = {
+            ...parsedSession,
+            threadName: threadNameResult.names.get(getSessionId(file)),
+          };
+
+          return { session, warnings: session.warnings };
+        } catch (error) {
+          return {
+            warnings: [
+              {
+                sourceFile: file,
+                message: `Unable to read session file: ${errorMessage(error)}`,
+              },
+            ],
+          };
+        }
+      }
+    );
+    const sessions = fileResults.flatMap(({ session }) => (session ? [session] : []));
+    const warnings = [
+      ...discovery.warnings,
+      ...threadNameResult.warnings,
+      ...fileResults.flatMap((result) => result.warnings),
+    ];
+
+    return {
+      sessionsDir,
+      scannedAt: new Date().toISOString(),
+      summary: buildUsageSummary(sessions),
+      warnings,
+    };
   };
+
+  return { scan };
 };
+
+const defaultUsageScanner = createUsageScanner();
+
+export const scanCodexUsage = (options: ScanOptions = {}): Promise<UsageScanResult> =>
+  defaultUsageScanner.scan(options);
 
 const findJsonlFiles = async (dir: string): Promise<FileDiscoveryResult> => {
   try {
@@ -94,12 +163,15 @@ const findJsonlFiles = async (dir: string): Promise<FileDiscoveryResult> => {
   }
 };
 
-const loadThreadNames = async (sessionIndexPath: string): Promise<ThreadNameResult> => {
+const loadThreadNames = async (
+  sessionIndexPath: string,
+  readFile: UsageScannerDependencies['readFile']
+): Promise<ThreadNameResult> => {
   const names = new Map<string, string>();
   const warnings: UsageWarning[] = [];
 
   try {
-    const content = await fs.readFile(sessionIndexPath, 'utf8');
+    const content = await readFile(sessionIndexPath, 'utf8');
     const lines = content.split(/\r?\n/);
 
     lines.forEach((line, index) => {
@@ -132,28 +204,6 @@ const loadThreadNames = async (sessionIndexPath: string): Promise<ThreadNameResu
   }
 
   return { names, warnings };
-};
-
-const readSessionFile = async (
-  file: string,
-  threadNames: Map<string, string>
-): Promise<SessionFileResult> => {
-  try {
-    const content = await fs.readFile(file, 'utf8');
-    const sourceSessionId = getSessionId(file);
-    const session = parseSessionJsonl(file, content, threadNames.get(sourceSessionId));
-
-    return { session, warnings: session.warnings };
-  } catch (error) {
-    return {
-      warnings: [
-        {
-          sourceFile: file,
-          message: `Unable to read session file: ${errorMessage(error)}`,
-        },
-      ],
-    };
-  }
 };
 
 const mapWithConcurrency = async <Input, Output>(

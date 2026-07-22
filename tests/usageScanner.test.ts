@@ -1,8 +1,8 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { appendFile, mkdtemp, readFile, rm, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { scanCodexUsage } from '../src/main/usageScanner';
+import { createUsageScanner, scanCodexUsage } from '../src/main/usageScanner';
 
 const TEST_DIRECTORY_PREFIX = 'codex-token-usage-';
 
@@ -38,6 +38,37 @@ describe('usageScanner', () => {
     expect(result.summary.sessions).toEqual([]);
     expect(result.warnings).toHaveLength(1);
     expect(result.warnings[0].sourceFile).toBe(missingDirectory);
+  });
+
+  it('reuses unchanged parsed sessions and removes deleted files', async () => {
+    const sessionFile = join(testDirectory, 'cached.jsonl');
+    const missingIndexPath = join(testDirectory, 'missing-index.jsonl');
+    let sessionReadCount = 0;
+    await writeFile(sessionFile, validSession('cached', '2026-07-16T00:00:00.000Z'));
+    const scanner = createUsageScanner({
+      readFile: async (path, encoding) => {
+        if (String(path) === sessionFile) {
+          sessionReadCount += 1;
+        }
+
+        return readFile(path, encoding);
+      },
+    });
+
+    await scanner.scan({ sessionsDir: testDirectory, sessionIndexPath: missingIndexPath });
+    await scanner.scan({ sessionsDir: testDirectory, sessionIndexPath: missingIndexPath });
+    expect(sessionReadCount).toBe(1);
+
+    await appendFile(sessionFile, '\n');
+    await scanner.scan({ sessionsDir: testDirectory, sessionIndexPath: missingIndexPath });
+    expect(sessionReadCount).toBe(2);
+
+    await unlink(sessionFile);
+    const result = await scanner.scan({
+      sessionsDir: testDirectory,
+      sessionIndexPath: missingIndexPath,
+    });
+    expect(result.summary.sessions).toEqual([]);
   });
 });
 
