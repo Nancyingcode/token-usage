@@ -813,6 +813,52 @@ code {
   gap: 7px;
 }
 
+.budget-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.primary-button,
+.secondary-button,
+.danger-button {
+  min-height: 30px;
+  padding: 0 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.primary-button {
+  color: #ffffff;
+  background: #23835a;
+  border-color: #23835a;
+}
+
+.secondary-button {
+  color: #444444;
+  background: #ffffff;
+  border-color: #dddddd;
+}
+
+.danger-button {
+  color: #ffffff;
+  background: #c74646;
+  border-color: #c74646;
+}
+
+.primary-button:disabled,
+.secondary-button:disabled,
+.danger-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
 .budget-thresholds span {
   padding: 5px 8px;
   color: #666666;
@@ -1143,6 +1189,194 @@ code {
   font-size: 12px;
 }
 
+.budget-drawer {
+  position: fixed;
+  z-index: 20;
+  top: 0;
+  right: 0;
+  width: min(420px, 100vw);
+  height: 100vh;
+  overflow-y: auto;
+  background: #ffffff;
+  border-left: 1px solid #dddddd;
+  box-shadow: -12px 0 32px rgba(30, 35, 40, 0.14);
+}
+
+.drawer-form {
+  min-height: 100%;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 17px;
+}
+
+.drawer-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #ededed;
+}
+
+.drawer-heading h2,
+.confirm-dialog h2 {
+  margin: 0;
+  font-size: 15px;
+  letter-spacing: 0;
+}
+
+.drawer-heading p,
+.confirm-dialog p {
+  margin: 5px 0 0;
+  color: #777777;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.drawer-form fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.drawer-form legend,
+.form-field > span {
+  display: block;
+  margin-bottom: 7px;
+  color: #555555;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.segmented-control {
+  height: 34px;
+  padding: 3px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+  background: #f3f3f3;
+  border: 1px solid #e7e7e7;
+  border-radius: 6px;
+}
+
+.segmented-control.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.segmented-control button {
+  min-width: 0;
+  color: #777777;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  font-size: 10px;
+}
+
+.segmented-control button.active {
+  color: #222222;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  font-weight: 700;
+}
+
+.form-field,
+.limit-setting {
+  display: block;
+}
+
+.form-field input,
+.limit-setting > input {
+  width: 100%;
+  height: 34px;
+  padding: 0 9px;
+  color: #333333;
+  background: #ffffff;
+  border: 1px solid #dcdcdc;
+  border-radius: 5px;
+  font-size: 11px;
+}
+
+.limit-setting {
+  padding: 12px;
+  display: grid;
+  gap: 9px;
+  background: #fafafa;
+  border: 1px solid #e8e8e8;
+  border-radius: 7px;
+}
+
+.toggle-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #444444;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.toggle-field input {
+  width: 15px;
+  height: 15px;
+  accent-color: #23835a;
+}
+
+.field-error,
+.form-error {
+  color: #b83f3f;
+  font-size: 10px;
+}
+
+.field-error {
+  display: block;
+  margin-top: 5px;
+}
+
+.form-error {
+  margin: 0;
+  padding: 8px 10px;
+  background: #fff2f1;
+  border: 1px solid #efc5c2;
+  border-radius: 5px;
+}
+
+.drawer-actions {
+  margin-top: auto;
+  padding-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid #ededed;
+}
+
+.dialog-backdrop {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(28, 31, 34, 0.32);
+}
+
+.confirm-dialog {
+  width: min(380px, 100%);
+  padding: 18px;
+  display: grid;
+  gap: 18px;
+  background: #ffffff;
+  border: 1px solid #dddddd;
+  border-radius: 8px;
+  box-shadow: 0 18px 48px rgba(25, 28, 32, 0.22);
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .loader {
   width: 24px;
   height: 24px;
@@ -1215,6 +1449,11 @@ code {
   .budget-filter-bar {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .budget-heading-actions {
+    align-items: stretch;
+    flex-wrap: wrap;
   }
 
   .budget-thresholds {

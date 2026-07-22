@@ -31,6 +31,7 @@ const App: React.FC = () => {
       setLoading(false);
     }
   }, []);
+  const clearFocusedPolicy = useCallback(() => setFocusedPolicyId(null), []);
 
   useEffect(() => {
     refresh();
@@ -102,6 +103,7 @@ const App: React.FC = () => {
           budgetModel={budgetModel}
           budgetActions={budgetState.actions}
           focusedPolicyId={focusedPolicyId}
+          onFocusedPolicyConsumed={clearFocusedPolicy}
         />
       </main>
     </div>

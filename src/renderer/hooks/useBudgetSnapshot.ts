@@ -61,15 +61,9 @@ export const useBudgetSnapshot = (): UseBudgetSnapshotResult => {
   }, []);
 
   const applySnapshot = useCallback(async (operation: Promise<BudgetSnapshot>) => {
-    try {
-      const nextSnapshot = await operation;
-      setSnapshot(nextSnapshot);
-      setError(null);
-      return nextSnapshot;
-    } catch (actionError) {
-      setError(getErrorMessage(actionError));
-      throw actionError;
-    }
+    const nextSnapshot = await operation;
+    setSnapshot(nextSnapshot);
+    return nextSnapshot;
   }, []);
 
   const actions = useMemo<BudgetActions>(

@@ -20,6 +20,7 @@ interface AppContentProps {
   budgetModel?: BudgetContentModel;
   budgetActions?: BudgetActions;
   focusedPolicyId?: string | null;
+  onFocusedPolicyConsumed?: () => void;
 }
 
 export type BudgetContentModel =
@@ -30,7 +31,8 @@ export type BudgetContentModel =
 const renderBudgetContent = (
   model: BudgetContentModel | undefined,
   actions: BudgetActions | undefined,
-  focusedPolicyId: string | null | undefined
+  focusedPolicyId: string | null | undefined,
+  onFocusedPolicyConsumed: (() => void) | undefined
 ): React.ReactNode => {
   if (!model || model.kind === 'loading') {
     return (
@@ -57,7 +59,12 @@ const renderBudgetContent = (
   }
 
   return actions ? (
-    <BudgetsView snapshot={model.snapshot} actions={actions} focusedPolicyId={focusedPolicyId} />
+    <BudgetsView
+      snapshot={model.snapshot}
+      actions={actions}
+      focusedPolicyId={focusedPolicyId}
+      onFocusedPolicyConsumed={onFocusedPolicyConsumed}
+    />
   ) : (
     <section className="panel budget-placeholder">
       <h3>Budget center</h3>
@@ -72,9 +79,15 @@ const AppContent: React.FC<AppContentProps> = ({
   budgetModel,
   budgetActions,
   focusedPolicyId,
+  onFocusedPolicyConsumed,
 }) => {
   if (activeView === 'budgets') {
-    return renderBudgetContent(budgetModel, budgetActions, focusedPolicyId);
+    return renderBudgetContent(
+      budgetModel,
+      budgetActions,
+      focusedPolicyId,
+      onFocusedPolicyConsumed
+    );
   }
 
   switch (model.kind) {
