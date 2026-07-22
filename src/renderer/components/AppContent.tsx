@@ -90,6 +90,8 @@ const AppContent: React.FC<AppContentProps> = ({
     );
   }
 
+  const pricing = budgetModel?.kind === 'ready' ? budgetModel.snapshot.pricing : [];
+
   switch (model.kind) {
     case 'error':
       return (
@@ -118,10 +120,14 @@ const AppContent: React.FC<AppContentProps> = ({
     case 'ready':
       return (
         <>
-          {activeView === 'overview' ? <Overview summary={model.summary} /> : null}
+          {activeView === 'overview' ? (
+            <Overview summary={model.summary} pricing={pricing} />
+          ) : null}
           {activeView === 'sessions' ? <SessionsView sessions={model.summary.sessions} /> : null}
           {activeView === 'tools' ? <ProjectsView projects={model.summary.byProject} /> : null}
-          {activeView === 'performance' ? <PerformanceView summary={model.summary} /> : null}
+          {activeView === 'performance' ? (
+            <PerformanceView summary={model.summary} pricing={pricing} />
+          ) : null}
           {activeView === 'wrapped' ? <SettingsView result={model.result} /> : null}
         </>
       );

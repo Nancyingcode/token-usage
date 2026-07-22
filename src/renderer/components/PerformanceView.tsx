@@ -1,10 +1,14 @@
 import React from 'react';
-import { estimateTokenCost, getCachePercentage } from '../../shared/usageMetrics';
+import type { ModelPricingEntry } from '../../shared/budgetTypes';
+import { getSummaryCostEstimate } from '../../shared/pricing';
+import { getCachePercentage } from '../../shared/usageMetrics';
 import type { UsageSummary } from '../../shared/usageTypes';
+import { formatUsd } from '../utils/formatters';
 import TokenBar from './TokenBar';
 
 interface PerformanceViewProps {
   summary: UsageSummary;
+  pricing: ModelPricingEntry[];
 }
 
 interface MiniLineProps {
@@ -86,7 +90,7 @@ const Donut: React.FC<DonutProps> = ({ value }) => {
   );
 };
 
-const PerformanceView: React.FC<PerformanceViewProps> = ({ summary }) => {
+const PerformanceView: React.FC<PerformanceViewProps> = ({ summary, pricing }) => {
   const days = summary.byDay.slice(-PERFORMANCE_HISTORY_DAYS);
   const maxDay = Math.max(1, ...days.map((day) => day.totalTokens));
   const maxSession = Math.max(
@@ -97,7 +101,8 @@ const PerformanceView: React.FC<PerformanceViewProps> = ({ summary }) => {
     summary.totals.inputTokens,
     summary.totals.cachedInputTokens
   );
-  const totalCost = estimateTokenCost(summary.totals.totalTokens);
+  const totalCost = getSummaryCostEstimate(summary, pricing);
+  const pricingIncomplete = totalCost.unpricedTokens > 0;
 
   return (
     <section className="performance-grid">
@@ -109,7 +114,8 @@ const PerformanceView: React.FC<PerformanceViewProps> = ({ summary }) => {
 
       <article className="panel perf-card">
         <h3>Cost Efficiency</h3>
-        <p>${totalCost.toFixed(2)}</p>
+        <p>{formatUsd(totalCost.pricedCostUsd)}</p>
+        {pricingIncomplete ? <p className="pricing-incomplete-label">Pricing incomplete</p> : null}
         <MiniLine days={days} max={maxDay} tone="blue" />
       </article>
 

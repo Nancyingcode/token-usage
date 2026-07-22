@@ -35,9 +35,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ result }) => (
 
     <article className="panel">
       <p className="eyebrow">Cost estimate</p>
-      <h3>Token-based Estimate</h3>
+      <h3>Model-based Estimate</h3>
       <p>
-        Cost is derived from token totals for display only. Raw token statistics stay unchanged.
+        Cost uses the model recorded in local sessions and the Budgets price table. Unknown models
+        remain unpriced, and estimates do not represent an actual bill.
       </p>
     </article>
 

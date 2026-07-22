@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
 import { Coins, FileCode2, LockKeyhole, MessageSquareText } from 'lucide-react';
-import { estimateTokenCost, getCachePercentage } from '../../shared/usageMetrics';
+import type { CostEstimate, ModelPricingEntry } from '../../shared/budgetTypes';
+import { buildDailyCostEstimates, getSummaryCostEstimate } from '../../shared/pricing';
+import { getCachePercentage } from '../../shared/usageMetrics';
 import type { UsageDay, UsageSummary } from '../../shared/usageTypes';
-import { formatCompactNumber, formatNumber } from '../utils/formatters';
+import { formatCompactNumber, formatNumber, formatUsd } from '../utils/formatters';
 import MetricCard from './MetricCard';
 
 interface OverviewProps {
   summary: UsageSummary;
+  pricing: ModelPricingEntry[];
 }
 
 interface TrendChartProps {
   days: UsageDay[];
   max: number;
+  dailyCosts: Map<string, CostEstimate>;
 }
 
 interface ActivityGridProps {
@@ -50,22 +54,29 @@ export interface TrendPoint {
   y: number;
   day: UsageDay;
   cost: number;
+  pricingIncomplete: boolean;
   placement: TooltipPlacement;
 }
 
-export const buildTrendPoints = (days: UsageDay[], max: number): TrendPoint[] => {
+export const buildTrendPoints = (
+  days: UsageDay[],
+  max: number,
+  dailyCosts: Map<string, CostEstimate>
+): TrendPoint[] => {
   return days.map((day, index) => {
     const x =
       days.length <= 1
         ? CHART_LEFT
         : CHART_LEFT + (index / (days.length - 1)) * (CHART_RIGHT - CHART_LEFT);
     const y = CHART_BASELINE - (day.totalTokens / max) * CHART_VERTICAL_RANGE;
+    const costEstimate = dailyCosts.get(day.date);
 
     return {
       x,
       y,
       day,
-      cost: estimateTokenCost(day.totalTokens),
+      cost: costEstimate?.pricedCostUsd ?? 0,
+      pricingIncomplete: (costEstimate?.unpricedTokens ?? 0) > 0,
       placement: getTooltipPlacement(x),
     };
   });
@@ -90,9 +101,9 @@ const getTooltipStyle = (point: TrendPoint): React.CSSProperties => {
   } as React.CSSProperties;
 };
 
-const TrendChart: React.FC<TrendChartProps> = ({ days, max }) => {
+const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
   const [activeDate, setActiveDate] = useState<string | null>(null);
-  const points = buildTrendPoints(days, max);
+  const points = buildTrendPoints(days, max, dailyCosts);
   const activePoint = points.find(({ day }) => day.date === activeDate);
   const path = points
     .map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x},${point.y}`)
@@ -127,7 +138,8 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max }) => {
           ) : null}
           {points.map((point) => {
             const active = point.day.date === activeDate;
-            const ariaLabel = `${point.day.date}, ${formatNumber(point.day.totalTokens)} total tokens, estimated cost $${point.cost.toFixed(2)}`;
+            const pricingState = point.pricingIncomplete ? ', pricing incomplete' : '';
+            const ariaLabel = `${point.day.date}, ${formatNumber(point.day.totalTokens)} total tokens, estimated cost ${formatUsd(point.cost)}${pricingState}`;
 
             return (
               <g key={point.day.date}>
@@ -163,8 +175,11 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max }) => {
             <strong>{activePoint.day.date}</strong>
             <div className="trend-tooltip-cost">
               <span>Estimated cost</span>
-              <b>${activePoint.cost.toFixed(2)}</b>
+              <b>{formatUsd(activePoint.cost)}</b>
             </div>
+            {activePoint.pricingIncomplete ? (
+              <span className="pricing-incomplete-label">Pricing incomplete</span>
+            ) : null}
             <dl>
               <div>
                 <dt>Total</dt>
@@ -225,10 +240,19 @@ const ActivityGrid: React.FC<ActivityGridProps> = ({ days }) => {
   );
 };
 
-const Overview: React.FC<OverviewProps> = ({ summary }) => {
+const Overview: React.FC<OverviewProps> = ({ summary, pricing }) => {
   const days = summary.byDay.slice(-TREND_HISTORY_DAYS);
   const maxDay = Math.max(1, ...days.map((day) => day.totalTokens));
-  const totalCost = estimateTokenCost(summary.totals.totalTokens);
+  const totalCost = getSummaryCostEstimate(summary, pricing);
+  const pricingIncomplete = totalCost.unpricedTokens > 0;
+  const dailyCosts = new Map<string, CostEstimate>(
+    buildDailyCostEstimates(summary.sessions, pricing).map(
+      ({ date, pricedCostUsd, unpricedTokens, unpricedModelIds }) => [
+        date,
+        { pricedCostUsd, unpricedTokens, unpricedModelIds },
+      ]
+    )
+  );
   const cachePercentage = getCachePercentage(
     summary.totals.inputTokens,
     summary.totals.cachedInputTokens
@@ -239,8 +263,12 @@ const Overview: React.FC<OverviewProps> = ({ summary }) => {
       <div className="metric-grid">
         <MetricCard
           label="Total Cost"
-          value={`$${totalCost.toFixed(1)}`}
-          detail={`~${formatCompactNumber(summary.totals.totalTokens)} tokens processed`}
+          value={formatUsd(totalCost.pricedCostUsd)}
+          detail={
+            pricingIncomplete
+              ? `Pricing incomplete · ${formatCompactNumber(totalCost.unpricedTokens)} unpriced tokens`
+              : `${formatCompactNumber(summary.totals.totalTokens)} tokens priced`
+          }
           icon={Coins}
           tone="mint"
         />
@@ -271,10 +299,13 @@ const Overview: React.FC<OverviewProps> = ({ summary }) => {
         <div className="panel-heading compact">
           <div>
             <h3>Cost Trends</h3>
-            <p>Total: ${totalCost.toFixed(1)}</p>
+            <p>
+              Total: {formatUsd(totalCost.pricedCostUsd)}
+              {pricingIncomplete ? ' · Pricing incomplete' : ''}
+            </p>
           </div>
         </div>
-        <TrendChart days={days} max={maxDay} />
+        <TrendChart days={days} max={maxDay} dailyCosts={dailyCosts} />
         <div className="chart-legend">
           <span>
             <i style={{ background: CHART_COLORS[0] }} /> Input

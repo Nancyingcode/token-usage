@@ -4,7 +4,7 @@ import type {
   ModelPricingEntry,
   ModelPricingOverride,
 } from './budgetTypes';
-import type { UsageSession, UsageSlice } from './usageTypes';
+import type { UsageSession, UsageSlice, UsageSummary } from './usageTypes';
 
 const TOKENS_PER_MILLION = 1_000_000;
 const UNKNOWN_MODEL_ID = 'Unknown model';
@@ -121,6 +121,12 @@ export const getSessionUsageSlices = (session: UsageSession): UsageSlice[] => {
       ]
     : [];
 };
+
+export const getSummaryCostEstimate = (
+  summary: UsageSummary,
+  pricingEntries: ModelPricingEntry[]
+): CostEstimate =>
+  calculateEstimatedCost(summary.sessions.flatMap(getSessionUsageSlices), pricingEntries);
 
 const toLocalDateKey = (timestamp: string): string | undefined => {
   const date = new Date(timestamp);
