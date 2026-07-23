@@ -1,3 +1,8 @@
+/**
+ * @file 预算状态列表
+ * @description
+ * 按状态组展示令牌和成本预算进度，并将编辑、删除操作交由上层处理。
+ */
 import React from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import type {

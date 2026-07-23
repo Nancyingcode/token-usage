@@ -1,3 +1,8 @@
+/**
+ * @file Codex 会话解析器
+ * @description
+ * 将 JSONL 会话记录转换为可聚合的用量会话，并收集无法解析或不完整记录的警告。
+ */
 import getSessionId from '../shared/sessionId';
 import { isRecord } from '../shared/runtimeTypes';
 import { addTokenUsage, emptyTokenUsage, getProjectName } from '../shared/usageMath';

@@ -1,3 +1,8 @@
+/**
+ * @file 模型价格设置视图
+ * @description
+ * 展示模型计价信息，并提供价格覆盖项的新增、编辑、校验与重置交互。
+ */
 import React, { useEffect, useState } from 'react';
 import { ExternalLink, Pencil, Plus, RotateCcw, Save, X } from 'lucide-react';
 import type {

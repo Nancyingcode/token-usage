@@ -1,3 +1,8 @@
+/**
+ * @file 模型价格与成本计算
+ * @description
+ * 合并默认价格和用户覆盖项，并按模型、会话及日期计算可追溯的成本估算。
+ */
 import type {
   CostEstimate,
   DailyCostEstimate,

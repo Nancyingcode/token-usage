@@ -1,3 +1,8 @@
+/**
+ * @file 性能分析视图
+ * @description
+ * 展示近期用量趋势、缓存效率、会话峰值和成本等性能指标。
+ */
 import React from 'react';
 import type { ModelPricingEntry } from '../../shared/budgetTypes';
 import { getSummaryCostEstimate } from '../../shared/pricing';

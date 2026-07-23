@@ -215,4 +215,4 @@ if (isLogin) {
 
 ### 4.4 文件头
 
-- [文件头规范](./style-guide.md)
+- [文件头规范](./rules/file-header.md)

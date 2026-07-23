@@ -1,3 +1,8 @@
+/**
+ * @file 用量概览视图
+ * @description
+ * 展示令牌与成本摘要、每日趋势和活动分布，并计算图表所需的展示模型。
+ */
 import React, { useState } from 'react';
 import { Coins, FileCode2, LockKeyhole, MessageSquareText } from 'lucide-react';
 import type { CostEstimate, ModelPricingEntry } from '../../shared/budgetTypes';

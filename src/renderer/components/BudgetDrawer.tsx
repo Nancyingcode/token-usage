@@ -1,3 +1,8 @@
+/**
+ * @file 预算编辑抽屉
+ * @description
+ * 提供预算策略与告警阈值表单，负责字段校验和保存交互，不持有全局预算快照。
+ */
 import React, { useReducer, useState } from 'react';
 import { Save, X } from 'lucide-react';
 import type {

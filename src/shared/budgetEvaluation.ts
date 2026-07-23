@@ -1,3 +1,8 @@
+/**
+ * @file 预算评估
+ * @description
+ * 根据用量切片、预算策略和模型价格计算预算进度、严重级别、提醒及未定价模型。
+ */
 import { getNaturalPeriodRange, normalizeProjectPath } from './budgetPeriods';
 import type {
   BudgetAlert,

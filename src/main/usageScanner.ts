@@ -1,3 +1,8 @@
+/**
+ * @file Codex 用量扫描器
+ * @description
+ * 发现并并发读取会话文件，关联任务名称、复用文件缓存，并生成汇总所需的扫描结果。
+ */
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import { isRecord } from '../shared/runtimeTypes';

@@ -1,3 +1,8 @@
+/**
+ * @file 预算配置校验
+ * @description
+ * 校验预算、阈值和价格覆盖输入，并将持久化数据安全解码为当前配置结构。
+ */
 import type {
   BudgetPeriod,
   BudgetPolicy,

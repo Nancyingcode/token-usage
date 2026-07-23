@@ -1,3 +1,8 @@
+/**
+ * @file 预算管理视图
+ * @description
+ * 协调预算概览、筛选、价格设置和编辑器状态，业务数据与写操作由外部模型提供。
+ */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, SlidersHorizontal } from 'lucide-react';
 import type { BudgetPolicy, BudgetSnapshot } from '../../shared/budgetTypes';

@@ -1,3 +1,8 @@
+/**
+ * @file Electron 应用启动入口
+ * @description
+ * 初始化主窗口、用量扫描、预算运行时、通知和 IPC，并协调应用生命周期。
+ */
 import { app, BrowserWindow, Menu, Notification } from 'electron';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';

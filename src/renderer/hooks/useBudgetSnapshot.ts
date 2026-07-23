@@ -1,3 +1,8 @@
+/**
+ * @file 预算快照 Hook
+ * @description
+ * 通过预加载层订阅预算快照并封装预算写操作，统一维护加载和错误状态。
+ */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type {
   BudgetPolicyInput,

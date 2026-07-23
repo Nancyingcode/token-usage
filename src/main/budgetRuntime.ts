@@ -1,3 +1,8 @@
+/**
+ * @file 预算运行时
+ * @description
+ * 协调预算配置、用量评估、通知发送和快照订阅，为 IPC 层提供统一的预算操作边界。
+ */
 import { randomUUID } from 'node:crypto';
 import { evaluateBudgets } from '../shared/budgetEvaluation';
 import { getBudgetBusinessKey } from '../shared/budgetPeriods';
