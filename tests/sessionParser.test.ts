@@ -86,7 +86,9 @@ describe('sessionParser', () => {
     const session = parseSessionJsonl('s3.jsonl', content);
 
     expect(session.totalTokens).toBe(2);
-    expect(session.warnings.length).toBe(1);
+    expect(session.warnings).toEqual([
+      expect.objectContaining({ code: 'malformed-jsonl', line: 2 }),
+    ]);
   });
 
   it('skips non-object JSON records without losing valid usage', () => {
@@ -108,6 +110,10 @@ describe('sessionParser', () => {
     expect(session.totalTokens).toBe(6);
     expect(session.warnings).toHaveLength(2);
     expect(session.warnings.map(({ line }) => line)).toEqual([1, 2]);
+    expect(session.warnings.map(({ code }) => code)).toEqual([
+      'invalid-jsonl-record',
+      'invalid-jsonl-record',
+    ]);
   });
 
   it('rejects invalid token fields without contaminating totals', () => {
@@ -139,7 +145,7 @@ describe('sessionParser', () => {
 
     expect(session.totalTokens).toBe(5);
     expect(session.eventCount).toBe(1);
-    expect(session.warnings).toHaveLength(1);
+    expect(session.warnings).toEqual([expect.objectContaining({ code: 'invalid-token-usage' })]);
   });
 
   it('attributes incremental token slices to the active model', () => {

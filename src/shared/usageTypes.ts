@@ -1,3 +1,11 @@
+export type UsageWarningCode =
+  | 'malformed-jsonl'
+  | 'invalid-jsonl-record'
+  | 'invalid-token-usage'
+  | 'session-file-unreadable'
+  | 'sessions-directory-unreadable'
+  | 'malformed-session-index';
+
 export interface TokenUsage {
   inputTokens: number;
   cachedInputTokens: number;
@@ -8,8 +16,10 @@ export interface TokenUsage {
 
 export interface UsageWarning {
   sourceFile?: string;
+  code: UsageWarningCode;
   message: string;
   line?: number;
+  details?: string;
 }
 
 export interface UsageSlice extends TokenUsage {

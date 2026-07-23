@@ -92,7 +92,13 @@ describe('budget runtime', () => {
 
     await expect(duplicate).rejects.toBeInstanceOf(BudgetRuntimeValidationError);
     await expect(duplicate).rejects.toMatchObject({
-      issues: [{ field: 'businessKey', message: 'A budget already exists for this scope.' }],
+      issues: [
+        {
+          field: 'businessKey',
+          code: 'budget-duplicate',
+          message: 'A budget already exists for this scope.',
+        },
+      ],
     });
   });
 });

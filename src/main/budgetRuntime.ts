@@ -234,7 +234,11 @@ export const createBudgetRuntime = (dependencies: BudgetRuntimeDependencies): Bu
 
     if (input.id && !existingPolicy) {
       throw new BudgetRuntimeValidationError([
-        { field: 'id', message: 'Budget policy was not found.' },
+        {
+          field: 'id',
+          code: 'budget-not-found',
+          message: 'Budget policy was not found.',
+        },
       ]);
     }
 
@@ -245,7 +249,11 @@ export const createBudgetRuntime = (dependencies: BudgetRuntimeDependencies): Bu
 
     if (duplicatePolicy) {
       throw new BudgetRuntimeValidationError([
-        { field: 'businessKey', message: 'A budget already exists for this scope.' },
+        {
+          field: 'businessKey',
+          code: 'budget-duplicate',
+          message: 'A budget already exists for this scope.',
+        },
       ]);
     }
 

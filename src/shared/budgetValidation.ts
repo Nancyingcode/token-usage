@@ -14,6 +14,7 @@ import type {
   NotificationReceipt,
   PersistedBudgetConfig,
   ValidationIssue,
+  ValidationIssueCode,
 } from './budgetTypes';
 import { getBudgetBusinessKey } from './budgetPeriods';
 import { isRecord } from './runtimeTypes';
@@ -23,6 +24,35 @@ const MAXIMUM_PERCENT = 100;
 const MINIMUM_PRICE = 0;
 
 export const BUDGET_CONFIG_SCHEMA_VERSION = 1;
+
+const VALIDATION_ISSUE_CODES: ReadonlySet<ValidationIssueCode> = new Set([
+  'project-required',
+  'token-limit-positive',
+  'cost-limit-positive',
+  'budget-limit-required',
+  'thresholds-invalid',
+  'model-id-required',
+  'aliases-unique',
+  'input-price-required',
+  'cached-input-price-required',
+  'output-price-required',
+  'input-price-non-negative',
+  'cached-input-price-non-negative',
+  'output-price-non-negative',
+  'budget-not-found',
+  'budget-duplicate',
+  'unexpected',
+]);
+
+export const isValidationIssueCode = (value: unknown): value is ValidationIssueCode =>
+  typeof value === 'string' && VALIDATION_ISSUE_CODES.has(value as ValidationIssueCode);
+
+export const isValidationIssue = (value: unknown): value is ValidationIssue =>
+  isRecord(value) &&
+  typeof value.field === 'string' &&
+  isValidationIssueCode(value.code) &&
+  typeof value.message === 'string' &&
+  (value.details === undefined || typeof value.details === 'string');
 
 const isPositiveFinite = (value: number | undefined): boolean =>
   value !== undefined && Number.isFinite(value) && value > 0;
@@ -36,19 +66,35 @@ export const getBudgetPolicyIssues = (input: BudgetPolicyInput): ValidationIssue
   const hasCostLimit = isPositiveFinite(input.costLimitUsd);
 
   if (input.scope === 'project' && !input.projectPath?.trim()) {
-    issues.push({ field: 'projectPath', message: 'Project is required.' });
+    issues.push({
+      field: 'projectPath',
+      code: 'project-required',
+      message: 'Project is required.',
+    });
   }
 
   if (input.tokenLimit !== undefined && !hasTokenLimit) {
-    issues.push({ field: 'tokenLimit', message: 'Token limit must be greater than 0.' });
+    issues.push({
+      field: 'tokenLimit',
+      code: 'token-limit-positive',
+      message: 'Token limit must be greater than 0.',
+    });
   }
 
   if (input.costLimitUsd !== undefined && !hasCostLimit) {
-    issues.push({ field: 'costLimitUsd', message: 'Cost limit must be greater than 0.' });
+    issues.push({
+      field: 'costLimitUsd',
+      code: 'cost-limit-positive',
+      message: 'Cost limit must be greater than 0.',
+    });
   }
 
   if (!hasTokenLimit && !hasCostLimit) {
-    issues.push({ field: 'limits', message: 'Enable at least one budget limit.' });
+    issues.push({
+      field: 'limits',
+      code: 'budget-limit-required',
+      message: 'Enable at least one budget limit.',
+    });
   }
 
   return issues;
@@ -64,6 +110,7 @@ export const getThresholdIssues = (input: BudgetThresholds): ValidationIssue[] =
     : [
         {
           field: 'thresholds',
+          code: 'thresholds-invalid',
           message: 'Thresholds must be ordered between 0 and 100.',
         },
       ];
@@ -75,26 +122,43 @@ export const getPricingOverrideIssues = (input: ModelPricingOverrideInput): Vali
   const uniqueAliases = new Set(normalizedAliases.filter(Boolean));
 
   if (!input.modelId.trim()) {
-    issues.push({ field: 'modelId', message: 'Model ID is required.' });
+    issues.push({
+      field: 'modelId',
+      code: 'model-id-required',
+      message: 'Model ID is required.',
+    });
   }
 
   if (uniqueAliases.size !== normalizedAliases.length) {
-    issues.push({ field: 'aliases', message: 'Model aliases must be unique.' });
+    issues.push({
+      field: 'aliases',
+      code: 'aliases-unique',
+      message: 'Model aliases must be unique.',
+    });
   }
 
   if (!isNonNegativeFinite(input.inputUsdPerMillion)) {
-    issues.push({ field: 'inputUsdPerMillion', message: 'Input price must be 0 or greater.' });
+    issues.push({
+      field: 'inputUsdPerMillion',
+      code: 'input-price-non-negative',
+      message: 'Input price must be 0 or greater.',
+    });
   }
 
   if (!isNonNegativeFinite(input.cachedInputUsdPerMillion)) {
     issues.push({
       field: 'cachedInputUsdPerMillion',
+      code: 'cached-input-price-non-negative',
       message: 'Cached input price must be 0 or greater.',
     });
   }
 
   if (!isNonNegativeFinite(input.outputUsdPerMillion)) {
-    issues.push({ field: 'outputUsdPerMillion', message: 'Output price must be 0 or greater.' });
+    issues.push({
+      field: 'outputUsdPerMillion',
+      code: 'output-price-non-negative',
+      message: 'Output price must be 0 or greater.',
+    });
   }
 
   return issues;

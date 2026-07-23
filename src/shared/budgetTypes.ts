@@ -4,6 +4,23 @@ export type BudgetMetric = 'token' | 'cost';
 export type BudgetSeverity = 'normal' | 'warning' | 'critical' | 'over';
 export type BudgetDataState = 'fresh' | 'stale';
 export type ModelPricingSourceKind = 'built-in' | 'override';
+export type ValidationIssueCode =
+  | 'project-required'
+  | 'token-limit-positive'
+  | 'cost-limit-positive'
+  | 'budget-limit-required'
+  | 'thresholds-invalid'
+  | 'model-id-required'
+  | 'aliases-unique'
+  | 'input-price-required'
+  | 'cached-input-price-required'
+  | 'output-price-required'
+  | 'input-price-non-negative'
+  | 'cached-input-price-non-negative'
+  | 'output-price-non-negative'
+  | 'budget-not-found'
+  | 'budget-duplicate'
+  | 'unexpected';
 
 export interface BudgetPolicyInput {
   id?: string;
@@ -136,5 +153,7 @@ export interface NaturalPeriodRange {
 
 export interface ValidationIssue {
   field: string;
+  code: ValidationIssueCode;
   message: string;
+  details?: string;
 }

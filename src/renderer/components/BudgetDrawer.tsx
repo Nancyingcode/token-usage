@@ -46,12 +46,9 @@ const getActionIssues = (error: unknown): ValidationIssue[] => {
     );
   }
 
-  return [
-    {
-      field: 'form',
-      message: error instanceof Error ? error.message : String(error),
-    },
-  ];
+  const message = error instanceof Error ? error.message : String(error);
+
+  return [{ field: 'form', code: 'unexpected', message, details: message }];
 };
 
 const getIssueMessage = (issues: ValidationIssue[], fields: string[]): string | undefined =>

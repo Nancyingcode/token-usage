@@ -2,6 +2,7 @@ import type {
   ModelPricingEntry,
   ModelPricingOverrideInput,
   ValidationIssue,
+  ValidationIssueCode,
 } from '../../shared/budgetTypes';
 import { getPricingOverrideIssues } from '../../shared/budgetValidation';
 
@@ -18,11 +19,24 @@ const PRICE_FIELDS: Array<{
     PricingFormState,
     'inputUsdPerMillion' | 'cachedInputUsdPerMillion' | 'outputUsdPerMillion'
   >;
+  code: ValidationIssueCode;
   message: string;
 }> = [
-  { field: 'inputUsdPerMillion', message: 'Input price is required.' },
-  { field: 'cachedInputUsdPerMillion', message: 'Cached input price is required.' },
-  { field: 'outputUsdPerMillion', message: 'Output price is required.' },
+  {
+    field: 'inputUsdPerMillion',
+    code: 'input-price-required',
+    message: 'Input price is required.',
+  },
+  {
+    field: 'cachedInputUsdPerMillion',
+    code: 'cached-input-price-required',
+    message: 'Cached input price is required.',
+  },
+  {
+    field: 'outputUsdPerMillion',
+    code: 'output-price-required',
+    message: 'Output price is required.',
+  },
 ];
 
 export const createPricingFormState = (
@@ -52,7 +66,7 @@ export const toPricingOverride = (state: PricingFormState): ModelPricingOverride
 
 export const getPricingFormIssues = (state: PricingFormState): ValidationIssue[] => {
   const emptyPriceIssues = PRICE_FIELDS.filter(({ field }) => !state[field].trim()).map(
-    ({ field, message }) => ({ field, message })
+    ({ field, code, message }) => ({ field, code, message })
   );
   const emptyPriceFields = new Set<string>(emptyPriceIssues.map(({ field }) => field));
   const pricingIssues = getPricingOverrideIssues(toPricingOverride(state)).filter(

@@ -8,9 +8,17 @@ import {
 describe('budget validation', () => {
   it('requires a project path and at least one positive limit', () => {
     expect(getBudgetPolicyIssues({ scope: 'project', period: 'day', tokenLimit: 0 })).toEqual([
-      { field: 'projectPath', message: 'Project is required.' },
-      { field: 'tokenLimit', message: 'Token limit must be greater than 0.' },
-      { field: 'limits', message: 'Enable at least one budget limit.' },
+      { field: 'projectPath', code: 'project-required', message: 'Project is required.' },
+      {
+        field: 'tokenLimit',
+        code: 'token-limit-positive',
+        message: 'Token limit must be greater than 0.',
+      },
+      {
+        field: 'limits',
+        code: 'budget-limit-required',
+        message: 'Enable at least one budget limit.',
+      },
     ]);
   });
 
@@ -25,6 +33,9 @@ describe('budget validation', () => {
 
   it('requires ordered global thresholds at or below 100', () => {
     expect(getThresholdIssues({ warningPercent: 95, criticalPercent: 90 })).toHaveLength(1);
+    expect(getThresholdIssues({ warningPercent: 95, criticalPercent: 90 })[0].code).toBe(
+      'thresholds-invalid'
+    );
     expect(getThresholdIssues({ warningPercent: 80, criticalPercent: 100 })).toEqual([]);
   });
 
@@ -38,10 +49,18 @@ describe('budget validation', () => {
         outputUsdPerMillion: Number.NaN,
       })
     ).toEqual([
-      { field: 'modelId', message: 'Model ID is required.' },
-      { field: 'aliases', message: 'Model aliases must be unique.' },
-      { field: 'inputUsdPerMillion', message: 'Input price must be 0 or greater.' },
-      { field: 'outputUsdPerMillion', message: 'Output price must be 0 or greater.' },
+      { field: 'modelId', code: 'model-id-required', message: 'Model ID is required.' },
+      { field: 'aliases', code: 'aliases-unique', message: 'Model aliases must be unique.' },
+      {
+        field: 'inputUsdPerMillion',
+        code: 'input-price-non-negative',
+        message: 'Input price must be 0 or greater.',
+      },
+      {
+        field: 'outputUsdPerMillion',
+        code: 'output-price-non-negative',
+        message: 'Output price must be 0 or greater.',
+      },
     ]);
   });
 });

@@ -45,7 +45,9 @@ const getActionIssues = (error: unknown): ValidationIssue[] => {
     );
   }
 
-  return [{ field: 'form', message: getErrorMessage(error) }];
+  const message = getErrorMessage(error);
+
+  return [{ field: 'form', code: 'unexpected', message, details: message }];
 };
 
 const getIssueMessage = (issues: ValidationIssue[], field: string): string | undefined =>

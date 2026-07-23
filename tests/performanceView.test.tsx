@@ -20,7 +20,10 @@ const makeSession = (warningCount: number): UsageSession => ({
   totalTokens: 10,
   eventCount: 1,
   sourceFile: `session-${warningCount}.jsonl`,
-  warnings: Array.from({ length: warningCount }, () => ({ message: 'warning' })),
+  warnings: Array.from({ length: warningCount }, () => ({
+    code: 'malformed-jsonl' as const,
+    message: 'warning',
+  })),
 });
 
 describe('PerformanceView', () => {

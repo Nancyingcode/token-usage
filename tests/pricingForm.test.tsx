@@ -28,7 +28,10 @@ describe('pricing form', () => {
         inputUsdPerMillion: '',
         cachedInputUsdPerMillion: '0',
         outputUsdPerMillion: '-1',
-      }).map(({ field }) => field)
-    ).toEqual(['inputUsdPerMillion', 'outputUsdPerMillion']);
+      }).map(({ field, code }) => ({ field, code }))
+    ).toEqual([
+      { field: 'inputUsdPerMillion', code: 'input-price-required' },
+      { field: 'outputUsdPerMillion', code: 'output-price-non-negative' },
+    ]);
   });
 });
