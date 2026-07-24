@@ -5,6 +5,7 @@ import { I18nextProvider } from 'react-i18next';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import Toolbar, { PeriodToggle } from '../src/renderer/components/Toolbar';
 import { createRendererI18n } from '../src/renderer/i18n';
+import type { UsagePeriod } from '../src/shared/usageTypes';
 
 interface PeriodButtonProps {
   'aria-pressed': boolean;
@@ -23,10 +24,36 @@ describe('PeriodToggle', () => {
     const onPeriodChange = vi.fn();
     const buttons = getButtons(PeriodToggle({ period: 'week', onPeriodChange }));
 
-    expect(buttons.map((button) => button.props['aria-pressed'])).toEqual([false, true, false]);
+    expect(buttons.map((button) => button.props['aria-pressed'])).toEqual([
+      false,
+      true,
+      false,
+      false,
+    ]);
 
     buttons[0].props.onClick();
     expect(onPeriodChange).toHaveBeenCalledWith('today');
+  });
+
+  it('renders Total after Month and reports Total clicks', () => {
+    const onPeriodChange = vi.fn();
+    const buttons = getButtons(PeriodToggle({ period: 'total' as UsagePeriod, onPeriodChange }));
+
+    expect(buttons.map((button) => button.props.children)).toEqual([
+      'Today',
+      'Week',
+      'Month',
+      'Total',
+    ]);
+    expect(buttons.map((button) => button.props['aria-pressed'])).toEqual([
+      false,
+      false,
+      false,
+      true,
+    ]);
+
+    buttons[3].props.onClick();
+    expect(onPeriodChange).toHaveBeenCalledWith('total');
   });
 
   it('hides rolling period controls on Budgets', () => {

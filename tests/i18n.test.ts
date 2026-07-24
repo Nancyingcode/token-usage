@@ -47,5 +47,6 @@ describe('shared i18n', () => {
     await instance.changeLanguage('zh-CN');
     expect(instance.t('common:item.sessions', { count: 2 })).toBe('2 个会话');
     expect(instance.t('common:navigation.overview')).toBe('概览');
+    expect(instance.t('common:toolbar.total')).toBe('全部');
   });
 });

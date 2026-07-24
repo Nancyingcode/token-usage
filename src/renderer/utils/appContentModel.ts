@@ -1,4 +1,9 @@
-import type { UsagePeriod, UsageScanResult, UsageSummary } from '../../shared/usageTypes';
+import type {
+  RollingUsagePeriod,
+  UsagePeriod,
+  UsageScanResult,
+  UsageSummary,
+} from '../../shared/usageTypes';
 
 export interface ResolveAppContentModelInput {
   error: string | null;
@@ -13,7 +18,7 @@ export type AppContentModel =
   | { kind: 'loading' }
   | { kind: 'idle' }
   | { kind: 'empty'; result: UsageScanResult }
-  | { kind: 'period-empty'; period: UsagePeriod }
+  | { kind: 'period-empty'; period: RollingUsagePeriod }
   | {
       kind: 'ready';
       result: UsageScanResult;
@@ -43,7 +48,7 @@ export const resolveAppContentModel = ({
     return { kind: 'empty', result };
   }
 
-  if (filteredSummary.sessions.length === 0) {
+  if (filteredSummary.sessions.length === 0 && period !== 'total') {
     return { kind: 'period-empty', period };
   }
 

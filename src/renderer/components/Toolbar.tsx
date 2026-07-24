@@ -14,6 +14,7 @@ interface PeriodLabels {
   today: string;
   week: string;
   month: string;
+  total: string;
 }
 
 interface PeriodToggleProps {
@@ -43,6 +44,7 @@ const DEFAULT_PERIOD_LABELS: PeriodLabels = {
   today: 'Today',
   week: 'Week',
   month: 'Month',
+  total: 'Total',
 };
 
 const PERIOD_OPTIONS: Array<{
@@ -52,6 +54,7 @@ const PERIOD_OPTIONS: Array<{
   { value: 'today', labelKey: 'today' },
   { value: 'week', labelKey: 'week' },
   { value: 'month', labelKey: 'month' },
+  { value: 'total', labelKey: 'total' },
 ];
 
 export const PeriodToggle: React.FC<PeriodToggleProps> = ({
@@ -91,6 +94,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
     today: t('toolbar.today'),
     week: t('toolbar.week'),
     month: t('toolbar.month'),
+    total: t('toolbar.total'),
   };
   const handleLocaleChange = async (nextLocale: SupportedLocale): Promise<void> => {
     setChangingLocale(true);

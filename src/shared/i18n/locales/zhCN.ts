@@ -25,6 +25,7 @@ export const zhCN = {
       today: '今天',
       week: '近 7 天',
       month: '近 30 天',
+      total: '全部',
       refresh: '刷新',
       language: '语言',
       languageChangeFailed: '无法保存语言偏好。',

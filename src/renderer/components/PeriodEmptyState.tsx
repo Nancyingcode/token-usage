@@ -1,18 +1,18 @@
 import React from 'react';
 import { CalendarX2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { UsagePeriod } from '../../shared/usageTypes';
+import type { RollingUsagePeriod } from '../../shared/usageTypes';
 import { ICON_SIZE_EMPTY_STATE } from '../constants/ui';
 
 interface PeriodEmptyStateProps {
-  period: UsagePeriod;
+  period: RollingUsagePeriod;
 }
 
 const PERIOD_TRANSLATION_KEYS = {
   today: 'state.period.today',
   week: 'state.period.week',
   month: 'state.period.month',
-} as const satisfies Record<UsagePeriod, string>;
+} as const satisfies Record<RollingUsagePeriod, string>;
 
 const PeriodEmptyState: React.FC<PeriodEmptyStateProps> = ({ period }) => {
   const { t } = useTranslation('common');

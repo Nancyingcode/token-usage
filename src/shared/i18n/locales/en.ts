@@ -27,6 +27,7 @@ export const en = {
       today: 'Today',
       week: 'Week',
       month: 'Month',
+      total: 'Total',
       refresh: 'Refresh',
       language: 'Language',
       languageChangeFailed: 'Unable to save the language preference.',

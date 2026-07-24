@@ -75,6 +75,14 @@ describe('resolveAppContentModel', () => {
     ).toEqual({ kind: 'period-empty', period: 'week' });
   });
 
+  it('does not classify Total as a rolling-period empty state', () => {
+    const model = resolveAppContentModel(
+      makeInput({ filteredSummary: EMPTY_SUMMARY, period: 'total' })
+    );
+
+    expect(model.kind).toBe('ready');
+  });
+
   it('returns ready with the result and filtered summary', () => {
     const result = makeResult();
     const model = resolveAppContentModel(makeInput({ result }));

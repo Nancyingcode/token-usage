@@ -6,12 +6,16 @@ import Sidebar, { type ViewKey } from './components/Sidebar';
 import Toolbar from './components/Toolbar';
 import { useBudgetSnapshot } from './hooks/useBudgetSnapshot';
 import { resolveAppContentModel } from './utils/appContentModel';
-
-const DEFAULT_USAGE_PERIOD: UsagePeriod = 'month';
+import {
+  loadUsagePeriodPreference,
+  saveUsagePeriodPreference,
+} from './utils/usagePeriodPreference';
 
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ViewKey>('overview');
-  const [period, setPeriod] = useState<UsagePeriod>(DEFAULT_USAGE_PERIOD);
+  const [period, setPeriod] = useState<UsagePeriod>(() =>
+    loadUsagePeriodPreference(window.localStorage)
+  );
   const [result, setResult] = useState<UsageScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,6 +36,10 @@ const App: React.FC = () => {
     }
   }, []);
   const clearFocusedPolicy = useCallback(() => setFocusedPolicyId(null), []);
+  const handlePeriodChange = useCallback((nextPeriod: UsagePeriod): void => {
+    setPeriod(nextPeriod);
+    saveUsagePeriodPreference(nextPeriod, window.localStorage);
+  }, []);
 
   useEffect(() => {
     refresh();
@@ -94,7 +102,7 @@ const App: React.FC = () => {
           scannedAt={result?.scannedAt}
           onRefresh={refresh}
           period={period}
-          onPeriodChange={setPeriod}
+          onPeriodChange={handlePeriodChange}
         />
 
         <AppContent
