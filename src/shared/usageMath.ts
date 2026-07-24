@@ -1,3 +1,8 @@
+/**
+ * @file Usage aggregation and project identity
+ * @description Aggregates token usage and defines the shared identity rules for projects.
+ */
+
 import type {
   RollingUsagePeriod,
   TokenUsage,

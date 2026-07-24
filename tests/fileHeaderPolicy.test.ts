@@ -10,6 +10,7 @@ const REQUIRED_FILE_HEADER_PATHS = [
   'src/shared/budgetEvaluation.ts',
   'src/shared/budgetValidation.ts',
   'src/shared/pricing.ts',
+  'src/shared/usageMath.ts',
   'src/renderer/components/BudgetDrawer.tsx',
   'src/renderer/components/BudgetList.tsx',
   'src/renderer/components/BudgetsView.tsx',

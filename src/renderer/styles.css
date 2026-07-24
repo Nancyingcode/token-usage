@@ -722,8 +722,6 @@ code {
   border: 0;
   border-bottom: 1px solid #eeeeee;
   background: transparent;
-  color: inherit;
-  font: inherit;
   text-align: left;
   cursor: pointer;
 }
