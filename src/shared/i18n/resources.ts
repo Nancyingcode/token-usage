@@ -9,7 +9,13 @@ import { en } from './locales/en';
 import { zhCN } from './locales/zhCN';
 
 export const DEFAULT_NAMESPACE = 'common';
-export const I18N_NAMESPACES = ['common', 'notifications', 'settings', 'warnings'] as const;
+export const I18N_NAMESPACES = [
+  'common',
+  'notifications',
+  'settings',
+  'warnings',
+  'analytics',
+] as const;
 
 export const I18N_RESOURCES = {
   en,

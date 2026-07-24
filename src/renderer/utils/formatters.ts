@@ -22,10 +22,15 @@ export const formatUsd = (value: number, locale: SupportedLocale = 'en'): string
     maximumFractionDigits: USD_MAXIMUM_FRACTION_DIGITS,
   }).format(value);
 
-export const formatPercent = (value: number, locale: SupportedLocale = 'en'): string =>
+export const formatPercent = (
+  value: number,
+  locale: SupportedLocale = 'en',
+  fractionDigits = 0
+): string =>
   new Intl.NumberFormat(locale, {
     style: 'percent',
-    maximumFractionDigits: 0,
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
   }).format(value / PERCENT_BASE);
 
 export const formatShortDateTime = (
