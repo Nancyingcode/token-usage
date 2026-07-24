@@ -4,7 +4,7 @@
   
 ## Key Documentation
 
-- [Coding Standards](./style-guide.md): definitive guide for running targets.
+- [Coding Standards](./rules/style-guide.md): definitive guide for running targets.
 
 ## 4. Code Style（代码风格规范）
 
