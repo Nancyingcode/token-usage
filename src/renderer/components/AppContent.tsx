@@ -19,6 +19,7 @@ import type { ViewKey } from './Sidebar';
 interface AppContentProps {
   activeView: ViewKey;
   model: AppContentModel;
+  onProjectSelect: (projectPath: string) => void;
   budgetModel?: BudgetContentModel;
   budgetActions?: BudgetActions;
   focusedPolicyId?: string | null;
@@ -79,6 +80,7 @@ const renderBudgetContent = (
 const AppContent: React.FC<AppContentProps> = ({
   activeView,
   model,
+  onProjectSelect,
   budgetModel,
   budgetActions,
   focusedPolicyId,
@@ -130,7 +132,9 @@ const AppContent: React.FC<AppContentProps> = ({
             <Overview summary={model.summary} pricing={pricing} />
           ) : null}
           {activeView === 'sessions' ? <SessionsView sessions={model.summary.sessions} /> : null}
-          {activeView === 'tools' ? <ProjectsView projects={model.summary.byProject} /> : null}
+          {activeView === 'tools' ? (
+            <ProjectsView projects={model.summary.byProject} onProjectSelect={onProjectSelect} />
+          ) : null}
           {activeView === 'performance' ? (
             <PerformanceView summary={model.summary} pricing={pricing} />
           ) : null}

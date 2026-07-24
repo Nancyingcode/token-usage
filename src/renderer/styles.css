@@ -716,6 +716,29 @@ code {
   grid-template-columns: minmax(180px, 1.2fr) minmax(120px, 0.8fr) 70px 110px 120px;
 }
 
+.project-table-row {
+  width: 100%;
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid #eeeeee;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.project-table-row:hover {
+  background: #f7fbfc;
+}
+
+.project-table-row:focus-visible {
+  z-index: 1;
+  outline: 2px solid rgba(34, 199, 217, 0.6);
+  outline-offset: -2px;
+  background: #f2fbfc;
+}
+
 .session-table .table-row {
   grid-template-columns:
     minmax(150px, 1.1fr) minmax(120px, 0.9fr) 100px 90px 90px 90px 100px

@@ -1,5 +1,5 @@
 import React from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import AppContent from '../src/renderer/components/AppContent';
 import type { AppContentModel } from '../src/renderer/utils/appContentModel';
 import { buildUsageSummary } from '../src/shared/usageMath';
@@ -43,7 +43,9 @@ const STATE_CASES: Array<{ model: AppContentModel; expectedText: string }> = [
 
 describe('AppContent', () => {
   it.each(STATE_CASES)('renders the $model.kind model', ({ model, expectedText }) => {
-    const markup = renderWithI18n(<AppContent activeView="overview" model={model} />);
+    const markup = renderWithI18n(
+      <AppContent activeView="overview" model={model} onProjectSelect={vi.fn()} />
+    );
 
     expect(markup).toContain(expectedText);
   });
@@ -53,6 +55,7 @@ describe('AppContent', () => {
       <AppContent
         activeView="overview"
         model={{ kind: 'ready', result: RESULT, summary: SUMMARY }}
+        onProjectSelect={vi.fn()}
       />
     );
 
@@ -60,7 +63,9 @@ describe('AppContent', () => {
   });
 
   it('renders no markup for idle', () => {
-    const markup = renderWithI18n(<AppContent activeView="overview" model={{ kind: 'idle' }} />);
+    const markup = renderWithI18n(
+      <AppContent activeView="overview" model={{ kind: 'idle' }} onProjectSelect={vi.fn()} />
+    );
 
     expect(markup).toBe('');
   });
@@ -70,6 +75,7 @@ describe('AppContent', () => {
       <AppContent
         activeView="budgets"
         model={{ kind: 'error', message: 'Disk unavailable' }}
+        onProjectSelect={vi.fn()}
         budgetModel={{
           kind: 'ready',
           snapshot: {
@@ -92,11 +98,24 @@ describe('AppContent', () => {
 
   it('renders state copy in Chinese', () => {
     const markup = renderWithI18n(
-      <AppContent activeView="overview" model={{ kind: 'loading' }} />,
+      <AppContent activeView="overview" model={{ kind: 'loading' }} onProjectSelect={vi.fn()} />,
       'zh-CN'
     );
 
     expect(markup).toContain('正在扫描本地 Codex 会话');
     expect(markup).toContain('不修改或上传任何数据');
+  });
+
+  it('renders interactive project rows in the Tools view', () => {
+    const markup = renderWithI18n(
+      <AppContent
+        activeView="tools"
+        model={{ kind: 'ready', result: RESULT, summary: SUMMARY }}
+        onProjectSelect={vi.fn()}
+      />
+    );
+
+    expect(markup).toContain('project-table-row');
+    expect(markup).toContain('type="button"');
   });
 });

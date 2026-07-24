@@ -89,6 +89,9 @@ const App: React.FC = () => {
   const handleViewChange = useCallback((view: ViewKey): void => {
     dispatchNavigation({ type: 'select-view', view });
   }, []);
+  const handleProjectSelect = useCallback((projectPath: string): void => {
+    dispatchNavigation({ type: 'select-project', projectPath });
+  }, []);
 
   useEffect(() => {
     refresh();
@@ -161,6 +164,7 @@ const App: React.FC = () => {
           budgetActions={budgetState.actions}
           focusedPolicyId={focusedPolicyId}
           onFocusedPolicyConsumed={clearFocusedPolicy}
+          onProjectSelect={handleProjectSelect}
         />
       </main>
     </div>
