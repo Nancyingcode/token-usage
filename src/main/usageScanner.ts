@@ -1,10 +1,11 @@
 /**
  * @file Codex 用量扫描器
  * @description
- * 发现并并发读取会话文件，关联任务名称、复用文件缓存，并生成汇总所需的扫描结果。
+ * 发现并并发读取会话文件，关联任务名称、复用文件缓存，并发布完整结果和来源变更集。
  */
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
+import type { UsageChangeSet } from '../shared/costOptimizationTypes';
 import { isRecord } from '../shared/runtimeTypes';
 import getSessionId from '../shared/sessionId';
 import { buildUsageSummary } from '../shared/usageMath';
@@ -19,6 +20,12 @@ export interface ScanOptions {
 
 export interface UsageScanner {
   scan: (options?: ScanOptions) => Promise<UsageScanResult>;
+  scanCycle: (options?: ScanOptions) => Promise<UsageScanCycle>;
+}
+
+export interface UsageScanCycle {
+  result: UsageScanResult;
+  changes: UsageChangeSet;
 }
 
 export interface UsageScannerDependencies {
@@ -38,6 +45,8 @@ interface ThreadNameResult {
 
 interface SessionFileResult {
   session?: UsageSession;
+  fingerprint?: string;
+  cacheHit: boolean;
   warnings: UsageWarning[];
 }
 
@@ -63,18 +72,20 @@ export const createUsageScanner = (
     (async (path: string): Promise<{ size: number; mtimeMs: number }> => fs.stat(path));
   const cache = new Map<string, CachedSessionFile>();
 
-  const scan = async (options: ScanOptions = {}): Promise<UsageScanResult> => {
+  const scanCycle = async (options: ScanOptions = {}): Promise<UsageScanCycle> => {
     const sessionsDir = options.sessionsDir ?? getDefaultCodexSessionsDir();
     const sessionIndexPath = options.sessionIndexPath ?? getDefaultSessionIndexPath();
+    const previousCachedPaths = new Set(cache.keys());
     const [discovery, threadNameResult] = await Promise.all([
       findJsonlFiles(sessionsDir),
       loadThreadNames(sessionIndexPath, readFile),
     ]);
     const discoveredPaths = new Set(discovery.files);
+    const removedSourceFiles = new Set(
+      [...previousCachedPaths].filter((path) => !discoveredPaths.has(path))
+    );
 
-    [...cache.keys()]
-      .filter((path) => !discoveredPaths.has(path))
-      .forEach((path) => cache.delete(path));
+    removedSourceFiles.forEach((path) => cache.delete(path));
 
     const fileResults = await mapWithConcurrency(
       discovery.files,
@@ -84,8 +95,9 @@ export const createUsageScanner = (
           const fileStat = await stat(file);
           const fingerprint = `${fileStat.size}:${fileStat.mtimeMs}`;
           const cached = cache.get(file);
+          const cacheHit = cached?.fingerprint === fingerprint;
           const parsedSession =
-            cached?.fingerprint === fingerprint
+            cacheHit && cached
               ? cached.session
               : parseSessionJsonl(file, await readFile(file, 'utf8'));
 
@@ -96,9 +108,15 @@ export const createUsageScanner = (
             threadName: threadNameResult.names.get(getSessionId(file)),
           };
 
-          return { session, warnings: session.warnings };
+          return { session, fingerprint, cacheHit, warnings: session.warnings };
         } catch (error) {
+          if (previousCachedPaths.has(file)) {
+            cache.delete(file);
+            removedSourceFiles.add(file);
+          }
+
           return {
+            cacheHit: false,
             warnings: [
               {
                 sourceFile: file,
@@ -116,16 +134,34 @@ export const createUsageScanner = (
       ...threadNameResult.warnings,
       ...fileResults.flatMap((result) => result.warnings),
     ];
+    const upserted = fileResults.flatMap(({ session, fingerprint, cacheHit }) =>
+      session && fingerprint && !cacheHit
+        ? [{ sourceFile: session.sourceFile, fingerprint, session }]
+        : []
+    );
+    const scannedAt = new Date().toISOString();
 
     return {
-      sessionsDir,
-      scannedAt: new Date().toISOString(),
-      summary: buildUsageSummary(sessions),
-      warnings,
+      result: {
+        sessionsDir,
+        scannedAt,
+        summary: buildUsageSummary(sessions),
+        warnings,
+      },
+      changes: {
+        upserted,
+        removedSourceFiles: [...removedSourceFiles].sort((first, second) =>
+          first.localeCompare(second)
+        ),
+        requiresFullRebuild: false,
+      },
     };
   };
 
-  return { scan };
+  const scan = async (options: ScanOptions = {}): Promise<UsageScanResult> =>
+    (await scanCycle(options)).result;
+
+  return { scan, scanCycle };
 };
 
 const defaultUsageScanner = createUsageScanner();

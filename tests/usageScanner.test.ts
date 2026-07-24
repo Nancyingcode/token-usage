@@ -117,6 +117,41 @@ describe('usageScanner', () => {
     });
     expect(result.summary.sessions).toEqual([]);
   });
+
+  it('publishes only changed and removed sources in scan cycles', async () => {
+    const sessionFile = join(testDirectory, 'delta.jsonl');
+    const missingIndexPath = join(testDirectory, 'missing-index.jsonl');
+    await writeFile(sessionFile, validSession('delta', '2026-07-16T00:00:00.000Z'));
+    const scanner = createUsageScanner();
+
+    const first = await scanner.scanCycle({
+      sessionsDir: testDirectory,
+      sessionIndexPath: missingIndexPath,
+    });
+    expect(first.changes.upserted.map(({ sourceFile }) => sourceFile)).toEqual([sessionFile]);
+    expect(first.changes.removedSourceFiles).toEqual([]);
+
+    const unchanged = await scanner.scanCycle({
+      sessionsDir: testDirectory,
+      sessionIndexPath: missingIndexPath,
+    });
+    expect(unchanged.changes.upserted).toEqual([]);
+    expect(unchanged.changes.removedSourceFiles).toEqual([]);
+
+    await appendFile(sessionFile, '\n');
+    const modified = await scanner.scanCycle({
+      sessionsDir: testDirectory,
+      sessionIndexPath: missingIndexPath,
+    });
+    expect(modified.changes.upserted).toHaveLength(1);
+
+    await unlink(sessionFile);
+    const removed = await scanner.scanCycle({
+      sessionsDir: testDirectory,
+      sessionIndexPath: missingIndexPath,
+    });
+    expect(removed.changes.removedSourceFiles).toEqual([sessionFile]);
+  });
 });
 
 const validSession = (sessionId: string, timestamp: string): string =>
