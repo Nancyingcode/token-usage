@@ -1,4 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+/**
+ * @file Renderer application orchestration
+ * @description Coordinates scan state, budget state, navigation, period selection, and view data.
+ */
+import React, { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import { filterUsageSummary } from '../shared/usageMath';
 import type { UsagePeriod, UsageScanResult } from '../shared/usageTypes';
 import AppContent from './components/AppContent';
@@ -11,8 +15,50 @@ import {
   saveUsagePeriodPreference,
 } from './utils/usagePeriodPreference';
 
+export interface AppNavigationState {
+  activeView: ViewKey;
+  selectedProjectPath: string | null;
+}
+
+export type AppNavigationAction =
+  | { type: 'select-view'; view: ViewKey }
+  | { type: 'select-project'; projectPath: string }
+  | { type: 'clear-project' };
+
+export const INITIAL_APP_NAVIGATION_STATE: AppNavigationState = {
+  activeView: 'overview',
+  selectedProjectPath: null,
+};
+
+export const reduceAppNavigationState = (
+  state: AppNavigationState,
+  action: AppNavigationAction
+): AppNavigationState => {
+  switch (action.type) {
+    case 'select-view':
+      return {
+        activeView: action.view,
+        selectedProjectPath: action.view === 'sessions' ? null : state.selectedProjectPath,
+      };
+    case 'select-project':
+      return {
+        activeView: 'sessions',
+        selectedProjectPath: action.projectPath,
+      };
+    case 'clear-project':
+      return {
+        ...state,
+        selectedProjectPath: null,
+      };
+  }
+};
+
 const App: React.FC = () => {
-  const [activeView, setActiveView] = useState<ViewKey>('overview');
+  const [navigation, dispatchNavigation] = useReducer(
+    reduceAppNavigationState,
+    INITIAL_APP_NAVIGATION_STATE
+  );
+  const { activeView } = navigation;
   const [period, setPeriod] = useState<UsagePeriod>(() =>
     loadUsagePeriodPreference(window.localStorage)
   );
@@ -40,6 +86,9 @@ const App: React.FC = () => {
     setPeriod(nextPeriod);
     saveUsagePeriodPreference(nextPeriod, window.localStorage);
   }, []);
+  const handleViewChange = useCallback((view: ViewKey): void => {
+    dispatchNavigation({ type: 'select-view', view });
+  }, []);
 
   useEffect(() => {
     refresh();
@@ -58,7 +107,7 @@ const App: React.FC = () => {
   useEffect(
     () =>
       window.codexUsage.budgets.onNavigate((policyId) => {
-        setActiveView('budgets');
+        dispatchNavigation({ type: 'select-view', view: 'budgets' });
         setFocusedPolicyId(policyId);
       }),
     []
@@ -91,7 +140,7 @@ const App: React.FC = () => {
     <div className="app-frame">
       <Sidebar
         activeView={activeView}
-        onChange={setActiveView}
+        onChange={handleViewChange}
         warningCount={warningCount}
         budgetAlertCount={budgetAlertCount}
       />
