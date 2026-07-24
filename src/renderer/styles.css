@@ -162,6 +162,16 @@ code {
   gap: 8px;
 }
 
+.language-selector {
+  height: 28px;
+  padding: 0 26px 0 9px;
+  color: #444444;
+  background-color: #ffffff;
+  border-color: #e2e2e2;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
 .period-toggle {
   height: 28px;
   padding: 2px;

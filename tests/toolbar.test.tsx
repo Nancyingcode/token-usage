@@ -1,7 +1,10 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import type { i18n } from 'i18next';
+import { I18nextProvider } from 'react-i18next';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import Toolbar, { PeriodToggle } from '../src/renderer/components/Toolbar';
+import { createRendererI18n } from '../src/renderer/i18n';
 
 interface PeriodButtonProps {
   'aria-pressed': boolean;
@@ -10,6 +13,12 @@ interface PeriodButtonProps {
 }
 
 describe('PeriodToggle', () => {
+  let testI18n: i18n;
+
+  beforeAll(async () => {
+    testI18n = await createRendererI18n('en');
+  });
+
   it('marks the selected period and reports button clicks', () => {
     const onPeriodChange = vi.fn();
     const buttons = getButtons(PeriodToggle({ period: 'week', onPeriodChange }));
@@ -22,17 +31,21 @@ describe('PeriodToggle', () => {
 
   it('hides rolling period controls on Budgets', () => {
     const markup = renderToStaticMarkup(
-      <Toolbar
-        activeView="budgets"
-        loading={false}
-        onRefresh={vi.fn()}
-        period="month"
-        onPeriodChange={vi.fn()}
-      />
+      <I18nextProvider i18n={testI18n}>
+        <Toolbar
+          activeView="budgets"
+          loading={false}
+          onRefresh={vi.fn()}
+          period="month"
+          onPeriodChange={vi.fn()}
+        />
+      </I18nextProvider>
     );
 
     expect(markup).not.toContain('Date range');
     expect(markup).toContain('Budgets');
+    expect(markup).toContain('English');
+    expect(markup).toContain('中文');
   });
 });
 
