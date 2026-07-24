@@ -20,6 +20,8 @@ interface AppContentProps {
   activeView: ViewKey;
   model: AppContentModel;
   onProjectSelect: (projectPath: string) => void;
+  selectedProjectPath: string | null;
+  onClearProjectFilter: () => void;
   budgetModel?: BudgetContentModel;
   budgetActions?: BudgetActions;
   focusedPolicyId?: string | null;
@@ -81,6 +83,8 @@ const AppContent: React.FC<AppContentProps> = ({
   activeView,
   model,
   onProjectSelect,
+  selectedProjectPath,
+  onClearProjectFilter,
   budgetModel,
   budgetActions,
   focusedPolicyId,
@@ -131,7 +135,13 @@ const AppContent: React.FC<AppContentProps> = ({
           {activeView === 'overview' ? (
             <Overview summary={model.summary} pricing={pricing} />
           ) : null}
-          {activeView === 'sessions' ? <SessionsView sessions={model.summary.sessions} /> : null}
+          {activeView === 'sessions' ? (
+            <SessionsView
+              sessions={model.summary.sessions}
+              selectedProjectPath={selectedProjectPath}
+              onClearProjectFilter={onClearProjectFilter}
+            />
+          ) : null}
           {activeView === 'tools' ? (
             <ProjectsView projects={model.summary.byProject} onProjectSelect={onProjectSelect} />
           ) : null}

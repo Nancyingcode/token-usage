@@ -48,5 +48,8 @@ describe('shared i18n', () => {
     expect(instance.t('common:item.sessions', { count: 2 })).toBe('2 个会话');
     expect(instance.t('common:navigation.overview')).toBe('概览');
     expect(instance.t('common:toolbar.total')).toBe('全部');
+    expect(instance.t('analytics:sessions.projectFilter', { project: 'repo' })).toBe('项目：repo');
+    expect(instance.t('analytics:sessions.showAll')).toBe('查看全部会话');
+    expect(instance.t('analytics:sessions.filteredEmptyTitle')).toBe('此时间范围内该项目没有会话');
   });
 });

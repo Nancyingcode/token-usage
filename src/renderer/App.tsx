@@ -58,7 +58,7 @@ const App: React.FC = () => {
     reduceAppNavigationState,
     INITIAL_APP_NAVIGATION_STATE
   );
-  const { activeView } = navigation;
+  const { activeView, selectedProjectPath } = navigation;
   const [period, setPeriod] = useState<UsagePeriod>(() =>
     loadUsagePeriodPreference(window.localStorage)
   );
@@ -91,6 +91,9 @@ const App: React.FC = () => {
   }, []);
   const handleProjectSelect = useCallback((projectPath: string): void => {
     dispatchNavigation({ type: 'select-project', projectPath });
+  }, []);
+  const clearProjectFilter = useCallback((): void => {
+    dispatchNavigation({ type: 'clear-project' });
   }, []);
 
   useEffect(() => {
@@ -165,6 +168,8 @@ const App: React.FC = () => {
           focusedPolicyId={focusedPolicyId}
           onFocusedPolicyConsumed={clearFocusedPolicy}
           onProjectSelect={handleProjectSelect}
+          selectedProjectPath={selectedProjectPath}
+          onClearProjectFilter={clearProjectFilter}
         />
       </main>
     </div>

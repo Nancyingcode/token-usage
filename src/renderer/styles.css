@@ -745,6 +745,59 @@ code {
     80px;
 }
 
+.project-filter-chip {
+  max-width: 320px;
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px solid #b9e9ed;
+  border-radius: 999px;
+  background: #effbfc;
+  color: #157985;
+  font: inherit;
+  cursor: pointer;
+}
+
+.project-filter-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-filter-chip:focus-visible,
+.session-filter-empty button:focus-visible {
+  outline: 2px solid rgba(34, 199, 217, 0.65);
+  outline-offset: 2px;
+}
+
+.session-filter-empty {
+  min-width: 760px;
+  padding: 36px 16px;
+  text-align: center;
+}
+
+.session-filter-empty h4 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.session-filter-empty p {
+  margin: 6px 0 14px;
+  color: #777777;
+  font-size: 11px;
+}
+
+.session-filter-empty button {
+  padding: 7px 10px;
+  border: 1px solid #d7d7d7;
+  border-radius: 5px;
+  background: #ffffff;
+  color: #333333;
+  cursor: pointer;
+}
+
 .primary-cell,
 .table-row > span {
   min-width: 0;

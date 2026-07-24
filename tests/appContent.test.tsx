@@ -44,7 +44,13 @@ const STATE_CASES: Array<{ model: AppContentModel; expectedText: string }> = [
 describe('AppContent', () => {
   it.each(STATE_CASES)('renders the $model.kind model', ({ model, expectedText }) => {
     const markup = renderWithI18n(
-      <AppContent activeView="overview" model={model} onProjectSelect={vi.fn()} />
+      <AppContent
+        activeView="overview"
+        model={model}
+        onProjectSelect={vi.fn()}
+        selectedProjectPath={null}
+        onClearProjectFilter={vi.fn()}
+      />
     );
 
     expect(markup).toContain(expectedText);
@@ -56,6 +62,8 @@ describe('AppContent', () => {
         activeView="overview"
         model={{ kind: 'ready', result: RESULT, summary: SUMMARY }}
         onProjectSelect={vi.fn()}
+        selectedProjectPath={null}
+        onClearProjectFilter={vi.fn()}
       />
     );
 
@@ -64,7 +72,13 @@ describe('AppContent', () => {
 
   it('renders no markup for idle', () => {
     const markup = renderWithI18n(
-      <AppContent activeView="overview" model={{ kind: 'idle' }} onProjectSelect={vi.fn()} />
+      <AppContent
+        activeView="overview"
+        model={{ kind: 'idle' }}
+        onProjectSelect={vi.fn()}
+        selectedProjectPath={null}
+        onClearProjectFilter={vi.fn()}
+      />
     );
 
     expect(markup).toBe('');
@@ -76,6 +90,8 @@ describe('AppContent', () => {
         activeView="budgets"
         model={{ kind: 'error', message: 'Disk unavailable' }}
         onProjectSelect={vi.fn()}
+        selectedProjectPath={null}
+        onClearProjectFilter={vi.fn()}
         budgetModel={{
           kind: 'ready',
           snapshot: {
@@ -98,7 +114,13 @@ describe('AppContent', () => {
 
   it('renders state copy in Chinese', () => {
     const markup = renderWithI18n(
-      <AppContent activeView="overview" model={{ kind: 'loading' }} onProjectSelect={vi.fn()} />,
+      <AppContent
+        activeView="overview"
+        model={{ kind: 'loading' }}
+        onProjectSelect={vi.fn()}
+        selectedProjectPath={null}
+        onClearProjectFilter={vi.fn()}
+      />,
       'zh-CN'
     );
 
@@ -112,10 +134,26 @@ describe('AppContent', () => {
         activeView="tools"
         model={{ kind: 'ready', result: RESULT, summary: SUMMARY }}
         onProjectSelect={vi.fn()}
+        selectedProjectPath={null}
+        onClearProjectFilter={vi.fn()}
       />
     );
 
     expect(markup).toContain('project-table-row');
     expect(markup).toContain('type="button"');
+  });
+
+  it('passes the active project filter to Sessions', () => {
+    const markup = renderWithI18n(
+      <AppContent
+        activeView="sessions"
+        model={{ kind: 'ready', result: RESULT, summary: SUMMARY }}
+        onProjectSelect={vi.fn()}
+        selectedProjectPath={'C:\\repo'}
+        onClearProjectFilter={vi.fn()}
+      />
+    );
+
+    expect(markup).toContain('Project: repo');
   });
 });

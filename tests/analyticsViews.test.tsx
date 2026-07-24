@@ -1,7 +1,8 @@
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import ProjectsView, { ProjectRow } from '../src/renderer/components/ProjectsView';
-import SessionsView from '../src/renderer/components/SessionsView';
+import SessionsView, { ProjectFilterChip } from '../src/renderer/components/SessionsView';
+import { UNKNOWN_PROJECT_KEY } from '../src/shared/usageMath';
 import type { UsageProject, UsageSession } from '../src/shared/usageTypes';
 import { renderWithI18n } from './helpers/renderWithI18n';
 
@@ -35,14 +36,43 @@ const PROJECT: UsageProject = {
   shareOfTotal: 1,
 };
 
+const LOWER_TOKEN_SESSION: UsageSession = {
+  ...SESSION,
+  sessionId: 'session-low',
+  threadName: 'Low token session',
+  startedAt: '2026-07-24T11:00:00.000Z',
+  endedAt: '2026-07-24T11:10:00.000Z',
+  totalTokens: 500,
+  sourceFile: 'session-low.jsonl',
+  warnings: [],
+};
+
+const HIGH_TOKEN_SESSION: UsageSession = {
+  ...SESSION,
+  threadName: 'High token session',
+};
+
 interface ProjectButtonProps {
   type: 'button';
   onClick: () => void;
 }
 
+interface FilterButtonProps {
+  type: 'button';
+  onClick: () => void;
+  'aria-label': string;
+}
+
 describe('analytics tables', () => {
   it('renders session labels and warning status in Chinese', () => {
-    const markup = renderWithI18n(<SessionsView sessions={[SESSION]} />, 'zh-CN');
+    const markup = renderWithI18n(
+      <SessionsView
+        sessions={[SESSION]}
+        selectedProjectPath={null}
+        onClearProjectFilter={vi.fn()}
+      />,
+      'zh-CN'
+    );
 
     expect(markup).toContain('会话详情');
     expect(markup).toContain('状态');
@@ -81,5 +111,65 @@ describe('analytics tables', () => {
     expect(row.props.type).toBe('button');
     row.props.onClick();
     expect(onSelect).toHaveBeenCalledWith('C:\\repo');
+  });
+
+  it('renders a project filter and token-ordered matching sessions', () => {
+    const markup = renderWithI18n(
+      <SessionsView
+        sessions={[LOWER_TOKEN_SESSION, HIGH_TOKEN_SESSION]}
+        selectedProjectPath={'C:\\repo'}
+        onClearProjectFilter={vi.fn()}
+      />
+    );
+
+    expect(markup).toContain('Project: repo');
+    expect(markup).toContain('title="C:\\repo"');
+    expect(markup.indexOf('High token session')).toBeLessThan(markup.indexOf('Low token session'));
+  });
+
+  it('renders a clear action when the selected project has no sessions', () => {
+    const markup = renderWithI18n(
+      <SessionsView
+        sessions={[SESSION]}
+        selectedProjectPath={'C:\\other'}
+        onClearProjectFilter={vi.fn()}
+      />
+    );
+
+    expect(markup).toContain('No sessions for this project in this period');
+    expect(markup).toContain('Show all sessions');
+  });
+
+  it('reports clear-filter clicks with a localized accessible name', () => {
+    const onClear = vi.fn();
+    const chip = ProjectFilterChip({
+      projectPath: 'C:\\repo',
+      label: 'Project: repo',
+      clearLabel: 'Clear project filter for repo',
+      onClear,
+    });
+
+    expect(React.isValidElement<FilterButtonProps>(chip)).toBe(true);
+
+    if (!React.isValidElement<FilterButtonProps>(chip)) {
+      throw new Error('ProjectFilterChip did not return a button element.');
+    }
+
+    expect(chip.props['aria-label']).toBe('Clear project filter for repo');
+    chip.props.onClick();
+    expect(onClear).toHaveBeenCalledOnce();
+  });
+
+  it('renders the Unknown Project filter in Chinese', () => {
+    const markup = renderWithI18n(
+      <SessionsView
+        sessions={[{ ...SESSION, projectPath: '', projectName: UNKNOWN_PROJECT_KEY }]}
+        selectedProjectPath={UNKNOWN_PROJECT_KEY}
+        onClearProjectFilter={vi.fn()}
+      />,
+      'zh-CN'
+    );
+
+    expect(markup).toContain(UNKNOWN_PROJECT_KEY);
   });
 });
