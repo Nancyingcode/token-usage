@@ -9,7 +9,10 @@ import { fileURLToPath } from 'node:url';
 import { createBudgetRuntime, type BudgetRuntime } from './budgetRuntime';
 import { createBudgetStore } from './budgetStore';
 import { DEFAULT_MODEL_PRICING } from './defaultModelPricing';
+import { createMainI18n } from './i18n';
 import registerUsageIpc from './ipc';
+import { createLocaleService } from './localeService';
+import { createLocaleStore } from './localeStore';
 import { getApplicationMenuPolicy } from './menuPolicy';
 import {
   createElectronNotificationAdapter,
@@ -24,6 +27,7 @@ const MINIMUM_WINDOW_WIDTH = 1024;
 const MINIMUM_WINDOW_HEIGHT = 680;
 const WINDOW_BACKGROUND_COLOR = '#f8f7f4';
 const BUDGET_CONFIG_FILENAME = 'budget-config.json';
+const LOCALE_PREFERENCES_FILENAME = 'locale-preferences.json';
 
 let mainWindow: BrowserWindow | null = null;
 let budgetRuntime: BudgetRuntime | undefined;
@@ -79,12 +83,25 @@ const createWindow = (runtime: BudgetRuntime): BrowserWindow => {
 };
 
 const initializeApplication = async (): Promise<void> => {
+  const userDataPath = app.getPath('userData');
+  const localeStore = createLocaleStore(join(userDataPath, LOCALE_PREFERENCES_FILENAME));
+  const initialLocale = await localeStore.load(app.getLocale());
+  const mainI18n = await createMainI18n(initialLocale);
+  const localeService = createLocaleService({
+    initialLocale,
+    i18n: mainI18n,
+    store: localeStore,
+  });
   const scanner = createUsageScanner();
-  const store = createBudgetStore(join(app.getPath('userData'), BUDGET_CONFIG_FILENAME));
-  const notificationService = createNotificationService((policyId) => {
-    focusMainWindow();
-    budgetRuntime?.navigateToPolicy(policyId);
-  }, createElectronNotificationAdapter(Notification));
+  const store = createBudgetStore(join(userDataPath, BUDGET_CONFIG_FILENAME));
+  const notificationService = createNotificationService(
+    (policyId) => {
+      focusMainWindow();
+      budgetRuntime?.navigateToPolicy(policyId);
+    },
+    createElectronNotificationAdapter(Notification),
+    mainI18n
+  );
   const runtime = createBudgetRuntime({
     store,
     scan: () => scanner.scan(),
@@ -94,7 +111,11 @@ const initializeApplication = async (): Promise<void> => {
   budgetRuntime = runtime;
 
   await runtime.initialize();
-  unregisterIpc = registerUsageIpc({ runtime, getWindow: () => mainWindow });
+  unregisterIpc = registerUsageIpc({
+    runtime,
+    localeService,
+    getWindow: () => mainWindow,
+  });
 
   const menuPolicy = getApplicationMenuPolicy(app.isPackaged);
   if (menuPolicy.removeApplicationMenu) {

@@ -53,4 +53,12 @@ export const en = {
       notSet: 'Not set',
     },
   },
+  notifications: {
+    title: 'Token budget alert',
+    metric: {
+      token: 'Token',
+      cost: 'Cost',
+    },
+    reached: '{{metric}} budget reached {{thresholdPercent}}%.',
+  },
 } as const;

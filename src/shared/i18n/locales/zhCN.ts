@@ -51,4 +51,12 @@ export const zhCN = {
       notSet: '未设置',
     },
   },
+  notifications: {
+    title: 'Token 预算提醒',
+    metric: {
+      token: 'Token',
+      cost: '费用',
+    },
+    reached: '{{metric}} 预算已达到 {{thresholdPercent}}%。',
+  },
 } satisfies TranslationShape<typeof en>;
