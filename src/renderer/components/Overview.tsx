@@ -5,10 +5,12 @@
  */
 import React, { useState } from 'react';
 import { Coins, FileCode2, LockKeyhole, MessageSquareText } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { CostEstimate, ModelPricingEntry } from '../../shared/budgetTypes';
 import { buildDailyCostEstimates, getSummaryCostEstimate } from '../../shared/pricing';
 import { getCachePercentage } from '../../shared/usageMetrics';
 import type { UsageDay, UsageSummary } from '../../shared/usageTypes';
+import { resolveRendererLocale } from '../i18n';
 import { formatCompactNumber, formatNumber, formatUsd } from '../utils/formatters';
 import MetricCard from './MetricCard';
 
@@ -107,6 +109,8 @@ const getTooltipStyle = (point: TrendPoint): React.CSSProperties => {
 };
 
 const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
+  const { t, i18n } = useTranslation('analytics');
+  const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const [activeDate, setActiveDate] = useState<string | null>(null);
   const points = buildTrendPoints(days, max, dailyCosts);
   const activePoint = points.find(({ day }) => day.date === activeDate);
@@ -120,7 +124,7 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
   return (
     <div className="trend-chart">
       <div className="trend-chart-plot">
-        <svg viewBox={CHART_VIEWBOX} role="img" aria-label="Token trend chart">
+        <svg viewBox={CHART_VIEWBOX} role="img" aria-label={t('overview.tokenTrendChart')}>
           {CHART_GRID_LINES.map((line) => (
             <line
               key={line}
@@ -143,8 +147,13 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
           ) : null}
           {points.map((point) => {
             const active = point.day.date === activeDate;
-            const pricingState = point.pricingIncomplete ? ', pricing incomplete' : '';
-            const ariaLabel = `${point.day.date}, ${formatNumber(point.day.totalTokens)} total tokens, estimated cost ${formatUsd(point.cost)}${pricingState}`;
+            const pricingState = point.pricingIncomplete ? t('overview.pricingState') : '';
+            const ariaLabel = t('overview.trendPoint', {
+              date: point.day.date,
+              tokens: formatNumber(point.day.totalTokens, locale),
+              cost: formatUsd(point.cost, locale),
+              pricingState,
+            });
 
             return (
               <g key={point.day.date}>
@@ -179,28 +188,28 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
           >
             <strong>{activePoint.day.date}</strong>
             <div className="trend-tooltip-cost">
-              <span>Estimated cost</span>
-              <b>{formatUsd(activePoint.cost)}</b>
+              <span>{t('overview.estimatedCost')}</span>
+              <b>{formatUsd(activePoint.cost, locale)}</b>
             </div>
             {activePoint.pricingIncomplete ? (
-              <span className="pricing-incomplete-label">Pricing incomplete</span>
+              <span className="pricing-incomplete-label">{t('overview.pricingIncomplete')}</span>
             ) : null}
             <dl>
               <div>
-                <dt>Total</dt>
-                <dd>{formatNumber(activePoint.day.totalTokens)}</dd>
+                <dt>{t('overview.total')}</dt>
+                <dd>{formatNumber(activePoint.day.totalTokens, locale)}</dd>
               </div>
               <div className="input">
-                <dt>Input</dt>
-                <dd>{formatNumber(activePoint.day.inputTokens)}</dd>
+                <dt>{t('overview.input')}</dt>
+                <dd>{formatNumber(activePoint.day.inputTokens, locale)}</dd>
               </div>
               <div className="output">
-                <dt>Output</dt>
-                <dd>{formatNumber(activePoint.day.outputTokens)}</dd>
+                <dt>{t('overview.output')}</dt>
+                <dd>{formatNumber(activePoint.day.outputTokens, locale)}</dd>
               </div>
               <div className="cached">
-                <dt>Cached</dt>
-                <dd>{formatNumber(activePoint.day.cachedInputTokens)}</dd>
+                <dt>{t('overview.cached')}</dt>
+                <dd>{formatNumber(activePoint.day.cachedInputTokens, locale)}</dd>
               </div>
             </dl>
           </div>
@@ -220,6 +229,7 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
 };
 
 const ActivityGrid: React.FC<ActivityGridProps> = ({ days }) => {
+  const { t } = useTranslation('analytics');
   const map = new Map(days.map((day) => [day.date, day.totalTokens]));
   const max = Math.max(1, ...days.map((day) => day.totalTokens));
   const cells = Array.from({ length: ACTIVITY_CELL_COUNT }, (_, index) => {
@@ -232,9 +242,9 @@ const ActivityGrid: React.FC<ActivityGridProps> = ({ days }) => {
   return (
     <div className="activity-wrap">
       <div className="activity-labels">
-        <span>Mon</span>
-        <span>Wed</span>
-        <span>Fri</span>
+        <span>{t('overview.weekday.monday')}</span>
+        <span>{t('overview.weekday.wednesday')}</span>
+        <span>{t('overview.weekday.friday')}</span>
       </div>
       <div className="activity-grid">
         {cells.map((cell) => (
@@ -246,6 +256,8 @@ const ActivityGrid: React.FC<ActivityGridProps> = ({ days }) => {
 };
 
 const Overview: React.FC<OverviewProps> = ({ summary, pricing }) => {
+  const { t, i18n } = useTranslation('analytics');
+  const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const days = summary.byDay.slice(-TREND_HISTORY_DAYS);
   const maxDay = Math.max(1, ...days.map((day) => day.totalTokens));
   const totalCost = getSummaryCostEstimate(summary, pricing);
@@ -267,34 +279,42 @@ const Overview: React.FC<OverviewProps> = ({ summary, pricing }) => {
     <section className="overview-grid">
       <div className="metric-grid">
         <MetricCard
-          label="Total Cost"
-          value={formatUsd(totalCost.pricedCostUsd)}
+          label={t('overview.totalCost')}
+          value={formatUsd(totalCost.pricedCostUsd, locale)}
           detail={
             pricingIncomplete
-              ? `Pricing incomplete · ${formatCompactNumber(totalCost.unpricedTokens)} unpriced tokens`
-              : `${formatCompactNumber(summary.totals.totalTokens)} tokens priced`
+              ? `${t('overview.pricingIncomplete')} · ${t('overview.unpricedTokens', {
+                  tokens: formatCompactNumber(totalCost.unpricedTokens, locale),
+                })}`
+              : t('overview.tokensPriced', {
+                  tokens: formatCompactNumber(summary.totals.totalTokens, locale),
+                })
           }
           icon={Coins}
           tone="mint"
         />
         <MetricCard
-          label="Tokens"
-          value={formatCompactNumber(summary.totals.totalTokens)}
-          detail={`${cachePercentage}% from cache`}
+          label={t('overview.tokens')}
+          value={formatCompactNumber(summary.totals.totalTokens, locale)}
+          detail={t('overview.fromCache', { percent: cachePercentage })}
           icon={LockKeyhole}
           tone="blue"
         />
         <MetricCard
-          label="Lines Changed"
-          value={formatCompactNumber(summary.totals.outputTokens)}
-          detail={`+${formatCompactNumber(summary.totals.reasoningOutputTokens)} reasoning`}
+          label={t('overview.linesChanged')}
+          value={formatCompactNumber(summary.totals.outputTokens, locale)}
+          detail={t('overview.reasoning', {
+            tokens: formatCompactNumber(summary.totals.reasoningOutputTokens, locale),
+          })}
           icon={FileCode2}
           tone="purple"
         />
         <MetricCard
-          label="Sessions"
-          value={formatNumber(summary.sessions.length)}
-          detail={`${formatNumber(summary.byProject.length)} projects`}
+          label={t('overview.sessions')}
+          value={formatNumber(summary.sessions.length, locale)}
+          detail={t('overview.projects', {
+            count: summary.byProject.length,
+          })}
           icon={MessageSquareText}
           tone="orange"
         />
@@ -303,23 +323,23 @@ const Overview: React.FC<OverviewProps> = ({ summary, pricing }) => {
       <article className="panel chart-panel">
         <div className="panel-heading compact">
           <div>
-            <h3>Cost Trends</h3>
+            <h3>{t('overview.costTrends')}</h3>
             <p>
-              Total: {formatUsd(totalCost.pricedCostUsd)}
-              {pricingIncomplete ? ' · Pricing incomplete' : ''}
+              {t('overview.total')}: {formatUsd(totalCost.pricedCostUsd, locale)}
+              {pricingIncomplete ? ` · ${t('overview.pricingIncomplete')}` : ''}
             </p>
           </div>
         </div>
         <TrendChart days={days} max={maxDay} dailyCosts={dailyCosts} />
         <div className="chart-legend">
           <span>
-            <i style={{ background: CHART_COLORS[0] }} /> Input
+            <i style={{ background: CHART_COLORS[0] }} /> {t('overview.input')}
           </span>
           <span>
-            <i style={{ background: CHART_COLORS[1] }} /> Output
+            <i style={{ background: CHART_COLORS[1] }} /> {t('overview.output')}
           </span>
           <span>
-            <i style={{ background: CHART_COLORS[2] }} /> Cached
+            <i style={{ background: CHART_COLORS[2] }} /> {t('overview.cached')}
           </span>
         </div>
       </article>
@@ -327,8 +347,8 @@ const Overview: React.FC<OverviewProps> = ({ summary, pricing }) => {
       <article className="panel activity-panel">
         <div className="panel-heading compact">
           <div>
-            <h3>Activity</h3>
-            <p>{summary.sessions.length} sessions scanned locally</p>
+            <h3>{t('overview.activity')}</h3>
+            <p>{t('overview.sessionsScanned', { count: summary.sessions.length })}</p>
           </div>
         </div>
         <ActivityGrid days={summary.byDay.slice(-ACTIVITY_HISTORY_DAYS)} />

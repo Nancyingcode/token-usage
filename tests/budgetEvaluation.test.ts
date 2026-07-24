@@ -70,6 +70,14 @@ describe('budget evaluation', () => {
     );
 
     expect(snapshot.alerts.map(({ thresholdPercent }) => thresholdPercent)).toEqual([80, 100]);
+    expect(snapshot.alerts[1]).toEqual(
+      expect.objectContaining({
+        metric: 'token',
+        thresholdPercent: 100,
+        period: 'day',
+        severity: 'over',
+      })
+    );
     expect(snapshot.summary).toEqual({ warningCount: 0, overCount: 1, unpricedModelCount: 0 });
   });
 

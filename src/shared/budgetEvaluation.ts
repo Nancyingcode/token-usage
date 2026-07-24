@@ -125,7 +125,6 @@ const buildAlert = (
   thresholdPercent: number,
   severity: Exclude<BudgetSeverity, 'normal'>
 ): BudgetAlert => {
-  const metricLabel = metric === 'token' ? 'Token' : 'Cost';
   const id = `${status.policy.id}:${status.policy.period}:${metric}:${thresholdPercent}:${status.periodStart}`;
 
   return {
@@ -136,7 +135,6 @@ const buildAlert = (
     metric,
     thresholdPercent,
     severity,
-    message: `${metricLabel} budget reached ${thresholdPercent}%.`,
   };
 };
 

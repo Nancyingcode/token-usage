@@ -29,6 +29,7 @@ describe('usageScanner', () => {
     expect(result.warnings.some(({ sourceFile }) => sourceFile?.endsWith('broken.jsonl'))).toBe(
       true
     );
+    expect(result.warnings.some(({ code }) => code === 'invalid-jsonl-record')).toBe(true);
   });
 
   it('returns a directory warning when the sessions path is missing', async () => {
@@ -38,6 +39,52 @@ describe('usageScanner', () => {
     expect(result.summary.sessions).toEqual([]);
     expect(result.warnings).toHaveLength(1);
     expect(result.warnings[0].sourceFile).toBe(missingDirectory);
+    expect(result.warnings[0]).toEqual(
+      expect.objectContaining({
+        code: 'sessions-directory-unreadable',
+        details: expect.any(String),
+      })
+    );
+  });
+
+  it('keeps technical details when a session file cannot be read', async () => {
+    const sessionFile = join(testDirectory, 'unreadable.jsonl');
+    const missingIndexPath = join(testDirectory, 'missing-index.jsonl');
+    await writeFile(sessionFile, validSession('unreadable', '2026-07-16T00:00:00.000Z'));
+    const scanner = createUsageScanner({
+      readFile: async (path, encoding) => {
+        if (String(path) === sessionFile) {
+          throw new Error('permission denied');
+        }
+
+        return readFile(path, encoding);
+      },
+    });
+
+    const result = await scanner.scan({
+      sessionsDir: testDirectory,
+      sessionIndexPath: missingIndexPath,
+    });
+
+    expect(result.warnings).toContainEqual(
+      expect.objectContaining({
+        code: 'session-file-unreadable',
+        details: 'permission denied',
+      })
+    );
+  });
+
+  it('codes malformed session index warnings', async () => {
+    const sessionFile = join(testDirectory, 'indexed.jsonl');
+    const sessionIndexPath = join(testDirectory, 'session-index.jsonl');
+    await writeFile(sessionFile, validSession('indexed', '2026-07-16T00:00:00.000Z'));
+    await writeFile(sessionIndexPath, '{bad json', 'utf8');
+
+    const result = await scanCodexUsage({ sessionsDir: testDirectory, sessionIndexPath });
+
+    expect(result.warnings).toContainEqual(
+      expect.objectContaining({ code: 'malformed-session-index', line: 1 })
+    );
   });
 
   it('reuses unchanged parsed sessions and removes deleted files', async () => {

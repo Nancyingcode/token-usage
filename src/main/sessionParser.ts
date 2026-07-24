@@ -94,7 +94,7 @@ export const parseSessionJsonl = (
       warnings.push({
         sourceFile,
         line: index + 1,
-        message: 'Malformed JSONL line skipped.',
+        code: 'malformed-jsonl',
       });
       return;
     }
@@ -103,7 +103,7 @@ export const parseSessionJsonl = (
       warnings.push({
         sourceFile,
         line: index + 1,
-        message: 'Invalid JSONL record skipped.',
+        code: 'invalid-jsonl-record',
       });
       return;
     }
@@ -152,7 +152,7 @@ export const parseSessionJsonl = (
         warnings.push({
           sourceFile,
           line: index + 1,
-          message: 'Invalid token usage skipped.',
+          code: 'invalid-token-usage',
         });
         return;
       }

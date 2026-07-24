@@ -1,9 +1,9 @@
 import React from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import BudgetDrawer from '../src/renderer/components/BudgetDrawer';
 import ConfirmDialog from '../src/renderer/components/ConfirmDialog';
 import type { BudgetActions } from '../src/renderer/hooks/useBudgetSnapshot';
+import { renderWithI18n } from './helpers/renderWithI18n';
 
 const ACTIONS: BudgetActions = {
   savePolicy: vi.fn(),
@@ -15,7 +15,7 @@ const ACTIONS: BudgetActions = {
 
 describe('BudgetDrawer', () => {
   it('renders independent token and cost controls in policy mode', () => {
-    const markup = renderToStaticMarkup(
+    const markup = renderWithI18n(
       <BudgetDrawer
         model={{ kind: 'policy' }}
         thresholds={{ warningPercent: 80, criticalPercent: 100 }}
@@ -31,7 +31,7 @@ describe('BudgetDrawer', () => {
   });
 
   it('renders only global threshold fields in threshold mode', () => {
-    const markup = renderToStaticMarkup(
+    const markup = renderWithI18n(
       <BudgetDrawer
         model={{ kind: 'thresholds' }}
         thresholds={{ warningPercent: 80, criticalPercent: 100 }}
@@ -48,7 +48,7 @@ describe('BudgetDrawer', () => {
 
 describe('ConfirmDialog', () => {
   it('renders an accessible destructive confirmation', () => {
-    const markup = renderToStaticMarkup(
+    const markup = renderWithI18n(
       <ConfirmDialog
         title="Delete budget?"
         message="This cannot be undone."
@@ -61,5 +61,21 @@ describe('ConfirmDialog', () => {
     expect(markup).toContain('role="dialog"');
     expect(markup).toContain('aria-modal="true"');
     expect(markup).toContain('Delete');
+  });
+
+  it('renders policy controls in Chinese', () => {
+    const markup = renderWithI18n(
+      <BudgetDrawer
+        model={{ kind: 'policy' }}
+        thresholds={{ warningPercent: 80, criticalPercent: 100 }}
+        actions={ACTIONS}
+        onClose={vi.fn()}
+      />,
+      'zh-CN'
+    );
+
+    expect(markup).toContain('添加预算');
+    expect(markup).toContain('Token 上限');
+    expect(markup).toContain('估算费用上限');
   });
 });

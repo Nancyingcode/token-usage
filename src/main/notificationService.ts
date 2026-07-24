@@ -1,3 +1,4 @@
+import type { i18n } from 'i18next';
 import type { BudgetAlert } from '../shared/budgetTypes';
 
 export interface NotificationService {
@@ -24,8 +25,6 @@ export interface ElectronNotificationConstructor {
   new (options: { title: string; body: string }): ElectronNotificationInstance;
 }
 
-const NOTIFICATION_TITLE = 'Token budget alert';
-
 export const createElectronNotificationAdapter = (
   NotificationClass: ElectronNotificationConstructor
 ): SystemNotificationAdapter => ({
@@ -42,14 +41,22 @@ export const createElectronNotificationAdapter = (
 
 export const createNotificationService = (
   onNavigate: (policyId: string) => void,
-  adapter: SystemNotificationAdapter
+  adapter: SystemNotificationAdapter,
+  i18n: Pick<i18n, 't'>
 ): NotificationService => ({
   notify: (alert) => {
     if (!adapter.isSupported()) {
       return false;
     }
 
-    const notification = adapter.create({ title: NOTIFICATION_TITLE, body: alert.message });
+    const metric = i18n.t(`notifications:metric.${alert.metric}`);
+    const notification = adapter.create({
+      title: i18n.t('notifications:title'),
+      body: i18n.t('notifications:reached', {
+        metric,
+        thresholdPercent: alert.thresholdPercent,
+      }),
+    });
     notification.onClick(() => onNavigate(alert.policyId));
     notification.show();
     return true;

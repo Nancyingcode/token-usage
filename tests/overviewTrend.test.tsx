@@ -1,10 +1,10 @@
 import React from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import Overview, { buildTrendPoints } from '../src/renderer/components/Overview';
 import type { CostEstimate, ModelPricingEntry } from '../src/shared/budgetTypes';
 import { buildUsageSummary } from '../src/shared/usageMath';
 import type { UsageDay, UsageSession } from '../src/shared/usageTypes';
+import { renderWithI18n } from './helpers/renderWithI18n';
 
 describe('buildTrendPoints', () => {
   it('maps boundaries, cost, and placement for chart points', () => {
@@ -33,12 +33,23 @@ describe('buildTrendPoints', () => {
   });
 
   it('renders model-priced total cost and incomplete pricing state', () => {
-    const markup = renderToStaticMarkup(
+    const markup = renderWithI18n(
       <Overview summary={buildUsageSummary([PRICED_SESSION, UNKNOWN_SESSION])} pricing={PRICING} />
     );
 
     expect(markup).toContain('$0.0003');
     expect(markup).toContain('Pricing incomplete');
+  });
+
+  it('renders Chinese labels and locale-aware currency', () => {
+    const markup = renderWithI18n(
+      <Overview summary={buildUsageSummary([PRICED_SESSION])} pricing={PRICING} />,
+      'zh-CN'
+    );
+
+    expect(markup).toContain('费用趋势');
+    expect(markup).toContain('US$0.0003');
+    expect(markup).toContain('已在本地扫描 1 个会话');
   });
 });
 

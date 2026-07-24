@@ -13,15 +13,20 @@ import {
   BUDGET_SAVE_PRICING_CHANNEL,
   BUDGET_UPDATED_CHANNEL,
   BUDGET_UPDATE_THRESHOLDS_CHANNEL,
+  LOCALE_GET_CHANNEL,
+  LOCALE_SET_CHANNEL,
+  LOCALE_UPDATED_CHANNEL,
   OPEN_EXTERNAL_CHANNEL,
   USAGE_SCAN_CHANNEL,
   USAGE_UPDATED_CHANNEL,
 } from '../shared/ipcChannels';
 import type { BudgetRuntime } from './budgetRuntime';
 import { isAllowedExternalUrl } from './externalUrlPolicy';
+import type { LocaleService } from './localeService';
 
 export interface UsageIpcDependencies {
   runtime: BudgetRuntime;
+  localeService: LocaleService;
   getWindow: () => BrowserWindow | null;
 }
 
@@ -33,6 +38,8 @@ const HANDLED_CHANNELS = [
   BUDGET_UPDATE_THRESHOLDS_CHANNEL,
   BUDGET_SAVE_PRICING_CHANNEL,
   BUDGET_RESET_PRICING_CHANNEL,
+  LOCALE_GET_CHANNEL,
+  LOCALE_SET_CHANNEL,
   OPEN_EXTERNAL_CHANNEL,
 ] as const;
 
@@ -48,7 +55,11 @@ const sendToRenderer = (
   }
 };
 
-const registerUsageIpc = ({ runtime, getWindow }: UsageIpcDependencies): (() => void) => {
+const registerUsageIpc = ({
+  runtime,
+  localeService,
+  getWindow,
+}: UsageIpcDependencies): (() => void) => {
   ipcMain.handle(USAGE_SCAN_CHANNEL, () => runtime.refresh());
   ipcMain.handle(BUDGET_GET_SNAPSHOT_CHANNEL, () => runtime.getSnapshot());
   ipcMain.handle(BUDGET_SAVE_POLICY_CHANNEL, (_event, input: BudgetPolicyInput) =>
@@ -64,6 +75,8 @@ const registerUsageIpc = ({ runtime, getWindow }: UsageIpcDependencies): (() => 
   ipcMain.handle(BUDGET_RESET_PRICING_CHANNEL, (_event, modelId: string) =>
     runtime.resetPricingOverride(modelId)
   );
+  ipcMain.handle(LOCALE_GET_CHANNEL, () => localeService.getLocale());
+  ipcMain.handle(LOCALE_SET_CHANNEL, (_event, locale: unknown) => localeService.setLocale(locale));
   ipcMain.handle(OPEN_EXTERNAL_CHANNEL, async (_event, url: string) => {
     if (typeof url !== 'string' || !isAllowedExternalUrl(url)) {
       throw new TypeError('External URL is not allowed.');
@@ -81,11 +94,15 @@ const registerUsageIpc = ({ runtime, getWindow }: UsageIpcDependencies): (() => 
   const unsubscribeNavigation = runtime.subscribeNavigation((policyId) =>
     sendToRenderer(getWindow, BUDGET_NAVIGATE_CHANNEL, policyId)
   );
+  const unsubscribeLocale = localeService.subscribe((locale) =>
+    sendToRenderer(getWindow, LOCALE_UPDATED_CHANNEL, locale)
+  );
 
   return () => {
     unsubscribeBudget();
     unsubscribeUsage();
     unsubscribeNavigation();
+    unsubscribeLocale();
     HANDLED_CHANNELS.forEach((channel) => ipcMain.removeHandler(channel));
   };
 };

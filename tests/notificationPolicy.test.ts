@@ -59,6 +59,5 @@ const makeAlert = (overrides: Partial<BudgetAlert> = {}): BudgetAlert => ({
   metric: 'token',
   thresholdPercent: 80,
   severity: 'warning',
-  message: 'Token budget reached 80%.',
   ...overrides,
 });

@@ -1,13 +1,13 @@
 import React from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import BudgetsView from '../src/renderer/components/BudgetsView';
 import type { BudgetActions } from '../src/renderer/hooks/useBudgetSnapshot';
 import type { BudgetSnapshot } from '../src/shared/budgetTypes';
+import { renderWithI18n } from './helpers/renderWithI18n';
 
 describe('BudgetsView', () => {
   it('renders actual percentages, incomplete cost, summaries, and alerts', () => {
-    const markup = renderToStaticMarkup(<BudgetsView snapshot={SNAPSHOT} actions={ACTIONS} />);
+    const markup = renderWithI18n(<BudgetsView snapshot={SNAPSHOT} actions={ACTIONS} />);
 
     expect(markup).toContain('112%');
     expect(markup).toContain('Pricing incomplete');
@@ -15,6 +15,16 @@ describe('BudgetsView', () => {
     expect(markup).toContain('Token budget reached 100%');
     expect(markup).toContain('Global budgets');
     expect(markup).toContain('Project budgets');
+  });
+
+  it('renders budget alerts and rows in Chinese', () => {
+    const markup = renderWithI18n(<BudgetsView snapshot={SNAPSHOT} actions={ACTIONS} />, 'zh-CN');
+
+    expect(markup).toContain('预算中心');
+    expect(markup).toContain('Token 预算已达到 100%');
+    expect(markup).toContain('计价不完整');
+    expect(markup).toContain('全局预算');
+    expect(markup).toContain('项目预算');
   });
 });
 
@@ -65,7 +75,6 @@ const SNAPSHOT: BudgetSnapshot = {
       metric: 'token',
       thresholdPercent: 100,
       severity: 'over',
-      message: 'Token budget reached 100%.',
     },
   ],
   summary: { warningCount: 1, overCount: 1, unpricedModelCount: 1 },

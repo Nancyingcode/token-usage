@@ -1,5 +1,7 @@
 import React from 'react';
+import type { TFunction } from 'i18next';
 import { AlertCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ICON_SIZE_LARGE } from '../constants/ui';
 import type { BudgetSnapshot } from '../../shared/budgetTypes';
 import type { BudgetActions } from '../hooks/useBudgetSnapshot';
@@ -32,15 +34,16 @@ const renderBudgetContent = (
   model: BudgetContentModel | undefined,
   actions: BudgetActions | undefined,
   focusedPolicyId: string | null | undefined,
-  onFocusedPolicyConsumed: (() => void) | undefined
+  onFocusedPolicyConsumed: (() => void) | undefined,
+  t: TFunction<'common'>
 ): React.ReactNode => {
   if (!model || model.kind === 'loading') {
     return (
       <section className="state-panel">
         <div className="loader" />
         <div>
-          <h2>Loading budget center</h2>
-          <p>Reading local budget policies and model pricing.</p>
+          <h2>{t('state.budgetLoadingTitle')}</h2>
+          <p>{t('state.budgetLoadingDescription')}</p>
         </div>
       </section>
     );
@@ -51,7 +54,7 @@ const renderBudgetContent = (
       <section className="state-panel">
         <AlertCircle size={ICON_SIZE_LARGE} />
         <div>
-          <h2>Budget center unavailable</h2>
+          <h2>{t('state.budgetUnavailable')}</h2>
           <p>{model.message}</p>
         </div>
       </section>
@@ -67,8 +70,8 @@ const renderBudgetContent = (
     />
   ) : (
     <section className="panel budget-placeholder">
-      <h3>Budget center</h3>
-      <p>{model.snapshot.statuses.length} budget policies configured.</p>
+      <h3>{t('state.budgetCenter')}</h3>
+      <p>{t('item.budgetPolicies', { count: model.snapshot.statuses.length })}</p>
     </section>
   );
 };
@@ -81,12 +84,15 @@ const AppContent: React.FC<AppContentProps> = ({
   focusedPolicyId,
   onFocusedPolicyConsumed,
 }) => {
+  const { t } = useTranslation('common');
+
   if (activeView === 'budgets') {
     return renderBudgetContent(
       budgetModel,
       budgetActions,
       focusedPolicyId,
-      onFocusedPolicyConsumed
+      onFocusedPolicyConsumed,
+      t
     );
   }
 
@@ -98,7 +104,7 @@ const AppContent: React.FC<AppContentProps> = ({
         <section className="state-panel">
           <AlertCircle size={ICON_SIZE_LARGE} />
           <div>
-            <h2>Scan failed</h2>
+            <h2>{t('state.scanFailed')}</h2>
             <p>{model.message}</p>
           </div>
         </section>
@@ -108,8 +114,8 @@ const AppContent: React.FC<AppContentProps> = ({
         <section className="state-panel">
           <div className="loader" />
           <div>
-            <h2>Scanning local Codex sessions</h2>
-            <p>Read-only JSONL parsing. No edits, no uploads.</p>
+            <h2>{t('state.scanningTitle')}</h2>
+            <p>{t('state.scanningDescription')}</p>
           </div>
         </section>
       );

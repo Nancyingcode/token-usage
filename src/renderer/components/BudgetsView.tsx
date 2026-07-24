@@ -5,6 +5,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, SlidersHorizontal } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { BudgetPolicy, BudgetSnapshot } from '../../shared/budgetTypes';
 import { ICON_SIZE_SMALL } from '../constants/ui';
 import type { BudgetActions } from '../hooks/useBudgetSnapshot';
@@ -34,6 +35,8 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
   focusedPolicyId,
   onFocusedPolicyConsumed,
 }) => {
+  const { t } = useTranslation('budgets');
+  const { t: tCommon } = useTranslation('common');
   const [filters, setFilters] = useState<BudgetFilters>(DEFAULT_FILTERS);
   const [dismissedAlertIds, setDismissedAlertIds] = useState<Set<string>>(() => new Set());
   const [editorModel, setEditorModel] = useState<BudgetEditorModel>({ kind: 'closed' });
@@ -97,9 +100,9 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
     );
   const deleteDialog = deletePolicy ? (
     <ConfirmDialog
-      title="Delete budget?"
-      message="The policy and its notification history will be removed."
-      confirmLabel="Delete"
+      title={t('confirm.deleteTitle')}
+      message={t('confirm.deleteMessage')}
+      confirmLabel={tCommon('action.delete')}
       onConfirm={() => void handleDeleteConfirm()}
       onCancel={() => setDeletePolicy(null)}
     />
@@ -116,7 +119,7 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
 
       <div className="budget-filter-bar">
         <label>
-          <span>Scope</span>
+          <span>{t('filter.scope')}</span>
           <select
             value={filters.scope}
             onChange={(event) =>
@@ -126,13 +129,13 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
               }))
             }
           >
-            <option value="all">All scopes</option>
-            <option value="global">Global</option>
-            <option value="project">Project</option>
+            <option value="all">{t('filter.allScopes')}</option>
+            <option value="global">{t('scope.global')}</option>
+            <option value="project">{t('scope.project')}</option>
           </select>
         </label>
         <label>
-          <span>Period</span>
+          <span>{t('filter.period')}</span>
           <select
             value={filters.period}
             onChange={(event) =>
@@ -142,10 +145,10 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
               }))
             }
           >
-            <option value="all">All periods</option>
-            <option value="day">Daily</option>
-            <option value="week">Weekly</option>
-            <option value="month">Monthly</option>
+            <option value="all">{t('filter.allPeriods')}</option>
+            <option value="day">{t('period.day')}</option>
+            <option value="week">{t('period.week')}</option>
+            <option value="month">{t('period.month')}</option>
           </select>
         </label>
       </div>
@@ -170,9 +173,9 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
   const showOverviewActions = activeTab === 'overview';
   const headingActions = showOverviewActions ? (
     <>
-      <div className="budget-thresholds" aria-label="Alert thresholds">
-        <span>Warning {snapshot.thresholds.warningPercent}%</span>
-        <span>Critical {snapshot.thresholds.criticalPercent}%</span>
+      <div className="budget-thresholds" aria-label={t('page.alertThresholds')}>
+        <span>{t('page.warningThreshold', { percent: snapshot.thresholds.warningPercent })}</span>
+        <span>{t('page.criticalThreshold', { percent: snapshot.thresholds.criticalPercent })}</span>
       </div>
       <button
         type="button"
@@ -180,7 +183,7 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
         onClick={() => setEditorModel({ kind: 'thresholds' })}
       >
         <SlidersHorizontal size={ICON_SIZE_SMALL} />
-        Thresholds
+        {t('page.thresholds')}
       </button>
       <button
         type="button"
@@ -188,7 +191,7 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
         onClick={() => setEditorModel({ kind: 'policy' })}
       >
         <Plus size={ICON_SIZE_SMALL} />
-        Add budget
+        {t('page.addBudget')}
       </button>
     </>
   ) : null;
@@ -197,19 +200,21 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
     <section className="budgets-page">
       <header className="budget-page-heading">
         <div>
-          <h2>Budget center</h2>
-          <p>Natural-period controls for tokens and estimated cost.</p>
+          <h2>{t('page.title')}</h2>
+          <p>{t('page.description')}</p>
         </div>
         <div className="budget-heading-actions">{headingActions}</div>
       </header>
 
       {showStaleWarning ? (
         <div className="budget-stale-banner">
-          Showing the last successful scan. {snapshot.staleReason ?? 'Usage data is stale.'}
+          {t('page.stale', {
+            reason: snapshot.staleReason ?? t('page.staleDefault'),
+          })}
         </div>
       ) : null}
 
-      <div className="budget-tabs" role="tablist" aria-label="Budget views">
+      <div className="budget-tabs" role="tablist" aria-label={t('page.views')}>
         <button
           type="button"
           role="tab"
@@ -217,7 +222,7 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
           className={activeTab === 'overview' ? 'active' : undefined}
           onClick={() => setActiveTab('overview')}
         >
-          Budget overview
+          {t('page.overview')}
         </button>
         <button
           type="button"
@@ -226,7 +231,7 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
           className={activeTab === 'pricing' ? 'active' : undefined}
           onClick={() => setActiveTab('pricing')}
         >
-          Model pricing
+          {t('page.pricing')}
         </button>
       </div>
       {pageContent}

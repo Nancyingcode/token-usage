@@ -4,11 +4,13 @@
  * 展示近期用量趋势、缓存效率、会话峰值和成本等性能指标。
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ModelPricingEntry } from '../../shared/budgetTypes';
 import { getSummaryCostEstimate } from '../../shared/pricing';
 import { getCachePercentage } from '../../shared/usageMetrics';
 import type { UsageSummary } from '../../shared/usageTypes';
-import { formatUsd } from '../utils/formatters';
+import { resolveRendererLocale } from '../i18n';
+import { formatPercent, formatUsd } from '../utils/formatters';
 import TokenBar from './TokenBar';
 
 interface PerformanceViewProps {
@@ -47,6 +49,7 @@ const DONUT_RADIUS = 48;
 const PERCENT_SCALE = 100;
 const APPLICATION_ERROR_COUNT = 0;
 const APPLICATION_ERROR_RATE = 0;
+const ERROR_RATE_FRACTION_DIGITS = 2;
 
 const MiniLine: React.FC<MiniLineProps> = ({ days, max, tone }) => {
   const points = days.map((day, index) => {
@@ -96,6 +99,8 @@ const Donut: React.FC<DonutProps> = ({ value }) => {
 };
 
 const PerformanceView: React.FC<PerformanceViewProps> = ({ summary, pricing }) => {
+  const { t, i18n } = useTranslation('analytics');
+  const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const days = summary.byDay.slice(-PERFORMANCE_HISTORY_DAYS);
   const maxDay = Math.max(1, ...days.map((day) => day.totalTokens));
   const maxSession = Math.max(
@@ -112,21 +117,23 @@ const PerformanceView: React.FC<PerformanceViewProps> = ({ summary, pricing }) =
   return (
     <section className="performance-grid">
       <article className="panel perf-card">
-        <h3>Cache Hit Rate</h3>
-        <p>{cacheRate}%</p>
+        <h3>{t('performance.cacheHitRate')}</h3>
+        <p>{formatPercent(cacheRate, locale)}</p>
         <MiniLine days={days} max={maxDay} tone="cyan" />
       </article>
 
       <article className="panel perf-card">
-        <h3>Cost Efficiency</h3>
-        <p>{formatUsd(totalCost.pricedCostUsd)}</p>
-        {pricingIncomplete ? <p className="pricing-incomplete-label">Pricing incomplete</p> : null}
+        <h3>{t('performance.costEfficiency')}</h3>
+        <p>{formatUsd(totalCost.pricedCostUsd, locale)}</p>
+        {pricingIncomplete ? (
+          <p className="pricing-incomplete-label">{t('performance.pricingIncomplete')}</p>
+        ) : null}
         <MiniLine days={days} max={maxDay} tone="blue" />
       </article>
 
       <article className="panel perf-card">
-        <h3>Peak Hours</h3>
-        <p>Most active at {peakHour(summary)}</p>
+        <h3>{t('performance.peakHours')}</h3>
+        <p>{t('performance.mostActiveAt', { time: peakHour(summary) })}</p>
         <div className="peak-bars">
           {summary.sessions
             .slice(0, PEAK_SESSION_COUNT)
@@ -143,9 +150,10 @@ const PerformanceView: React.FC<PerformanceViewProps> = ({ summary, pricing }) =
       </article>
 
       <article className="panel perf-card">
-        <h3>Error Rate</h3>
+        <h3>{t('performance.errorRate')}</h3>
         <p>
-          {APPLICATION_ERROR_RATE.toFixed(2)}% ({APPLICATION_ERROR_COUNT}/{summary.sessions.length})
+          {formatPercent(APPLICATION_ERROR_RATE, locale, ERROR_RATE_FRACTION_DIGITS)} (
+          {APPLICATION_ERROR_COUNT}/{summary.sessions.length})
         </p>
         <Donut value={PERCENT_SCALE - APPLICATION_ERROR_RATE} />
       </article>

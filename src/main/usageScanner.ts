@@ -102,7 +102,8 @@ export const createUsageScanner = (
             warnings: [
               {
                 sourceFile: file,
-                message: `Unable to read session file: ${errorMessage(error)}`,
+                code: 'session-file-unreadable',
+                details: errorMessage(error),
               },
             ],
           };
@@ -161,7 +162,8 @@ const findJsonlFiles = async (dir: string): Promise<FileDiscoveryResult> => {
       warnings: [
         {
           sourceFile: dir,
-          message: `Unable to scan Codex sessions directory: ${errorMessage(error)}`,
+          code: 'sessions-directory-unreadable',
+          details: errorMessage(error),
         },
       ],
     };
@@ -200,7 +202,7 @@ const loadThreadNames = async (
         warnings.push({
           sourceFile: sessionIndexPath,
           line: index + 1,
-          message: 'Malformed session index line skipped.',
+          code: 'malformed-session-index',
         });
       }
     });

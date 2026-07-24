@@ -4,6 +4,7 @@ import type {
   BudgetThresholds,
   ModelPricingOverrideInput,
 } from '../shared/budgetTypes';
+import type { SupportedLocale } from '../shared/i18n/locale';
 import type { UsageScanResult } from '../shared/usageTypes';
 
 interface BudgetApi {
@@ -17,10 +18,17 @@ interface BudgetApi {
   onNavigate: (listener: (policyId: string) => void) => () => void;
 }
 
+interface LocaleApi {
+  get: () => Promise<SupportedLocale>;
+  set: (locale: SupportedLocale) => Promise<SupportedLocale>;
+  onUpdated: (listener: (locale: SupportedLocale) => void) => () => void;
+}
+
 interface CodexUsageApi {
   scan: () => Promise<UsageScanResult>;
   onUsageUpdated: (listener: (result: UsageScanResult) => void) => () => void;
   openExternal: (url: string) => Promise<void>;
+  locale: LocaleApi;
   budgets: BudgetApi;
 }
 

@@ -9,3 +9,6 @@ export const BUDGET_RESET_PRICING_CHANNEL = 'budget:reset-pricing';
 export const BUDGET_UPDATED_CHANNEL = 'budget:updated';
 export const BUDGET_NAVIGATE_CHANNEL = 'budget:navigate';
 export const OPEN_EXTERNAL_CHANNEL = 'app:open-external';
+export const LOCALE_GET_CHANNEL = 'locale:get';
+export const LOCALE_SET_CHANNEL = 'locale:set';
+export const LOCALE_UPDATED_CHANNEL = 'locale:updated';

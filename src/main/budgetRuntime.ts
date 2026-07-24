@@ -64,7 +64,7 @@ export class BudgetRuntimeValidationError extends Error {
   public readonly issues: ValidationIssue[];
 
   public constructor(issues: ValidationIssue[]) {
-    super(issues.map(({ message }) => message).join(' '));
+    super(issues.map(({ code, details }) => details ?? code).join(' '));
     this.name = 'BudgetRuntimeValidationError';
     this.issues = issues;
   }
@@ -234,7 +234,10 @@ export const createBudgetRuntime = (dependencies: BudgetRuntimeDependencies): Bu
 
     if (input.id && !existingPolicy) {
       throw new BudgetRuntimeValidationError([
-        { field: 'id', message: 'Budget policy was not found.' },
+        {
+          field: 'id',
+          code: 'budget-not-found',
+        },
       ]);
     }
 
@@ -245,7 +248,10 @@ export const createBudgetRuntime = (dependencies: BudgetRuntimeDependencies): Bu
 
     if (duplicatePolicy) {
       throw new BudgetRuntimeValidationError([
-        { field: 'businessKey', message: 'A budget already exists for this scope.' },
+        {
+          field: 'businessKey',
+          code: 'budget-duplicate',
+        },
       ]);
     }
 
