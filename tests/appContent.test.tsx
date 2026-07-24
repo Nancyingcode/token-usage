@@ -1,10 +1,10 @@
 import React from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import AppContent from '../src/renderer/components/AppContent';
 import type { AppContentModel } from '../src/renderer/utils/appContentModel';
 import { buildUsageSummary } from '../src/shared/usageMath';
 import type { UsageScanResult, UsageSession } from '../src/shared/usageTypes';
+import { renderWithI18n } from './helpers/renderWithI18n';
 
 const SESSION: UsageSession = {
   sessionId: 'session-1',
@@ -43,13 +43,13 @@ const STATE_CASES: Array<{ model: AppContentModel; expectedText: string }> = [
 
 describe('AppContent', () => {
   it.each(STATE_CASES)('renders the $model.kind model', ({ model, expectedText }) => {
-    const markup = renderToStaticMarkup(<AppContent activeView="overview" model={model} />);
+    const markup = renderWithI18n(<AppContent activeView="overview" model={model} />);
 
     expect(markup).toContain(expectedText);
   });
 
   it('renders the selected page for a ready model', () => {
-    const markup = renderToStaticMarkup(
+    const markup = renderWithI18n(
       <AppContent
         activeView="overview"
         model={{ kind: 'ready', result: RESULT, summary: SUMMARY }}
@@ -60,15 +60,13 @@ describe('AppContent', () => {
   });
 
   it('renders no markup for idle', () => {
-    const markup = renderToStaticMarkup(
-      <AppContent activeView="overview" model={{ kind: 'idle' }} />
-    );
+    const markup = renderWithI18n(<AppContent activeView="overview" model={{ kind: 'idle' }} />);
 
     expect(markup).toBe('');
   });
 
   it('renders budget state before usage scan errors', () => {
-    const markup = renderToStaticMarkup(
+    const markup = renderWithI18n(
       <AppContent
         activeView="budgets"
         model={{ kind: 'error', message: 'Disk unavailable' }}
@@ -90,5 +88,15 @@ describe('AppContent', () => {
 
     expect(markup).toContain('Budget center');
     expect(markup).not.toContain('Scan failed');
+  });
+
+  it('renders state copy in Chinese', () => {
+    const markup = renderWithI18n(
+      <AppContent activeView="overview" model={{ kind: 'loading' }} />,
+      'zh-CN'
+    );
+
+    expect(markup).toContain('正在扫描本地 Codex 会话');
+    expect(markup).toContain('不修改或上传任何数据');
   });
 });

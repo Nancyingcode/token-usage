@@ -1,5 +1,6 @@
 import React from 'react';
 import { BarChart3, Boxes, Gauge, MessageSquareText, WalletCards, Wrench } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ICON_SIZE_SMALL, NAV_ICON_STROKE_WIDTH } from '../constants/ui';
 
 export type ViewKey = 'overview' | 'budgets' | 'sessions' | 'tools' | 'performance' | 'wrapped';
@@ -11,14 +12,18 @@ interface SidebarProps {
   onChange: (view: ViewKey) => void;
 }
 
-const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: typeof BarChart3 }> = [
-  { key: 'overview', label: 'Overview', icon: BarChart3 },
-  { key: 'budgets', label: 'Budgets', icon: WalletCards },
-  { key: 'sessions', label: 'Sessions', icon: MessageSquareText },
-  { key: 'tools', label: 'Tools', icon: Wrench },
-  { key: 'performance', label: 'Performance', icon: Gauge },
-  { key: 'wrapped', label: 'Wrapped', icon: Boxes },
-];
+const NAV_ITEMS = [
+  { key: 'overview', translationKey: 'navigation.overview', icon: BarChart3 },
+  { key: 'budgets', translationKey: 'navigation.budgets', icon: WalletCards },
+  { key: 'sessions', translationKey: 'navigation.sessions', icon: MessageSquareText },
+  { key: 'tools', translationKey: 'navigation.tools', icon: Wrench },
+  { key: 'performance', translationKey: 'navigation.performance', icon: Gauge },
+  { key: 'wrapped', translationKey: 'navigation.wrapped', icon: Boxes },
+] as const satisfies ReadonlyArray<{
+  key: ViewKey;
+  translationKey: `navigation.${ViewKey}`;
+  icon: typeof BarChart3;
+}>;
 
 const shouldShowWarningBadge = (view: ViewKey, warningCount: number): boolean =>
   view === 'wrapped' && warningCount > 0;
@@ -31,32 +36,37 @@ const Sidebar: React.FC<SidebarProps> = ({
   warningCount,
   budgetAlertCount = 0,
   onChange,
-}) => (
-  <aside className="sidebar">
-    <nav className="nav-list" aria-label="Primary navigation">
-      {NAV_ITEMS.map((item) => {
-        const Icon = item.icon;
-        const showWarningBadge = shouldShowWarningBadge(item.key, warningCount);
-        const showBudgetBadge = shouldShowBudgetBadge(item.key, budgetAlertCount);
-        const badgeCount = showWarningBadge ? warningCount : budgetAlertCount;
-        const showBadge = showWarningBadge || showBudgetBadge;
+}) => {
+  const { t } = useTranslation('common');
 
-        return (
-          <button
-            key={item.key}
-            type="button"
-            className={activeView === item.key ? 'nav-item active' : 'nav-item'}
-            onClick={() => onChange(item.key)}
-            title={item.label}
-          >
-            <Icon size={ICON_SIZE_SMALL} strokeWidth={NAV_ICON_STROKE_WIDTH} />
-            <span>{item.label}</span>
-            {showBadge ? <em className="nav-badge">{badgeCount}</em> : null}
-          </button>
-        );
-      })}
-    </nav>
-  </aside>
-);
+  return (
+    <aside className="sidebar">
+      <nav className="nav-list" aria-label={t('navigation.label')}>
+        {NAV_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const label = t(item.translationKey);
+          const showWarningBadge = shouldShowWarningBadge(item.key, warningCount);
+          const showBudgetBadge = shouldShowBudgetBadge(item.key, budgetAlertCount);
+          const badgeCount = showWarningBadge ? warningCount : budgetAlertCount;
+          const showBadge = showWarningBadge || showBudgetBadge;
+
+          return (
+            <button
+              key={item.key}
+              type="button"
+              className={activeView === item.key ? 'nav-item active' : 'nav-item'}
+              onClick={() => onChange(item.key)}
+              title={label}
+            >
+              <Icon size={ICON_SIZE_SMALL} strokeWidth={NAV_ICON_STROKE_WIDTH} />
+              <span>{label}</span>
+              {showBadge ? <em className="nav-badge">{badgeCount}</em> : null}
+            </button>
+          );
+        })}
+      </nav>
+    </aside>
+  );
+};
 
 export default Sidebar;

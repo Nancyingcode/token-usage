@@ -1,7 +1,9 @@
 import React from 'react';
 import { Folder, ShieldCheck } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { UsageScanResult } from '../../shared/usageTypes';
 import { ICON_SIZE_MEDIUM } from '../constants/ui';
+import { translateUsageWarning } from '../utils/usageWarnings';
 
 interface SettingsViewProps {
   result: UsageScanResult;
@@ -9,53 +11,55 @@ interface SettingsViewProps {
 
 const MAX_VISIBLE_WARNINGS = 8;
 
-const SettingsView: React.FC<SettingsViewProps> = ({ result }) => (
-  <section className="settings-grid">
-    <article className="panel">
-      <div className="settings-item">
-        <Folder size={ICON_SIZE_MEDIUM} />
-        <div>
-          <p className="eyebrow">Data path</p>
-          <h3>Codex Sessions</h3>
-          <code>{result.sessionsDir}</code>
+const SettingsView: React.FC<SettingsViewProps> = ({ result }) => {
+  const { t } = useTranslation('settings');
+  const { t: tWarning } = useTranslation('warnings');
+
+  return (
+    <section className="settings-grid">
+      <article className="panel">
+        <div className="settings-item">
+          <Folder size={ICON_SIZE_MEDIUM} />
+          <div>
+            <p className="eyebrow">{t('dataPath')}</p>
+            <h3>{t('codexSessions')}</h3>
+            <code>{result.sessionsDir}</code>
+          </div>
         </div>
-      </div>
-    </article>
+      </article>
 
-    <article className="panel">
-      <div className="settings-item">
-        <ShieldCheck size={ICON_SIZE_MEDIUM} />
-        <div>
-          <p className="eyebrow">Privacy</p>
-          <h3>Local Read-only</h3>
-          <p>The app reads local JSONL files only. It does not edit Codex data or upload usage.</p>
+      <article className="panel">
+        <div className="settings-item">
+          <ShieldCheck size={ICON_SIZE_MEDIUM} />
+          <div>
+            <p className="eyebrow">{t('privacy')}</p>
+            <h3>{t('localReadOnly')}</h3>
+            <p>{t('privacyDescription')}</p>
+          </div>
         </div>
-      </div>
-    </article>
+      </article>
 
-    <article className="panel">
-      <p className="eyebrow">Cost estimate</p>
-      <h3>Model-based Estimate</h3>
-      <p>
-        Cost uses the model recorded in local sessions and the Budgets price table. Unknown models
-        remain unpriced, and estimates do not represent an actual bill.
-      </p>
-    </article>
+      <article className="panel">
+        <p className="eyebrow">{t('costEstimate')}</p>
+        <h3>{t('modelBasedEstimate')}</h3>
+        <p>{t('costDescription')}</p>
+      </article>
 
-    <article className="panel">
-      <p className="eyebrow">Warnings</p>
-      <h3>{result.warnings.length} scan warnings</h3>
-      <div className="warning-list">
-        {result.warnings.slice(0, MAX_VISIBLE_WARNINGS).map((warning) => (
-          <p key={`${warning.sourceFile}-${warning.line}-${warning.message}`}>
-            {warning.sourceFile ? `${warning.sourceFile}: ` : ''}
-            {warning.message}
-          </p>
-        ))}
-        {result.warnings.length === 0 ? <p>No parser warnings found.</p> : null}
-      </div>
-    </article>
-  </section>
-);
+      <article className="panel">
+        <p className="eyebrow">{t('warnings')}</p>
+        <h3>{t('scanWarnings', { count: result.warnings.length })}</h3>
+        <div className="warning-list">
+          {result.warnings.slice(0, MAX_VISIBLE_WARNINGS).map((warning) => (
+            <p key={`${warning.sourceFile}-${warning.line}-${warning.code}`}>
+              {warning.sourceFile ? `${warning.sourceFile}: ` : ''}
+              {translateUsageWarning(warning, tWarning)}
+            </p>
+          ))}
+          {result.warnings.length === 0 ? <p>{t('noWarnings')}</p> : null}
+        </div>
+      </article>
+    </section>
+  );
+};
 
 export default SettingsView;

@@ -17,7 +17,6 @@ export interface TokenUsage {
 export interface UsageWarning {
   sourceFile?: string;
   code: UsageWarningCode;
-  message: string;
   line?: number;
   details?: string;
 }

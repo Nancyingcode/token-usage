@@ -22,7 +22,6 @@ const makeSession = (warningCount: number): UsageSession => ({
   sourceFile: `session-${warningCount}.jsonl`,
   warnings: Array.from({ length: warningCount }, () => ({
     code: 'malformed-jsonl' as const,
-    message: 'warning',
   })),
 });
 
