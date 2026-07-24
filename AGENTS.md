@@ -1,3 +1,7 @@
+## 注意事项
+
+- 设计文档使用中文
+  
 ## Key Documentation
 
 - [Coding Standards](./style-guide.md): definitive guide for running targets.
