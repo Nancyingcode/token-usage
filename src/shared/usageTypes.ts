@@ -52,7 +52,9 @@ export interface UsageDay extends TokenUsage {
   sessionCount: number;
 }
 
-export type UsagePeriod = 'today' | 'week' | 'month';
+export type RollingUsagePeriod = 'today' | 'week' | 'month';
+
+export type UsagePeriod = RollingUsagePeriod | 'total';
 
 export interface UsageSummary {
   totals: TokenUsage;

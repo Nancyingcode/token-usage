@@ -1,4 +1,5 @@
 import type {
+  RollingUsagePeriod,
   TokenUsage,
   UsageDay,
   UsagePeriod,
@@ -7,7 +8,7 @@ import type {
   UsageSummary,
 } from './usageTypes';
 
-const PERIOD_DAY_COUNTS: Record<UsagePeriod, number> = {
+const PERIOD_DAY_COUNTS: Record<RollingUsagePeriod, number> = {
   today: 1,
   week: 7,
   month: 30,
@@ -66,6 +67,10 @@ export const filterUsageSummary = (
   period: UsagePeriod,
   now: Date = new Date()
 ): UsageSummary => {
+  if (period === 'total') {
+    return summary;
+  }
+
   const endTime = now.getTime();
 
   if (Number.isNaN(endTime)) {

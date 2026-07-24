@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { addTokenUsage, buildUsageSummary, filterUsageSummary } from '../src/shared/usageMath';
-import type { UsageSession } from '../src/shared/usageTypes';
+import type { UsagePeriod, UsageSession } from '../src/shared/usageTypes';
 
 describe('usageMath', () => {
   it('adds all token fields', () => {
@@ -80,6 +80,27 @@ describe('usageMath', () => {
     expect(filtered.sessions.map(({ sessionId }) => sessionId)).toEqual(['valid-a', 'valid-b']);
     expect(filtered.byDay).toHaveLength(2);
     expect(filtered.byProject.map(({ projectName }) => projectName)).toEqual(['beta', 'alpha']);
+  });
+
+  it('returns the complete summary for total without applying time validation', () => {
+    const now = new Date(2026, 6, 16, 15, 30, 0, 0);
+    const sessions = [
+      makeSession('old', localDaysAgo(now, 365, 9), 'C:\\repo\\old', 10),
+      makeSession(
+        'future',
+        new Date(now.getTime() + 24 * 60 * 60 * 1_000).toISOString(),
+        'C:\\repo\\future',
+        20
+      ),
+      makeSession('invalid', 'not-a-date', 'C:\\repo\\invalid', 30),
+    ];
+    const summary = buildUsageSummary(sessions);
+
+    const filtered = filterUsageSummary(summary, 'total' as UsagePeriod, now);
+
+    expect(filtered).toBe(summary);
+    expect(filtered.sessions).toHaveLength(3);
+    expect(filtered.totals.totalTokens).toBe(60);
   });
 });
 
