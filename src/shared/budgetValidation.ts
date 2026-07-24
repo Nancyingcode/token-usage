@@ -51,7 +51,6 @@ export const isValidationIssue = (value: unknown): value is ValidationIssue =>
   isRecord(value) &&
   typeof value.field === 'string' &&
   isValidationIssueCode(value.code) &&
-  typeof value.message === 'string' &&
   (value.details === undefined || typeof value.details === 'string');
 
 const isPositiveFinite = (value: number | undefined): boolean =>
@@ -69,7 +68,6 @@ export const getBudgetPolicyIssues = (input: BudgetPolicyInput): ValidationIssue
     issues.push({
       field: 'projectPath',
       code: 'project-required',
-      message: 'Project is required.',
     });
   }
 
@@ -77,7 +75,6 @@ export const getBudgetPolicyIssues = (input: BudgetPolicyInput): ValidationIssue
     issues.push({
       field: 'tokenLimit',
       code: 'token-limit-positive',
-      message: 'Token limit must be greater than 0.',
     });
   }
 
@@ -85,7 +82,6 @@ export const getBudgetPolicyIssues = (input: BudgetPolicyInput): ValidationIssue
     issues.push({
       field: 'costLimitUsd',
       code: 'cost-limit-positive',
-      message: 'Cost limit must be greater than 0.',
     });
   }
 
@@ -93,7 +89,6 @@ export const getBudgetPolicyIssues = (input: BudgetPolicyInput): ValidationIssue
     issues.push({
       field: 'limits',
       code: 'budget-limit-required',
-      message: 'Enable at least one budget limit.',
     });
   }
 
@@ -111,7 +106,6 @@ export const getThresholdIssues = (input: BudgetThresholds): ValidationIssue[] =
         {
           field: 'thresholds',
           code: 'thresholds-invalid',
-          message: 'Thresholds must be ordered between 0 and 100.',
         },
       ];
 };
@@ -125,7 +119,6 @@ export const getPricingOverrideIssues = (input: ModelPricingOverrideInput): Vali
     issues.push({
       field: 'modelId',
       code: 'model-id-required',
-      message: 'Model ID is required.',
     });
   }
 
@@ -133,7 +126,6 @@ export const getPricingOverrideIssues = (input: ModelPricingOverrideInput): Vali
     issues.push({
       field: 'aliases',
       code: 'aliases-unique',
-      message: 'Model aliases must be unique.',
     });
   }
 
@@ -141,7 +133,6 @@ export const getPricingOverrideIssues = (input: ModelPricingOverrideInput): Vali
     issues.push({
       field: 'inputUsdPerMillion',
       code: 'input-price-non-negative',
-      message: 'Input price must be 0 or greater.',
     });
   }
 
@@ -149,7 +140,6 @@ export const getPricingOverrideIssues = (input: ModelPricingOverrideInput): Vali
     issues.push({
       field: 'cachedInputUsdPerMillion',
       code: 'cached-input-price-non-negative',
-      message: 'Cached input price must be 0 or greater.',
     });
   }
 
@@ -157,7 +147,6 @@ export const getPricingOverrideIssues = (input: ModelPricingOverrideInput): Vali
     issues.push({
       field: 'outputUsdPerMillion',
       code: 'output-price-non-negative',
-      message: 'Output price must be 0 or greater.',
     });
   }
 

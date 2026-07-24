@@ -12,7 +12,6 @@ const ALERT: BudgetAlert = {
   metric: 'token',
   thresholdPercent: 100,
   severity: 'over',
-  message: 'Token budget reached 100%.',
 };
 
 describe('notification service', () => {

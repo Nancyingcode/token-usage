@@ -12,7 +12,6 @@ export interface BudgetFilters {
 
 export interface BudgetStatusGroup {
   key: BudgetScope;
-  label: string;
   statuses: BudgetPolicyStatus[];
 }
 
@@ -29,11 +28,11 @@ const groupBudgetStatuses = (statuses: BudgetPolicyStatus[]): BudgetStatusGroup[
   const groups: BudgetStatusGroup[] = [];
 
   if (globalStatuses.length > 0) {
-    groups.push({ key: 'global', label: 'Global budgets', statuses: globalStatuses });
+    groups.push({ key: 'global', statuses: globalStatuses });
   }
 
   if (projectStatuses.length > 0) {
-    groups.push({ key: 'project', label: 'Project budgets', statuses: projectStatuses });
+    groups.push({ key: 'project', statuses: projectStatuses });
   }
 
   return groups;

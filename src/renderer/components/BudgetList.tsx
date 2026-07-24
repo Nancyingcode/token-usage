@@ -5,6 +5,7 @@
  */
 import React from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type {
   BudgetPolicy,
   BudgetPolicyStatus,
@@ -12,6 +13,7 @@ import type {
   BudgetSeverity,
 } from '../../shared/budgetTypes';
 import { ICON_SIZE_SMALL } from '../constants/ui';
+import { resolveRendererLocale } from '../i18n';
 import type { BudgetStatusGroup } from '../utils/budgetViewModel';
 import { formatNumber, formatPercent, formatUsd } from '../utils/formatters';
 
@@ -60,16 +62,19 @@ const ProgressBar: React.FC<{ progress: BudgetProgress }> = ({ progress }) => (
 );
 
 const TokenCell: React.FC<{ progress?: BudgetProgress }> = ({ progress }) => {
+  const { t, i18n } = useTranslation('common');
+  const locale = resolveRendererLocale(i18n.resolvedLanguage);
+
   if (!progress) {
-    return <span className="budget-unset">Not set</span>;
+    return <span className="budget-unset">{t('value.notSet')}</span>;
   }
 
   return (
     <div className="budget-progress-cell">
       <div>
-        <strong>{formatPercent(progress.percent)}</strong>
+        <strong>{formatPercent(progress.percent, locale)}</strong>
         <span>
-          {formatNumber(progress.used)} / {formatNumber(progress.limit)}
+          {formatNumber(progress.used, locale)} / {formatNumber(progress.limit, locale)}
         </span>
       </div>
       <ProgressBar progress={progress} />
@@ -78,8 +83,12 @@ const TokenCell: React.FC<{ progress?: BudgetProgress }> = ({ progress }) => {
 };
 
 const CostCell: React.FC<{ model: CostCellModel }> = ({ model }) => {
+  const { t, i18n } = useTranslation('budgets');
+  const { t: tCommon } = useTranslation('common');
+  const locale = resolveRendererLocale(i18n.resolvedLanguage);
+
   if (model.kind === 'unset') {
-    return <span className="budget-unset">Not set</span>;
+    return <span className="budget-unset">{tCommon('value.notSet')}</span>;
   }
 
   const incomplete = model.kind === 'incomplete';
@@ -87,14 +96,18 @@ const CostCell: React.FC<{ model: CostCellModel }> = ({ model }) => {
   return (
     <div className="budget-progress-cell">
       <div>
-        <strong>{formatPercent(model.progress.percent)}</strong>
+        <strong>{formatPercent(model.progress.percent, locale)}</strong>
         <span>
-          {formatUsd(model.progress.used)} / {formatUsd(model.progress.limit)}
+          {formatUsd(model.progress.used, locale)} / {formatUsd(model.progress.limit, locale)}
         </span>
       </div>
       <ProgressBar progress={model.progress} />
       {incomplete ? (
-        <small>Pricing incomplete · {formatNumber(model.unpricedTokens)} tokens</small>
+        <small>
+          {t('list.pricingIncomplete', {
+            tokens: formatNumber(model.unpricedTokens, locale),
+          })}
+        </small>
       ) : null}
     </div>
   );
@@ -105,14 +118,17 @@ const BudgetRow: React.FC<{
   onEdit?: BudgetListProps['onEdit'];
   onDelete?: BudgetListProps['onDelete'];
 }> = ({ status, onEdit, onDelete }) => {
+  const { t } = useTranslation('budgets');
   const costModel = getCostCellModel(status);
   const severity = getStatusSeverity(status);
-  const scopeLabel = status.policy.scope === 'global' ? 'All projects' : status.policy.projectPath;
+  const scopeLabel =
+    status.policy.scope === 'global' ? t('scope.allProjects') : status.policy.projectPath;
   const editAction = onEdit ? (
     <button
       type="button"
       className="icon-button"
-      title="Edit budget"
+      title={t('list.edit')}
+      aria-label={t('list.edit')}
       onClick={() => onEdit(status.policy)}
     >
       <Pencil size={ICON_SIZE_SMALL} />
@@ -122,7 +138,8 @@ const BudgetRow: React.FC<{
     <button
       type="button"
       className="icon-button danger"
-      title="Delete budget"
+      title={t('list.delete')}
+      aria-label={t('list.delete')}
       onClick={() => onDelete(status.policy)}
     >
       <Trash2 size={ICON_SIZE_SMALL} />
@@ -133,12 +150,12 @@ const BudgetRow: React.FC<{
     <div className="budget-table-row">
       <div className="budget-scope-cell">
         <strong>{scopeLabel}</strong>
-        <span>{status.policy.scope}</span>
+        <span>{t(`scope.${status.policy.scope}`)}</span>
       </div>
-      <span className="budget-period-cell">{status.policy.period}</span>
+      <span className="budget-period-cell">{t(`period.${status.policy.period}`)}</span>
       <TokenCell progress={status.token} />
       <CostCell model={costModel} />
-      <span className={`budget-status ${severity}`}>{severity}</span>
+      <span className={`budget-status ${severity}`}>{t(`severity.${severity}`)}</span>
       <div className="budget-row-actions">
         {editAction}
         {deleteAction}
@@ -148,11 +165,13 @@ const BudgetRow: React.FC<{
 };
 
 const BudgetList: React.FC<BudgetListProps> = ({ groups, onEdit, onDelete }) => {
+  const { t } = useTranslation('budgets');
+
   if (groups.length === 0) {
     return (
       <section className="budget-empty">
-        <h3>No budgets match these filters</h3>
-        <p>Change the scope or period filter to see configured policies.</p>
+        <h3>{t('list.emptyTitle')}</h3>
+        <p>{t('list.emptyDescription')}</p>
       </section>
     );
   }
@@ -162,17 +181,17 @@ const BudgetList: React.FC<BudgetListProps> = ({ groups, onEdit, onDelete }) => 
       {groups.map((group) => (
         <section className="budget-group" key={group.key}>
           <div className="budget-group-heading">
-            <h3>{group.label}</h3>
+            <h3>{group.key === 'global' ? t('scope.globalBudgets') : t('scope.projectBudgets')}</h3>
             <span>{group.statuses.length}</span>
           </div>
           <div className="budget-table">
             <div className="budget-table-row budget-table-head">
-              <span>Scope</span>
-              <span>Period</span>
-              <span>Tokens</span>
-              <span>Estimated cost</span>
-              <span>Status</span>
-              <span>Actions</span>
+              <span>{t('list.scope')}</span>
+              <span>{t('list.period')}</span>
+              <span>{t('list.tokens')}</span>
+              <span>{t('list.estimatedCost')}</span>
+              <span>{t('list.status')}</span>
+              <span>{t('list.actions')}</span>
             </div>
             {group.statuses.map((status) => (
               <BudgetRow

@@ -1,9 +1,9 @@
 import React from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import ModelPricingView from '../src/renderer/components/ModelPricingView';
 import type { BudgetActions } from '../src/renderer/hooks/useBudgetSnapshot';
 import type { BudgetSnapshot, ModelPricingEntry } from '../src/shared/budgetTypes';
+import { renderWithI18n } from './helpers/renderWithI18n';
 
 const PRICING: ModelPricingEntry[] = [
   {
@@ -30,7 +30,7 @@ const PRICING: ModelPricingEntry[] = [
 
 describe('ModelPricingView', () => {
   it('marks overridden prices and exposes restore default', () => {
-    const markup = renderToStaticMarkup(
+    const markup = renderWithI18n(
       <ModelPricingView pricing={PRICING} unpricedModels={[]} actions={ACTIONS} />
     );
 
@@ -41,7 +41,7 @@ describe('ModelPricingView', () => {
   });
 
   it('shows detected unpriced models and an add price action', () => {
-    const markup = renderToStaticMarkup(
+    const markup = renderWithI18n(
       <ModelPricingView
         pricing={PRICING}
         unpricedModels={[{ modelId: 'future-model', totalTokens: 500 }]}
@@ -51,6 +51,17 @@ describe('ModelPricingView', () => {
 
     expect(markup).toContain('future-model');
     expect(markup).toContain('Add price');
+  });
+
+  it('renders model pricing in Chinese with locale-aware currency', () => {
+    const markup = renderWithI18n(
+      <ModelPricingView pricing={PRICING} unpricedModels={[]} actions={ACTIONS} />,
+      'zh-CN'
+    );
+
+    expect(markup).toContain('模型价格');
+    expect(markup).toContain('恢复默认');
+    expect(markup).toContain('US$6.00');
   });
 });
 

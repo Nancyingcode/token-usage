@@ -96,7 +96,6 @@ describe('budget runtime', () => {
         {
           field: 'businessKey',
           code: 'budget-duplicate',
-          message: 'A budget already exists for this scope.',
         },
       ],
     });

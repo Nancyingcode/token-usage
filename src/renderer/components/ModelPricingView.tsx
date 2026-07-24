@@ -4,15 +4,19 @@
  * 展示模型计价信息，并提供价格覆盖项的新增、编辑、校验与重置交互。
  */
 import React, { useEffect, useState } from 'react';
+import type { TFunction } from 'i18next';
 import { ExternalLink, Pencil, Plus, RotateCcw, Save, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type {
   ModelPricingEntry,
   UnpricedModelSummary,
   ValidationIssue,
 } from '../../shared/budgetTypes';
+import { isValidationIssue } from '../../shared/budgetValidation';
 import { isRecord } from '../../shared/runtimeTypes';
 import { ICON_SIZE_SMALL } from '../constants/ui';
 import type { BudgetActions } from '../hooks/useBudgetSnapshot';
+import { resolveRendererLocale } from '../i18n';
 import {
   createPricingFormState,
   getPricingFormIssues,
@@ -20,6 +24,7 @@ import {
   type PricingFormState,
 } from '../utils/pricingForm';
 import { formatNumber, formatShortDateTime, formatUsd } from '../utils/formatters';
+import { translateValidationIssue } from '../utils/validationIssues';
 
 interface ModelPricingViewProps {
   pricing: ModelPricingEntry[];
@@ -39,25 +44,30 @@ const getErrorMessage = (error: unknown): string =>
 
 const getActionIssues = (error: unknown): ValidationIssue[] => {
   if (isRecord(error) && Array.isArray(error.issues)) {
-    return error.issues.filter(
-      (issue): issue is ValidationIssue =>
-        isRecord(issue) && typeof issue.field === 'string' && typeof issue.message === 'string'
-    );
+    return error.issues.filter(isValidationIssue);
   }
 
   const message = getErrorMessage(error);
 
-  return [{ field: 'form', code: 'unexpected', message, details: message }];
+  return [{ field: 'form', code: 'unexpected', details: message }];
 };
 
-const getIssueMessage = (issues: ValidationIssue[], field: string): string | undefined =>
-  issues.find((issue) => issue.field === field)?.message;
+const getIssueMessage = (
+  issues: ValidationIssue[],
+  field: string,
+  t: TFunction<'budgets'>
+): string | undefined => {
+  const issue = issues.find((candidate) => candidate.field === field);
+  return issue ? translateValidationIssue(issue, t) : undefined;
+};
 
 const PricingEditor: React.FC<{
   model: PricingEditorModel;
   actions: BudgetActions;
   onClose: () => void;
 }> = ({ model, actions, onClose }) => {
+  const { t } = useTranslation('budgets');
+  const { t: tCommon } = useTranslation('common');
   const [state, setState] = useState<PricingFormState>(() =>
     createPricingFormState(model.entry, model.detectedModelId)
   );
@@ -90,49 +100,55 @@ const PricingEditor: React.FC<{
     }
   };
 
-  const formIssue = getIssueMessage(issues, 'form');
+  const formIssue = getIssueMessage(issues, 'form', t);
 
   return (
     <aside className="budget-drawer">
       <form className="drawer-form" onSubmit={handleSubmit}>
         <div className="drawer-heading">
           <div>
-            <h2>{model.entry ? 'Edit model price' : 'Add model price'}</h2>
-            <p>Prices are USD per one million tokens.</p>
+            <h2>{model.entry ? t('pricing.edit') : t('pricing.editorAdd')}</h2>
+            <p>{t('pricing.editorDescription')}</p>
           </div>
-          <button type="button" className="icon-button" title="Close" onClick={onClose}>
+          <button
+            type="button"
+            className="icon-button"
+            title={t('drawer.close')}
+            aria-label={t('drawer.close')}
+            onClick={onClose}
+          >
             <X size={ICON_SIZE_SMALL} />
           </button>
         </div>
 
         <label className="form-field">
-          <span>Model ID</span>
+          <span>{t('pricing.modelId')}</span>
           <input
             value={state.modelId}
             readOnly={modelIdLocked}
             onChange={(event) => updateField('modelId', event.target.value)}
           />
-          {getIssueMessage(issues, 'modelId') ? (
-            <small className="field-error">{getIssueMessage(issues, 'modelId')}</small>
+          {getIssueMessage(issues, 'modelId', t) ? (
+            <small className="field-error">{getIssueMessage(issues, 'modelId', t)}</small>
           ) : null}
         </label>
         <label className="form-field">
-          <span>Aliases</span>
+          <span>{t('pricing.aliases')}</span>
           <input
             value={state.aliases}
-            placeholder="alias-one, alias-two"
+            placeholder={t('pricing.aliasesPlaceholder')}
             onChange={(event) => updateField('aliases', event.target.value)}
           />
-          {getIssueMessage(issues, 'aliases') ? (
-            <small className="field-error">{getIssueMessage(issues, 'aliases')}</small>
+          {getIssueMessage(issues, 'aliases', t) ? (
+            <small className="field-error">{getIssueMessage(issues, 'aliases', t)}</small>
           ) : null}
         </label>
 
         {PRICE_INPUTS.map((input) => {
-          const issue = getIssueMessage(issues, input.field);
+          const issue = getIssueMessage(issues, input.field, t);
           return (
             <label className="form-field" key={input.field}>
-              <span>{input.label}</span>
+              <span>{t(input.labelKey)}</span>
               <input
                 type="number"
                 min="0"
@@ -148,11 +164,11 @@ const PricingEditor: React.FC<{
         {formIssue ? <p className="form-error">{formIssue}</p> : null}
         <div className="drawer-actions">
           <button type="button" className="secondary-button" onClick={onClose}>
-            Cancel
+            {tCommon('action.cancel')}
           </button>
           <button type="submit" className="primary-button" disabled={saving}>
             <Save size={ICON_SIZE_SMALL} />
-            {saving ? 'Saving' : 'Save price'}
+            {saving ? tCommon('action.saving') : t('pricing.savePrice')}
           </button>
         </div>
       </form>
@@ -165,11 +181,11 @@ const PRICE_INPUTS: Array<{
     PricingFormState,
     'inputUsdPerMillion' | 'cachedInputUsdPerMillion' | 'outputUsdPerMillion'
   >;
-  label: string;
+  labelKey: 'pricing.inputPrice' | 'pricing.cachedInputPrice' | 'pricing.outputPrice';
 }> = [
-  { field: 'inputUsdPerMillion', label: 'Input price' },
-  { field: 'cachedInputUsdPerMillion', label: 'Cached input price' },
-  { field: 'outputUsdPerMillion', label: 'Output price' },
+  { field: 'inputUsdPerMillion', labelKey: 'pricing.inputPrice' },
+  { field: 'cachedInputUsdPerMillion', labelKey: 'pricing.cachedInputPrice' },
+  { field: 'outputUsdPerMillion', labelKey: 'pricing.outputPrice' },
 ];
 
 const ModelPricingView: React.FC<ModelPricingViewProps> = ({
@@ -179,6 +195,9 @@ const ModelPricingView: React.FC<ModelPricingViewProps> = ({
   initialModelId,
   onInitialModelConsumed,
 }) => {
+  const { t, i18n } = useTranslation('budgets');
+  const { t: tCommon } = useTranslation('common');
+  const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const [editorModel, setEditorModel] = useState<PricingEditorModel | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const showUnpricedModels = unpricedModels.length > 0;
@@ -218,8 +237,8 @@ const ModelPricingView: React.FC<ModelPricingViewProps> = ({
     <section className="model-pricing-view">
       <div className="pricing-heading">
         <div>
-          <h3>Model pricing</h3>
-          <p>USD per one million standard text tokens.</p>
+          <h3>{t('pricing.title')}</h3>
+          <p>{t('pricing.description')}</p>
         </div>
         <button
           type="button"
@@ -227,19 +246,22 @@ const ModelPricingView: React.FC<ModelPricingViewProps> = ({
           onClick={() => setEditorModel({})}
         >
           <Plus size={ICON_SIZE_SMALL} />
-          Add price
+          {t('pricing.addPrice')}
         </button>
       </div>
 
       {showUnpricedModels ? (
         <div className="unpriced-model-list">
-          <strong>Unpriced models</strong>
+          <strong>{t('pricing.unpricedModels')}</strong>
           {unpricedModels.map((model) => {
             const canAddPrice = Boolean(model.modelId);
             return (
               <div key={model.modelId ?? 'unknown-model'}>
                 <span>
-                  {model.modelId ?? 'Unknown model'} · {formatNumber(model.totalTokens)} tokens
+                  {t('pricing.unpricedTokens', {
+                    model: model.modelId ?? tCommon('value.unknownModel'),
+                    tokens: formatNumber(model.totalTokens, locale),
+                  })}
                 </span>
                 {canAddPrice ? (
                   <button
@@ -247,7 +269,7 @@ const ModelPricingView: React.FC<ModelPricingViewProps> = ({
                     className="secondary-button"
                     onClick={() => setEditorModel({ detectedModelId: model.modelId })}
                   >
-                    Add price
+                    {t('pricing.addPrice')}
                   </button>
                 ) : null}
               </div>
@@ -260,13 +282,13 @@ const ModelPricingView: React.FC<ModelPricingViewProps> = ({
 
       <div className="pricing-table">
         <div className="pricing-table-row pricing-table-head">
-          <span>Model</span>
-          <span>Input</span>
-          <span>Cached input</span>
-          <span>Output</span>
-          <span>Effective</span>
-          <span>Source</span>
-          <span>Actions</span>
+          <span>{t('pricing.model')}</span>
+          <span>{t('pricing.input')}</span>
+          <span>{t('pricing.cachedInput')}</span>
+          <span>{t('pricing.output')}</span>
+          <span>{t('pricing.effective')}</span>
+          <span>{t('pricing.source')}</span>
+          <span>{t('pricing.actions')}</span>
         </div>
         {pricing.map((entry) => {
           const isOverride = entry.sourceKind === 'override';
@@ -276,7 +298,8 @@ const ModelPricingView: React.FC<ModelPricingViewProps> = ({
             <button
               type="button"
               className="icon-button"
-              title="Open official pricing"
+              title={t('pricing.openOfficial')}
+              aria-label={t('pricing.openOfficial')}
               onClick={() => void handleOpenSource(sourceUrl)}
             >
               <ExternalLink size={ICON_SIZE_SMALL} />
@@ -289,7 +312,7 @@ const ModelPricingView: React.FC<ModelPricingViewProps> = ({
               onClick={() => void handleReset(entry.modelId)}
             >
               <RotateCcw size={ICON_SIZE_SMALL} />
-              {canRestoreDefault ? 'Restore default' : 'Remove custom'}
+              {canRestoreDefault ? t('pricing.restoreDefault') : t('pricing.removeCustom')}
             </button>
           ) : null;
 
@@ -297,15 +320,17 @@ const ModelPricingView: React.FC<ModelPricingViewProps> = ({
             <div className="pricing-table-row" key={entry.modelId}>
               <div className="pricing-model-cell">
                 <strong>{entry.modelId}</strong>
-                <span>{entry.aliases.join(', ') || 'No aliases'}</span>
+                <span>{entry.aliases.join(', ') || t('pricing.noAliases')}</span>
               </div>
-              <span>{formatUsd(entry.inputUsdPerMillion)}</span>
-              <span>{formatUsd(entry.cachedInputUsdPerMillion)}</span>
-              <span>{formatUsd(entry.outputUsdPerMillion)}</span>
-              <span>{formatShortDateTime(entry.effectiveAt)}</span>
+              <span>{formatUsd(entry.inputUsdPerMillion, locale)}</span>
+              <span>{formatUsd(entry.cachedInputUsdPerMillion, locale)}</span>
+              <span>{formatUsd(entry.outputUsdPerMillion, locale)}</span>
+              <span>
+                {formatShortDateTime(entry.effectiveAt, locale, tCommon('value.unknownDate'))}
+              </span>
               <div className="pricing-source-cell">
                 <span className={`pricing-source ${entry.sourceKind}`}>
-                  {isOverride ? 'Custom' : 'Built-in'}
+                  {isOverride ? t('pricing.custom') : t('pricing.builtIn')}
                 </span>
                 {sourceAction}
               </div>
@@ -313,7 +338,8 @@ const ModelPricingView: React.FC<ModelPricingViewProps> = ({
                 <button
                   type="button"
                   className="icon-button"
-                  title="Edit model price"
+                  title={t('pricing.edit')}
+                  aria-label={t('pricing.edit')}
                   onClick={() => setEditorModel({ entry })}
                 >
                   <Pencil size={ICON_SIZE_SMALL} />

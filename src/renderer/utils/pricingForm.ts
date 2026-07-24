@@ -20,22 +20,18 @@ const PRICE_FIELDS: Array<{
     'inputUsdPerMillion' | 'cachedInputUsdPerMillion' | 'outputUsdPerMillion'
   >;
   code: ValidationIssueCode;
-  message: string;
 }> = [
   {
     field: 'inputUsdPerMillion',
     code: 'input-price-required',
-    message: 'Input price is required.',
   },
   {
     field: 'cachedInputUsdPerMillion',
     code: 'cached-input-price-required',
-    message: 'Cached input price is required.',
   },
   {
     field: 'outputUsdPerMillion',
     code: 'output-price-required',
-    message: 'Output price is required.',
   },
 ];
 
@@ -66,7 +62,7 @@ export const toPricingOverride = (state: PricingFormState): ModelPricingOverride
 
 export const getPricingFormIssues = (state: PricingFormState): ValidationIssue[] => {
   const emptyPriceIssues = PRICE_FIELDS.filter(({ field }) => !state[field].trim()).map(
-    ({ field, code, message }) => ({ field, code, message })
+    ({ field, code }) => ({ field, code })
   );
   const emptyPriceFields = new Set<string>(emptyPriceIssues.map(({ field }) => field));
   const pricingIssues = getPricingOverrideIssues(toPricingOverride(state)).filter(

@@ -86,7 +86,6 @@ export interface BudgetAlert {
   metric: BudgetMetric;
   thresholdPercent: number;
   severity: Exclude<BudgetSeverity, 'normal'>;
-  message: string;
 }
 
 export interface NotificationReceipt {
@@ -154,6 +153,5 @@ export interface NaturalPeriodRange {
 export interface ValidationIssue {
   field: string;
   code: ValidationIssueCode;
-  message: string;
   details?: string;
 }

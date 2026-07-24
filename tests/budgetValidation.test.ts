@@ -8,17 +8,9 @@ import {
 describe('budget validation', () => {
   it('requires a project path and at least one positive limit', () => {
     expect(getBudgetPolicyIssues({ scope: 'project', period: 'day', tokenLimit: 0 })).toEqual([
-      { field: 'projectPath', code: 'project-required', message: 'Project is required.' },
-      {
-        field: 'tokenLimit',
-        code: 'token-limit-positive',
-        message: 'Token limit must be greater than 0.',
-      },
-      {
-        field: 'limits',
-        code: 'budget-limit-required',
-        message: 'Enable at least one budget limit.',
-      },
+      { field: 'projectPath', code: 'project-required' },
+      { field: 'tokenLimit', code: 'token-limit-positive' },
+      { field: 'limits', code: 'budget-limit-required' },
     ]);
   });
 
@@ -49,17 +41,15 @@ describe('budget validation', () => {
         outputUsdPerMillion: Number.NaN,
       })
     ).toEqual([
-      { field: 'modelId', code: 'model-id-required', message: 'Model ID is required.' },
-      { field: 'aliases', code: 'aliases-unique', message: 'Model aliases must be unique.' },
+      { field: 'modelId', code: 'model-id-required' },
+      { field: 'aliases', code: 'aliases-unique' },
       {
         field: 'inputUsdPerMillion',
         code: 'input-price-non-negative',
-        message: 'Input price must be 0 or greater.',
       },
       {
         field: 'outputUsdPerMillion',
         code: 'output-price-non-negative',
-        message: 'Output price must be 0 or greater.',
       },
     ]);
   });

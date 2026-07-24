@@ -4,7 +4,9 @@
  * 提供预算策略与告警阈值表单，负责字段校验和保存交互，不持有全局预算快照。
  */
 import React, { useReducer, useState } from 'react';
+import type { TFunction } from 'i18next';
 import { Save, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type {
   BudgetPeriod,
   BudgetPolicy,
@@ -12,11 +14,16 @@ import type {
   BudgetThresholds,
   ValidationIssue,
 } from '../../shared/budgetTypes';
-import { getBudgetPolicyIssues, getThresholdIssues } from '../../shared/budgetValidation';
+import {
+  getBudgetPolicyIssues,
+  getThresholdIssues,
+  isValidationIssue,
+} from '../../shared/budgetValidation';
 import { isRecord } from '../../shared/runtimeTypes';
 import { ICON_SIZE_SMALL } from '../constants/ui';
 import type { BudgetActions } from '../hooks/useBudgetSnapshot';
 import { budgetFormReducer, createBudgetFormState, toBudgetPolicyInput } from '../utils/budgetForm';
+import { translateValidationIssue } from '../utils/validationIssues';
 
 export type BudgetDrawerModel = { kind: 'policy'; policy?: BudgetPolicy } | { kind: 'thresholds' };
 
@@ -27,43 +34,41 @@ interface BudgetDrawerProps {
   onClose: () => void;
 }
 
-const PERIOD_OPTIONS: Array<{ value: BudgetPeriod; label: string }> = [
-  { value: 'day', label: 'Daily' },
-  { value: 'week', label: 'Weekly' },
-  { value: 'month', label: 'Monthly' },
-];
+const PERIOD_OPTIONS: BudgetPeriod[] = ['day', 'week', 'month'];
 
-const SCOPE_OPTIONS: Array<{ value: BudgetScope; label: string }> = [
-  { value: 'global', label: 'Global' },
-  { value: 'project', label: 'Project' },
-];
+const SCOPE_OPTIONS: BudgetScope[] = ['global', 'project'];
 
 const getActionIssues = (error: unknown): ValidationIssue[] => {
   if (isRecord(error) && Array.isArray(error.issues)) {
-    return error.issues.filter(
-      (issue): issue is ValidationIssue =>
-        isRecord(issue) && typeof issue.field === 'string' && typeof issue.message === 'string'
-    );
+    return error.issues.filter(isValidationIssue);
   }
 
   const message = error instanceof Error ? error.message : String(error);
 
-  return [{ field: 'form', code: 'unexpected', message, details: message }];
+  return [{ field: 'form', code: 'unexpected', details: message }];
 };
 
-const getIssueMessage = (issues: ValidationIssue[], fields: string[]): string | undefined =>
-  issues.find(({ field }) => fields.includes(field))?.message;
+const getIssueMessage = (
+  issues: ValidationIssue[],
+  fields: string[],
+  t: TFunction<'budgets'>
+): string | undefined => {
+  const issue = issues.find(({ field }) => fields.includes(field));
+  return issue ? translateValidationIssue(issue, t) : undefined;
+};
 
 const PolicyForm: React.FC<BudgetDrawerProps> = ({ model, actions, onClose }) => {
+  const { t } = useTranslation('budgets');
+  const { t: tCommon } = useTranslation('common');
   const policy = model.kind === 'policy' ? model.policy : undefined;
   const [state, dispatch] = useReducer(budgetFormReducer, policy, createBudgetFormState);
   const [saving, setSaving] = useState(false);
   const showProjectPath = state.scope === 'project';
-  const title = policy ? 'Edit budget' : 'Add budget';
-  const projectIssue = getIssueMessage(state.issues, ['projectPath']);
-  const tokenIssue = getIssueMessage(state.issues, ['tokenLimit']);
-  const costIssue = getIssueMessage(state.issues, ['costLimitUsd']);
-  const formIssue = getIssueMessage(state.issues, ['limits', 'businessKey', 'form']);
+  const title = policy ? t('drawer.editTitle') : t('drawer.addTitle');
+  const projectIssue = getIssueMessage(state.issues, ['projectPath'], t);
+  const tokenIssue = getIssueMessage(state.issues, ['tokenLimit'], t);
+  const costIssue = getIssueMessage(state.issues, ['costLimitUsd'], t);
+  const formIssue = getIssueMessage(state.issues, ['limits', 'businessKey', 'form'], t);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
@@ -91,25 +96,31 @@ const PolicyForm: React.FC<BudgetDrawerProps> = ({ model, actions, onClose }) =>
       <div className="drawer-heading">
         <div>
           <h2>{title}</h2>
-          <p>Set token and estimated cost limits independently.</p>
+          <p>{t('drawer.policyDescription')}</p>
         </div>
-        <button type="button" className="icon-button" title="Close" onClick={onClose}>
+        <button
+          type="button"
+          className="icon-button"
+          title={t('drawer.close')}
+          aria-label={t('drawer.close')}
+          onClick={onClose}
+        >
           <X size={ICON_SIZE_SMALL} />
         </button>
       </div>
 
       <fieldset>
-        <legend>Scope</legend>
+        <legend>{t('drawer.scope')}</legend>
         <div className="segmented-control">
-          {SCOPE_OPTIONS.map((option) => (
+          {SCOPE_OPTIONS.map((scope) => (
             <button
-              key={option.value}
+              key={scope}
               type="button"
-              className={state.scope === option.value ? 'active' : undefined}
-              aria-pressed={state.scope === option.value}
-              onClick={() => dispatch({ type: 'scope-changed', scope: option.value })}
+              className={state.scope === scope ? 'active' : undefined}
+              aria-pressed={state.scope === scope}
+              onClick={() => dispatch({ type: 'scope-changed', scope })}
             >
-              {option.label}
+              {t(`scope.${scope}`)}
             </button>
           ))}
         </div>
@@ -117,10 +128,10 @@ const PolicyForm: React.FC<BudgetDrawerProps> = ({ model, actions, onClose }) =>
 
       {showProjectPath ? (
         <label className="form-field">
-          <span>Project path</span>
+          <span>{t('drawer.projectPath')}</span>
           <input
             value={state.projectPath}
-            placeholder="C:\\path\\to\\project"
+            placeholder={t('drawer.projectPlaceholder')}
             onChange={(event) =>
               dispatch({ type: 'project-changed', projectPath: event.target.value })
             }
@@ -130,17 +141,17 @@ const PolicyForm: React.FC<BudgetDrawerProps> = ({ model, actions, onClose }) =>
       ) : null}
 
       <fieldset>
-        <legend>Period</legend>
+        <legend>{t('drawer.period')}</legend>
         <div className="segmented-control three">
-          {PERIOD_OPTIONS.map((option) => (
+          {PERIOD_OPTIONS.map((period) => (
             <button
-              key={option.value}
+              key={period}
               type="button"
-              className={state.period === option.value ? 'active' : undefined}
-              aria-pressed={state.period === option.value}
-              onClick={() => dispatch({ type: 'period-changed', period: option.value })}
+              className={state.period === period ? 'active' : undefined}
+              aria-pressed={state.period === period}
+              onClick={() => dispatch({ type: 'period-changed', period })}
             >
-              {option.label}
+              {t(`period.${period}`)}
             </button>
           ))}
         </div>
@@ -153,7 +164,7 @@ const PolicyForm: React.FC<BudgetDrawerProps> = ({ model, actions, onClose }) =>
             checked={state.tokenEnabled}
             onChange={(event) => dispatch({ type: 'token-enabled', enabled: event.target.checked })}
           />
-          <span>Token limit</span>
+          <span>{t('drawer.tokenLimit')}</span>
         </label>
         {state.tokenEnabled ? (
           <input
@@ -162,7 +173,7 @@ const PolicyForm: React.FC<BudgetDrawerProps> = ({ model, actions, onClose }) =>
             step="1"
             value={state.tokenLimit}
             placeholder="1000000"
-            aria-label="Token limit value"
+            aria-label={t('drawer.tokenLimitValue')}
             onChange={(event) =>
               dispatch({ type: 'token-limit-changed', value: event.target.value })
             }
@@ -178,7 +189,7 @@ const PolicyForm: React.FC<BudgetDrawerProps> = ({ model, actions, onClose }) =>
             checked={state.costEnabled}
             onChange={(event) => dispatch({ type: 'cost-enabled', enabled: event.target.checked })}
           />
-          <span>Estimated cost limit</span>
+          <span>{t('drawer.costLimit')}</span>
         </label>
         {state.costEnabled ? (
           <input
@@ -187,7 +198,7 @@ const PolicyForm: React.FC<BudgetDrawerProps> = ({ model, actions, onClose }) =>
             step="0.01"
             value={state.costLimitUsd}
             placeholder="25.00"
-            aria-label="Estimated cost limit value"
+            aria-label={t('drawer.costLimitValue')}
             onChange={(event) =>
               dispatch({ type: 'cost-limit-changed', value: event.target.value })
             }
@@ -200,11 +211,11 @@ const PolicyForm: React.FC<BudgetDrawerProps> = ({ model, actions, onClose }) =>
 
       <div className="drawer-actions">
         <button type="button" className="secondary-button" onClick={onClose}>
-          Cancel
+          {tCommon('action.cancel')}
         </button>
         <button type="submit" className="primary-button" disabled={saving}>
           <Save size={ICON_SIZE_SMALL} />
-          {saving ? 'Saving' : 'Save budget'}
+          {saving ? tCommon('action.saving') : t('drawer.saveBudget')}
         </button>
       </div>
     </form>
@@ -212,11 +223,13 @@ const PolicyForm: React.FC<BudgetDrawerProps> = ({ model, actions, onClose }) =>
 };
 
 const ThresholdForm: React.FC<BudgetDrawerProps> = ({ thresholds, actions, onClose }) => {
+  const { t } = useTranslation('budgets');
+  const { t: tCommon } = useTranslation('common');
   const [warningPercent, setWarningPercent] = useState(String(thresholds.warningPercent));
   const [criticalPercent, setCriticalPercent] = useState(String(thresholds.criticalPercent));
   const [issues, setIssues] = useState<ValidationIssue[]>([]);
   const [saving, setSaving] = useState(false);
-  const thresholdIssue = getIssueMessage(issues, ['thresholds', 'form']);
+  const thresholdIssue = getIssueMessage(issues, ['thresholds', 'form'], t);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
@@ -246,16 +259,22 @@ const ThresholdForm: React.FC<BudgetDrawerProps> = ({ thresholds, actions, onClo
     <form className="drawer-form" onSubmit={handleSubmit}>
       <div className="drawer-heading">
         <div>
-          <h2>Alert thresholds</h2>
-          <p>These percentages apply to every token and cost budget.</p>
+          <h2>{t('drawer.thresholdsTitle')}</h2>
+          <p>{t('drawer.thresholdsDescription')}</p>
         </div>
-        <button type="button" className="icon-button" title="Close" onClick={onClose}>
+        <button
+          type="button"
+          className="icon-button"
+          title={t('drawer.close')}
+          aria-label={t('drawer.close')}
+          onClick={onClose}
+        >
           <X size={ICON_SIZE_SMALL} />
         </button>
       </div>
 
       <label className="form-field">
-        <span>Warning percentage</span>
+        <span>{t('drawer.warningPercentage')}</span>
         <input
           type="number"
           min="1"
@@ -265,7 +284,7 @@ const ThresholdForm: React.FC<BudgetDrawerProps> = ({ thresholds, actions, onClo
         />
       </label>
       <label className="form-field">
-        <span>Critical percentage</span>
+        <span>{t('drawer.criticalPercentage')}</span>
         <input
           type="number"
           min="2"
@@ -278,11 +297,11 @@ const ThresholdForm: React.FC<BudgetDrawerProps> = ({ thresholds, actions, onClo
 
       <div className="drawer-actions">
         <button type="button" className="secondary-button" onClick={onClose}>
-          Cancel
+          {tCommon('action.cancel')}
         </button>
         <button type="submit" className="primary-button" disabled={saving}>
           <Save size={ICON_SIZE_SMALL} />
-          {saving ? 'Saving' : 'Save thresholds'}
+          {saving ? tCommon('action.saving') : t('drawer.saveThresholds')}
         </button>
       </div>
     </form>
