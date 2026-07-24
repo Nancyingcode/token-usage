@@ -30,10 +30,16 @@ export const addTokenUsage = (a: TokenUsage, b: TokenUsage): TokenUsage => ({
   totalTokens: a.totalTokens + b.totalTokens,
 });
 
+export const UNKNOWN_PROJECT_KEY = 'Unknown Project';
+
+export const getProjectIdentity = (projectPath: string): string =>
+  projectPath || UNKNOWN_PROJECT_KEY;
+
 export const getProjectName = (projectPath: string): string => {
-  const normalized = projectPath.replace(/\\/g, '/').replace(/\/+$/, '');
+  const projectIdentity = getProjectIdentity(projectPath);
+  const normalized = projectIdentity.replace(/\\/g, '/').replace(/\/+$/, '');
   const name = normalized.split('/').filter(Boolean).pop();
-  return name || projectPath || 'Unknown Project';
+  return name || projectIdentity;
 };
 
 export const getLocalDateKey = (timestamp: string): string => {
@@ -118,7 +124,7 @@ const buildProjectTotals = (sessions: UsageSession[]): UsageProject[] => {
   const grandTotal = buildTotals(sessions).totalTokens;
 
   const projects = sessions.reduce<Map<string, UsageProject>>((projectTotals, session) => {
-    const projectPath = session.projectPath || 'Unknown Project';
+    const projectPath = getProjectIdentity(session.projectPath);
     const current = projectTotals.get(projectPath) ?? {
       projectPath,
       projectName: session.projectName || getProjectName(projectPath),

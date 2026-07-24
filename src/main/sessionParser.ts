@@ -5,7 +5,12 @@
  */
 import getSessionId from '../shared/sessionId';
 import { isRecord } from '../shared/runtimeTypes';
-import { addTokenUsage, emptyTokenUsage, getProjectName } from '../shared/usageMath';
+import {
+  addTokenUsage,
+  emptyTokenUsage,
+  getProjectIdentity,
+  getProjectName,
+} from '../shared/usageMath';
 import type { TokenUsage, UsageSession, UsageSlice, UsageWarning } from '../shared/usageTypes';
 
 interface ParsedLine {
@@ -188,7 +193,7 @@ export const parseSessionJsonl = (
   const fallbackTimestamp = new Date(0).toISOString();
   const safeStartedAt = startedAt || endedAt || fallbackTimestamp;
   const safeEndedAt = endedAt || startedAt || fallbackTimestamp;
-  const safeProjectPath = projectPath || 'Unknown Project';
+  const safeProjectPath = getProjectIdentity(projectPath);
   const usageSlices = hasIncrementalUsage
     ? incrementalSlices
     : largestTotalSlice

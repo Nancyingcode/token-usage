@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { addTokenUsage, buildUsageSummary, filterUsageSummary } from '../src/shared/usageMath';
+import {
+  addTokenUsage,
+  buildUsageSummary,
+  filterUsageSummary,
+  UNKNOWN_PROJECT_KEY,
+} from '../src/shared/usageMath';
 import type { UsagePeriod, UsageSession } from '../src/shared/usageTypes';
 
 describe('usageMath', () => {
@@ -101,6 +106,16 @@ describe('usageMath', () => {
     expect(filtered).toBe(summary);
     expect(filtered.sessions).toHaveLength(3);
     expect(filtered.totals.totalTokens).toBe(60);
+  });
+
+  it('uses the shared identity for an empty project path', () => {
+    const summary = buildUsageSummary([
+      makeSession('unknown', '2026-07-24T10:00:00.000Z', '', 100),
+    ]);
+
+    expect(summary.byProject).toHaveLength(1);
+    expect(summary.byProject[0].projectPath).toBe(UNKNOWN_PROJECT_KEY);
+    expect(summary.byProject[0].projectName).toBe(UNKNOWN_PROJECT_KEY);
   });
 });
 
