@@ -27,15 +27,12 @@ import { recordNotifications, selectPendingNotifications } from '../shared/notif
 import { mergeModelPricing } from '../shared/pricing';
 import type { UsageScanResult } from '../shared/usageTypes';
 import { DEFAULT_BUDGET_CONFIG, type BudgetStore } from './budgetStore';
-import { createUsageMonitor } from './usageMonitor';
 
 export type RuntimeListener = (snapshot: BudgetSnapshot) => void;
 export type RuntimeNavigationListener = (policyId: string) => void;
-export type RuntimeUsageListener = (result: UsageScanResult) => void;
 
 export interface BudgetRuntimeDependencies {
   store: BudgetStore;
-  scan: () => Promise<UsageScanResult>;
   defaultPricing: ModelPricingEntry[];
   notify: (alert: BudgetAlert) => boolean | void;
   now?: () => Date;
@@ -44,7 +41,8 @@ export interface BudgetRuntimeDependencies {
 
 export interface BudgetRuntime {
   initialize: () => Promise<void>;
-  refresh: () => Promise<UsageScanResult>;
+  applyUsageResult: (result: UsageScanResult) => Promise<BudgetSnapshot>;
+  markUsageStale: (error: unknown) => BudgetSnapshot;
   getSnapshot: () => BudgetSnapshot;
   savePolicy: (input: BudgetPolicyInput) => Promise<BudgetSnapshot>;
   deletePolicy: (id: string) => Promise<BudgetSnapshot>;
@@ -52,12 +50,8 @@ export interface BudgetRuntime {
   savePricingOverride: (input: ModelPricingOverrideInput) => Promise<BudgetSnapshot>;
   resetPricingOverride: (modelId: string) => Promise<BudgetSnapshot>;
   subscribe: (listener: RuntimeListener) => () => void;
-  subscribeUsage: (listener: RuntimeUsageListener) => () => void;
   subscribeNavigation: (listener: RuntimeNavigationListener) => () => void;
   navigateToPolicy: (policyId: string) => void;
-  start: () => void;
-  stop: () => void;
-  refreshOnFocus: () => Promise<UsageScanResult | undefined>;
 }
 
 export class BudgetRuntimeValidationError extends Error {
@@ -112,7 +106,6 @@ export const createBudgetRuntime = (dependencies: BudgetRuntimeDependencies): Bu
   const now = dependencies.now ?? (() => new Date());
   const createId = dependencies.createId ?? randomUUID;
   const listeners = new Set<RuntimeListener>();
-  const usageListeners = new Set<RuntimeUsageListener>();
   const navigationListeners = new Set<RuntimeNavigationListener>();
   let config = cloneDefaultConfig();
   let lastUsageResult: UsageScanResult | undefined;
@@ -191,27 +184,16 @@ export const createBudgetRuntime = (dependencies: BudgetRuntimeDependencies): Bu
     return snapshot;
   };
 
-  const scanAndEvaluate = async (): Promise<UsageScanResult> => {
-    const result = await dependencies.scan();
+  const applyUsageResult = async (result: UsageScanResult): Promise<BudgetSnapshot> => {
     lastUsageResult = result;
-    await reevaluateAndPublish();
-    usageListeners.forEach((listener) => listener(result));
-    return result;
+    return reevaluateAndPublish();
   };
 
-  const handleScanError = (error: unknown): void => {
+  const markUsageStale = (error: unknown): BudgetSnapshot => {
     snapshot = buildSnapshot('stale', getErrorMessage(error));
     publish();
+    return snapshot;
   };
-
-  const monitor = createUsageMonitor({
-    scan: scanAndEvaluate,
-    onUpdate: () => undefined,
-    onError: handleScanError,
-    now: () => now().getTime(),
-    setIntervalFn: (callback, delay) => setInterval(callback, delay),
-    clearIntervalFn: (intervalId) => clearInterval(intervalId),
-  });
 
   const saveConfigAndReevaluate = async (
     nextConfig: PersistedBudgetConfig
@@ -333,18 +315,14 @@ export const createBudgetRuntime = (dependencies: BudgetRuntimeDependencies): Bu
     return () => navigationListeners.delete(listener);
   };
 
-  const subscribeUsage = (listener: RuntimeUsageListener): (() => void) => {
-    usageListeners.add(listener);
-    return () => usageListeners.delete(listener);
-  };
-
   const navigateToPolicy = (policyId: string): void => {
     navigationListeners.forEach((listener) => listener(policyId));
   };
 
   return {
     initialize,
-    refresh: monitor.refresh,
+    applyUsageResult,
+    markUsageStale,
     getSnapshot: () => snapshot,
     savePolicy,
     deletePolicy,
@@ -352,11 +330,7 @@ export const createBudgetRuntime = (dependencies: BudgetRuntimeDependencies): Bu
     savePricingOverride,
     resetPricingOverride,
     subscribe,
-    subscribeUsage,
     subscribeNavigation,
     navigateToPolicy,
-    start: monitor.start,
-    stop: monitor.stop,
-    refreshOnFocus: monitor.refreshOnFocus,
   };
 };

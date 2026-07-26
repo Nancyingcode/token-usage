@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ApplicationRuntime } from '../src/main/applicationRuntime';
 import type { BudgetRuntime } from '../src/main/budgetRuntime';
 import type { LocaleService } from '../src/main/localeService';
+import type { UsageRuntime } from '../src/main/usageRuntime';
 import type { SupportedLocale } from '../src/shared/i18n/locale';
 import {
   LOCALE_GET_CHANNEL,
@@ -55,7 +57,9 @@ describe('locale IPC', () => {
     };
     const send = vi.fn();
     const unregister = registerUsageIpc({
-      runtime: createRuntimeStub(),
+      applicationRuntime: createApplicationRuntimeStub(),
+      budgetRuntime: createBudgetRuntimeStub(),
+      usageRuntime: createUsageRuntimeStub(),
       localeService,
       getWindow: () =>
         ({
@@ -81,9 +85,18 @@ describe('locale IPC', () => {
   });
 });
 
-const createRuntimeStub = (): BudgetRuntime =>
+const createApplicationRuntimeStub = (): ApplicationRuntime =>
+  ({
+    refresh: vi.fn(),
+  }) as unknown as ApplicationRuntime;
+
+const createBudgetRuntimeStub = (): BudgetRuntime =>
   ({
     subscribe: () => () => undefined,
-    subscribeUsage: () => () => undefined,
     subscribeNavigation: () => () => undefined,
   }) as unknown as BudgetRuntime;
+
+const createUsageRuntimeStub = (): UsageRuntime =>
+  ({
+    subscribe: () => () => undefined,
+  }) as unknown as UsageRuntime;

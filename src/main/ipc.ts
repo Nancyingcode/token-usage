@@ -21,11 +21,15 @@ import {
   USAGE_UPDATED_CHANNEL,
 } from '../shared/ipcChannels';
 import type { BudgetRuntime } from './budgetRuntime';
+import type { ApplicationRuntime } from './applicationRuntime';
 import { isAllowedExternalUrl } from './externalUrlPolicy';
 import type { LocaleService } from './localeService';
+import type { UsageRuntime } from './usageRuntime';
 
 export interface UsageIpcDependencies {
-  runtime: BudgetRuntime;
+  applicationRuntime: ApplicationRuntime;
+  usageRuntime: UsageRuntime;
+  budgetRuntime: BudgetRuntime;
   localeService: LocaleService;
   getWindow: () => BrowserWindow | null;
 }
@@ -56,24 +60,28 @@ const sendToRenderer = (
 };
 
 const registerUsageIpc = ({
-  runtime,
+  applicationRuntime,
+  usageRuntime,
+  budgetRuntime,
   localeService,
   getWindow,
 }: UsageIpcDependencies): (() => void) => {
-  ipcMain.handle(USAGE_SCAN_CHANNEL, () => runtime.refresh());
-  ipcMain.handle(BUDGET_GET_SNAPSHOT_CHANNEL, () => runtime.getSnapshot());
+  ipcMain.handle(USAGE_SCAN_CHANNEL, () => applicationRuntime.refresh());
+  ipcMain.handle(BUDGET_GET_SNAPSHOT_CHANNEL, () => budgetRuntime.getSnapshot());
   ipcMain.handle(BUDGET_SAVE_POLICY_CHANNEL, (_event, input: BudgetPolicyInput) =>
-    runtime.savePolicy(input)
+    budgetRuntime.savePolicy(input)
   );
-  ipcMain.handle(BUDGET_DELETE_POLICY_CHANNEL, (_event, id: string) => runtime.deletePolicy(id));
+  ipcMain.handle(BUDGET_DELETE_POLICY_CHANNEL, (_event, id: string) =>
+    budgetRuntime.deletePolicy(id)
+  );
   ipcMain.handle(BUDGET_UPDATE_THRESHOLDS_CHANNEL, (_event, input: BudgetThresholds) =>
-    runtime.updateThresholds(input)
+    budgetRuntime.updateThresholds(input)
   );
   ipcMain.handle(BUDGET_SAVE_PRICING_CHANNEL, (_event, input: ModelPricingOverrideInput) =>
-    runtime.savePricingOverride(input)
+    budgetRuntime.savePricingOverride(input)
   );
   ipcMain.handle(BUDGET_RESET_PRICING_CHANNEL, (_event, modelId: string) =>
-    runtime.resetPricingOverride(modelId)
+    budgetRuntime.resetPricingOverride(modelId)
   );
   ipcMain.handle(LOCALE_GET_CHANNEL, () => localeService.getLocale());
   ipcMain.handle(LOCALE_SET_CHANNEL, (_event, locale: unknown) => localeService.setLocale(locale));
@@ -85,13 +93,13 @@ const registerUsageIpc = ({
     await shell.openExternal(url);
   });
 
-  const unsubscribeBudget = runtime.subscribe((snapshot) =>
+  const unsubscribeBudget = budgetRuntime.subscribe((snapshot) =>
     sendToRenderer(getWindow, BUDGET_UPDATED_CHANNEL, snapshot)
   );
-  const unsubscribeUsage = runtime.subscribeUsage((result) =>
+  const unsubscribeUsage = usageRuntime.subscribe((result) =>
     sendToRenderer(getWindow, USAGE_UPDATED_CHANNEL, result)
   );
-  const unsubscribeNavigation = runtime.subscribeNavigation((policyId) =>
+  const unsubscribeNavigation = budgetRuntime.subscribeNavigation((policyId) =>
     sendToRenderer(getWindow, BUDGET_NAVIGATE_CHANNEL, policyId)
   );
   const unsubscribeLocale = localeService.subscribe((locale) =>

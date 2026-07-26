@@ -27,8 +27,8 @@ describe('budget runtime', () => {
     const runtime = createBudgetRuntime(dependencies);
     await runtime.initialize();
     await runtime.savePolicy({ scope: 'global', period: 'day', tokenLimit: 100 });
-    await runtime.refresh();
-    await runtime.refresh();
+    await runtime.applyUsageResult(makeScanResult(150));
+    await runtime.applyUsageResult(makeScanResult(150));
 
     expect(notify).toHaveBeenCalledTimes(1);
     expect(notify.mock.calls[0][0]).toEqual(expect.objectContaining({ thresholdPercent: 100 }));
@@ -41,10 +41,9 @@ describe('budget runtime', () => {
     const runtime = createBudgetRuntime(dependencies);
     await runtime.initialize();
     await runtime.savePolicy({ scope: 'global', period: 'day', tokenLimit: 100 });
-    await runtime.refresh();
-    dependencies.scan.mockRejectedValueOnce(new Error('disk unavailable'));
+    await runtime.applyUsageResult(makeScanResult(150));
 
-    await expect(runtime.refresh()).rejects.toThrow('disk unavailable');
+    runtime.markUsageStale(new Error('disk unavailable'));
     expect(runtime.getSnapshot()).toEqual(
       expect.objectContaining({
         dataState: 'stale',
@@ -57,20 +56,16 @@ describe('budget runtime', () => {
   it('publishes updates and allows listeners to unsubscribe', async () => {
     const runtime = createBudgetRuntime(makeRuntimeDependencies());
     const listener = vi.fn();
-    const usageListener = vi.fn();
     await runtime.initialize();
     const unsubscribe = runtime.subscribe(listener);
-    const unsubscribeUsage = runtime.subscribeUsage(usageListener);
 
     await runtime.updateThresholds({ warningPercent: 70, criticalPercent: 95 });
-    await runtime.refresh();
+    await runtime.applyUsageResult(makeScanResult(150));
     unsubscribe();
-    unsubscribeUsage();
     await runtime.updateThresholds({ warningPercent: 75, criticalPercent: 95 });
-    await runtime.refresh();
+    await runtime.applyUsageResult(makeScanResult(150));
 
     expect(listener).toHaveBeenCalledTimes(2);
-    expect(usageListener).toHaveBeenCalledTimes(1);
   });
 
   it('rejects duplicate scope, project, and period business keys', async () => {
@@ -110,7 +105,6 @@ const makeRuntimeDependencies = (
   overrides: RuntimeDependencyOverrides = {}
 ): BudgetRuntimeDependencies & {
   store: BudgetStore & { save: ReturnType<typeof vi.fn> };
-  scan: ReturnType<typeof vi.fn>;
 } => {
   let config = cloneConfig(DEFAULT_BUDGET_CONFIG);
   const save = vi.fn(async (nextConfig: PersistedBudgetConfig) => {
@@ -120,11 +114,9 @@ const makeRuntimeDependencies = (
     load: vi.fn(async () => ({ config: cloneConfig(config), warnings: [] })),
     save,
   };
-  const scan = vi.fn(async () => makeScanResult(150));
 
   return {
     store,
-    scan,
     defaultPricing: [TEST_PRICING],
     notify: overrides.notify ?? vi.fn(),
     now: () => new Date(FIXED_NOW),

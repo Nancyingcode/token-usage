@@ -6,8 +6,13 @@
 import { app, BrowserWindow, Menu, Notification } from 'electron';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createApplicationRuntime, type ApplicationRuntime } from './applicationRuntime';
 import { createBudgetRuntime, type BudgetRuntime } from './budgetRuntime';
 import { createBudgetStore } from './budgetStore';
+import { getDefaultCodexSessionsDir } from './codexPaths';
+import { createCostOptimizationCacheStore } from './costOptimizationCacheStore';
+import { createCostOptimizationConfigStore } from './costOptimizationConfigStore';
+import { createCostOptimizationRuntime } from './costOptimizationRuntime';
 import { DEFAULT_MODEL_PRICING } from './defaultModelPricing';
 import { createMainI18n } from './i18n';
 import registerUsageIpc from './ipc';
@@ -19,6 +24,7 @@ import {
   createNotificationService,
 } from './notificationService';
 import { createUsageScanner } from './usageScanner';
+import { createUsageRuntime } from './usageRuntime';
 
 const CURRENT_DIRECTORY = fileURLToPath(new URL('.', import.meta.url));
 const DEFAULT_WINDOW_WIDTH = 1280;
@@ -27,10 +33,13 @@ const MINIMUM_WINDOW_WIDTH = 1024;
 const MINIMUM_WINDOW_HEIGHT = 680;
 const WINDOW_BACKGROUND_COLOR = '#f8f7f4';
 const BUDGET_CONFIG_FILENAME = 'budget-config.json';
+const COST_OPTIMIZATION_CONFIG_FILENAME = 'cost-optimization-config.json';
+const COST_OPTIMIZATION_CACHE_FILENAME = 'cost-optimization-cache.json';
 const LOCALE_PREFERENCES_FILENAME = 'locale-preferences.json';
 
 let mainWindow: BrowserWindow | null = null;
 let budgetRuntime: BudgetRuntime | undefined;
+let applicationRuntime: ApplicationRuntime | undefined;
 let unregisterIpc: (() => void) | undefined;
 
 const focusMainWindow = (): void => {
@@ -46,7 +55,7 @@ const focusMainWindow = (): void => {
   mainWindow.focus();
 };
 
-const createWindow = (runtime: BudgetRuntime): BrowserWindow => {
+const createWindow = (runtime: ApplicationRuntime): BrowserWindow => {
   const menuPolicy = getApplicationMenuPolicy(app.isPackaged);
   const window = new BrowserWindow({
     width: DEFAULT_WINDOW_WIDTH,
@@ -93,7 +102,13 @@ const initializeApplication = async (): Promise<void> => {
     store: localeStore,
   });
   const scanner = createUsageScanner();
-  const store = createBudgetStore(join(userDataPath, BUDGET_CONFIG_FILENAME));
+  const budgetStore = createBudgetStore(join(userDataPath, BUDGET_CONFIG_FILENAME));
+  const costConfigStore = createCostOptimizationConfigStore(
+    join(userDataPath, COST_OPTIMIZATION_CONFIG_FILENAME)
+  );
+  const costCacheStore = createCostOptimizationCacheStore(
+    join(userDataPath, COST_OPTIMIZATION_CACHE_FILENAME)
+  );
   const notificationService = createNotificationService(
     (policyId) => {
       focusMainWindow();
@@ -102,17 +117,36 @@ const initializeApplication = async (): Promise<void> => {
     createElectronNotificationAdapter(Notification),
     mainI18n
   );
-  const runtime = createBudgetRuntime({
-    store,
-    scan: () => scanner.scan(),
+  const usageRuntime = createUsageRuntime({
+    scanCycle: () => scanner.scanCycle(),
+    now: Date.now,
+    setIntervalFn: (callback, delay) => setInterval(callback, delay),
+    clearIntervalFn: (intervalId) => clearInterval(intervalId),
+  });
+  const currentBudgetRuntime = createBudgetRuntime({
+    store: budgetStore,
     defaultPricing: DEFAULT_MODEL_PRICING,
     notify: notificationService.notify,
   });
-  budgetRuntime = runtime;
+  const costRuntime = createCostOptimizationRuntime({
+    configStore: costConfigStore,
+    cacheStore: costCacheStore,
+    sessionsDir: getDefaultCodexSessionsDir(),
+    defaultPricing: DEFAULT_MODEL_PRICING,
+  });
+  const currentApplicationRuntime = createApplicationRuntime({
+    usageRuntime,
+    budgetRuntime: currentBudgetRuntime,
+    costRuntime,
+  });
+  budgetRuntime = currentBudgetRuntime;
+  applicationRuntime = currentApplicationRuntime;
 
-  await runtime.initialize();
+  await currentApplicationRuntime.initialize();
   unregisterIpc = registerUsageIpc({
-    runtime,
+    applicationRuntime: currentApplicationRuntime,
+    usageRuntime,
+    budgetRuntime: currentBudgetRuntime,
     localeService,
     getWindow: () => mainWindow,
   });
@@ -122,12 +156,12 @@ const initializeApplication = async (): Promise<void> => {
     Menu.setApplicationMenu(null);
   }
 
-  createWindow(runtime);
-  runtime.start();
+  createWindow(currentApplicationRuntime);
+  currentApplicationRuntime.start();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow(runtime);
+      createWindow(currentApplicationRuntime);
     }
   });
 };
@@ -135,7 +169,7 @@ const initializeApplication = async (): Promise<void> => {
 void app.whenReady().then(initializeApplication);
 
 app.on('before-quit', () => {
-  budgetRuntime?.stop();
+  applicationRuntime?.stop();
   unregisterIpc?.();
   unregisterIpc = undefined;
 });
