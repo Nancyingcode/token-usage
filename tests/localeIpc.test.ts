@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ApplicationRuntime } from '../src/main/applicationRuntime';
 import type { BudgetRuntime } from '../src/main/budgetRuntime';
+import type { CostOptimizationRuntime } from '../src/main/costOptimizationRuntime';
 import type { LocaleService } from '../src/main/localeService';
 import type { UsageRuntime } from '../src/main/usageRuntime';
 import type { SupportedLocale } from '../src/shared/i18n/locale';
@@ -59,6 +60,7 @@ describe('locale IPC', () => {
     const unregister = registerUsageIpc({
       applicationRuntime: createApplicationRuntimeStub(),
       budgetRuntime: createBudgetRuntimeStub(),
+      costRuntime: createCostRuntimeStub(),
       usageRuntime: createUsageRuntimeStub(),
       localeService,
       getWindow: () =>
@@ -100,3 +102,8 @@ const createUsageRuntimeStub = (): UsageRuntime =>
   ({
     subscribe: () => () => undefined,
   }) as unknown as UsageRuntime;
+
+const createCostRuntimeStub = (): CostOptimizationRuntime =>
+  ({
+    subscribe: () => () => undefined,
+  }) as unknown as CostOptimizationRuntime;

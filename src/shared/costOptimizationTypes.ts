@@ -1,6 +1,9 @@
 import type { BudgetPolicyStatus, ModelPricingEntry } from './budgetTypes';
 import type { TokenUsage, UsagePeriod, UsageSession } from './usageTypes';
 
+export const SHORT_FORECAST_HORIZON_DAYS = 7;
+export const LONG_FORECAST_HORIZON_DAYS = 30;
+
 export type CostOptimizationDataState = 'fresh' | 'stale';
 export type CostOptimizationTab = 'overview' | 'comparison' | 'anomalies' | 'forecast' | 'savings';
 export type CostAnomalyLevel = 'day' | 'project' | 'model' | 'session';
@@ -13,7 +16,7 @@ export interface CostOptimizationSettings {
   anomalyHistoryWindow: number;
   anomalyMinimumSamples: number;
   anomalySensitivity: number;
-  forecastHorizonDays: 7 | 30;
+  forecastHorizonDays: typeof SHORT_FORECAST_HORIZON_DAYS | typeof LONG_FORECAST_HORIZON_DAYS;
   forecastMinimumHistoryDays: number;
   candidateModelIds: string[];
   minimumSavingsUsd: number;
@@ -145,7 +148,7 @@ export interface CostForecast {
   method: 'weighted-average' | 'weekday-trend';
   intervalLabel: '80% empirical interval';
   historyDays: number;
-  horizonDays: 7 | 30;
+  horizonDays: typeof SHORT_FORECAST_HORIZON_DAYS | typeof LONG_FORECAST_HORIZON_DAYS;
   points: CostForecastPoint[];
   projectedCostUsd: number;
   periodEndProjectedCostUsd: number;
@@ -215,3 +218,12 @@ export interface CostOptimizationValidationIssue {
     | 'percentage-range'
     | 'project-not-found';
 }
+
+export interface CostOptimizationIpcError {
+  kind: 'validation' | 'unexpected';
+  message: string;
+  issues: CostOptimizationValidationIssue[];
+}
+
+export type CostOptimizationIpcResponse<Result> =
+  { ok: true; value: Result } | { ok: false; error: CostOptimizationIpcError };

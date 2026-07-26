@@ -147,6 +147,7 @@ const initializeApplication = async (): Promise<void> => {
     applicationRuntime: currentApplicationRuntime,
     usageRuntime,
     budgetRuntime: currentBudgetRuntime,
+    costRuntime,
     localeService,
     getWindow: () => mainWindow,
   });

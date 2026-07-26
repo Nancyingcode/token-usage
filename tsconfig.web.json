@@ -10,6 +10,7 @@
     "src/renderer/**/*.ts",
     "src/renderer/**/*.tsx",
     "src/shared/**/*.ts",
+    "tests/helpers/**/*.ts",
     "tests/**/*.tsx"
   ]
 }

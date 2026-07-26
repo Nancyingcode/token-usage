@@ -8,6 +8,9 @@ import {
   BUDGET_SAVE_PRICING_CHANNEL,
   BUDGET_UPDATED_CHANNEL,
   BUDGET_UPDATE_THRESHOLDS_CHANNEL,
+  COST_OPTIMIZATION_GET_SNAPSHOT_CHANNEL,
+  COST_OPTIMIZATION_UPDATED_CHANNEL,
+  COST_OPTIMIZATION_UPDATE_SETTINGS_CHANNEL,
   LOCALE_GET_CHANNEL,
   LOCALE_SET_CHANNEL,
   LOCALE_UPDATED_CHANNEL,
@@ -15,6 +18,12 @@ import {
   USAGE_SCAN_CHANNEL,
   USAGE_UPDATED_CHANNEL,
 } from '../shared/ipcChannels';
+import type {
+  CostOptimizationIpcResponse,
+  CostOptimizationQuery,
+  CostOptimizationSettings,
+  CostOptimizationSnapshot,
+} from '../shared/costOptimizationTypes';
 import type {
   BudgetPolicyInput,
   BudgetSnapshot,
@@ -31,6 +40,22 @@ const subscribe = <Payload>(
   const handler = (_event: Electron.IpcRendererEvent, payload: Payload): void => listener(payload);
   ipcRenderer.on(channel, handler);
   return () => ipcRenderer.removeListener(channel, handler);
+};
+
+const invokeCostOptimization = async <Result>(
+  channel: string,
+  input: CostOptimizationQuery | CostOptimizationSettings
+): Promise<Result> => {
+  const response = (await ipcRenderer.invoke(
+    channel,
+    input
+  )) as CostOptimizationIpcResponse<Result>;
+
+  if (!response.ok) {
+    throw response.error;
+  }
+
+  return response.value;
 };
 
 contextBridge.exposeInMainWorld('codexUsage', {
@@ -61,5 +86,13 @@ contextBridge.exposeInMainWorld('codexUsage', {
       subscribe(BUDGET_UPDATED_CHANNEL, listener),
     onNavigate: (listener: (policyId: string) => void): (() => void) =>
       subscribe(BUDGET_NAVIGATE_CHANNEL, listener),
+  },
+  costOptimization: {
+    getSnapshot: (query: CostOptimizationQuery): Promise<CostOptimizationSnapshot> =>
+      invokeCostOptimization(COST_OPTIMIZATION_GET_SNAPSHOT_CHANNEL, query),
+    updateSettings: (settings: CostOptimizationSettings): Promise<CostOptimizationSnapshot> =>
+      invokeCostOptimization(COST_OPTIMIZATION_UPDATE_SETTINGS_CHANNEL, settings),
+    onUpdated: (listener: (snapshot: CostOptimizationSnapshot) => void): (() => void) =>
+      subscribe(COST_OPTIMIZATION_UPDATED_CHANNEL, listener),
   },
 });

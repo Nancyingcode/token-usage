@@ -4,6 +4,11 @@ import type {
   BudgetThresholds,
   ModelPricingOverrideInput,
 } from '../shared/budgetTypes';
+import type {
+  CostOptimizationIpcResponse,
+  CostOptimizationQuery,
+  CostOptimizationSettings,
+} from '../shared/costOptimizationTypes';
 import {
   BUDGET_DELETE_POLICY_CHANNEL,
   BUDGET_GET_SNAPSHOT_CHANNEL,
@@ -13,6 +18,9 @@ import {
   BUDGET_SAVE_PRICING_CHANNEL,
   BUDGET_UPDATED_CHANNEL,
   BUDGET_UPDATE_THRESHOLDS_CHANNEL,
+  COST_OPTIMIZATION_GET_SNAPSHOT_CHANNEL,
+  COST_OPTIMIZATION_UPDATED_CHANNEL,
+  COST_OPTIMIZATION_UPDATE_SETTINGS_CHANNEL,
   LOCALE_GET_CHANNEL,
   LOCALE_SET_CHANNEL,
   LOCALE_UPDATED_CHANNEL,
@@ -20,8 +28,12 @@ import {
   USAGE_SCAN_CHANNEL,
   USAGE_UPDATED_CHANNEL,
 } from '../shared/ipcChannels';
-import type { BudgetRuntime } from './budgetRuntime';
 import type { ApplicationRuntime } from './applicationRuntime';
+import type { BudgetRuntime } from './budgetRuntime';
+import {
+  CostOptimizationRuntimeValidationError,
+  type CostOptimizationRuntime,
+} from './costOptimizationRuntime';
 import { isAllowedExternalUrl } from './externalUrlPolicy';
 import type { LocaleService } from './localeService';
 import type { UsageRuntime } from './usageRuntime';
@@ -30,6 +42,7 @@ export interface UsageIpcDependencies {
   applicationRuntime: ApplicationRuntime;
   usageRuntime: UsageRuntime;
   budgetRuntime: BudgetRuntime;
+  costRuntime: Pick<CostOptimizationRuntime, 'getSnapshot' | 'updateSettings' | 'subscribe'>;
   localeService: LocaleService;
   getWindow: () => BrowserWindow | null;
 }
@@ -42,6 +55,8 @@ const HANDLED_CHANNELS = [
   BUDGET_UPDATE_THRESHOLDS_CHANNEL,
   BUDGET_SAVE_PRICING_CHANNEL,
   BUDGET_RESET_PRICING_CHANNEL,
+  COST_OPTIMIZATION_GET_SNAPSHOT_CHANNEL,
+  COST_OPTIMIZATION_UPDATE_SETTINGS_CHANNEL,
   LOCALE_GET_CHANNEL,
   LOCALE_SET_CHANNEL,
   OPEN_EXTERNAL_CHANNEL,
@@ -59,10 +74,42 @@ const sendToRenderer = (
   }
 };
 
+const runCostOptimizationOperation = async <Result>(
+  operation: () => Result | Promise<Result>
+): Promise<CostOptimizationIpcResponse<Result>> => {
+  try {
+    return {
+      ok: true,
+      value: await operation(),
+    };
+  } catch (error) {
+    if (error instanceof CostOptimizationRuntimeValidationError) {
+      return {
+        ok: false,
+        error: {
+          kind: 'validation',
+          message: 'Cost optimization input is invalid.',
+          issues: error.issues,
+        },
+      };
+    }
+
+    return {
+      ok: false,
+      error: {
+        kind: 'unexpected',
+        message: 'Cost optimization operation failed.',
+        issues: [],
+      },
+    };
+  }
+};
+
 const registerUsageIpc = ({
   applicationRuntime,
   usageRuntime,
   budgetRuntime,
+  costRuntime,
   localeService,
   getWindow,
 }: UsageIpcDependencies): (() => void) => {
@@ -83,6 +130,14 @@ const registerUsageIpc = ({
   ipcMain.handle(BUDGET_RESET_PRICING_CHANNEL, (_event, modelId: string) =>
     budgetRuntime.resetPricingOverride(modelId)
   );
+  ipcMain.handle(COST_OPTIMIZATION_GET_SNAPSHOT_CHANNEL, (_event, query: CostOptimizationQuery) =>
+    runCostOptimizationOperation(() => costRuntime.getSnapshot(query))
+  );
+  ipcMain.handle(
+    COST_OPTIMIZATION_UPDATE_SETTINGS_CHANNEL,
+    (_event, settings: CostOptimizationSettings) =>
+      runCostOptimizationOperation(() => costRuntime.updateSettings(settings))
+  );
   ipcMain.handle(LOCALE_GET_CHANNEL, () => localeService.getLocale());
   ipcMain.handle(LOCALE_SET_CHANNEL, (_event, locale: unknown) => localeService.setLocale(locale));
   ipcMain.handle(OPEN_EXTERNAL_CHANNEL, async (_event, url: string) => {
@@ -102,6 +157,9 @@ const registerUsageIpc = ({
   const unsubscribeNavigation = budgetRuntime.subscribeNavigation((policyId) =>
     sendToRenderer(getWindow, BUDGET_NAVIGATE_CHANNEL, policyId)
   );
+  const unsubscribeCostOptimization = costRuntime.subscribe((snapshot) =>
+    sendToRenderer(getWindow, COST_OPTIMIZATION_UPDATED_CHANNEL, snapshot)
+  );
   const unsubscribeLocale = localeService.subscribe((locale) =>
     sendToRenderer(getWindow, LOCALE_UPDATED_CHANNEL, locale)
   );
@@ -110,6 +168,7 @@ const registerUsageIpc = ({
     unsubscribeBudget();
     unsubscribeUsage();
     unsubscribeNavigation();
+    unsubscribeCostOptimization();
     unsubscribeLocale();
     HANDLED_CHANNELS.forEach((channel) => ipcMain.removeHandler(channel));
   };
