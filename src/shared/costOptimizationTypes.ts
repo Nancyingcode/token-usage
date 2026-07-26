@@ -8,6 +8,14 @@ export type CostOptimizationDataState = 'fresh' | 'stale';
 export type CostOptimizationTab = 'overview' | 'comparison' | 'anomalies' | 'forecast' | 'savings';
 export type CostAnomalyLevel = 'day' | 'project' | 'model' | 'session';
 export type CostAnomalySeverity = 'warning' | 'critical';
+export type CostAnomalyBaselineScope =
+  | 'global-day'
+  | 'project-day'
+  | 'global-model-day'
+  | 'project-model-day'
+  | 'project-model'
+  | 'model'
+  | 'global';
 export type SavingsRecommendationType =
   'model-substitution' | 'cache-improvement' | 'anomaly-recovery';
 export type RecommendationConfidence = 'high' | 'medium';
@@ -126,7 +134,7 @@ export interface CostAnomaly {
   deviationRatio: number;
   score: number;
   sampleCount: number;
-  baselineScope: string;
+  baselineScope: CostAnomalyBaselineScope;
   coverage: PricingCoverage;
   contributionIds: string[];
 }
@@ -143,21 +151,23 @@ export interface DailyCostObservation {
   costUsd: number;
 }
 
+export interface CostBudgetCrossing {
+  policyId: string;
+  date: string;
+  projectedCostUsd: number;
+  limitUsd: number;
+}
+
 export interface CostForecast {
   kind: 'ready';
   method: 'weighted-average' | 'weekday-trend';
-  intervalLabel: '80% empirical interval';
+  intervalKind: 'empirical-80';
   historyDays: number;
   horizonDays: typeof SHORT_FORECAST_HORIZON_DAYS | typeof LONG_FORECAST_HORIZON_DAYS;
   points: CostForecastPoint[];
   projectedCostUsd: number;
   periodEndProjectedCostUsd: number;
-  budgetCrossings: Array<{
-    policyId: string;
-    date: string;
-    projectedCostUsd: number;
-    limitUsd: number;
-  }>;
+  budgetCrossings: CostBudgetCrossing[];
   coverage: PricingCoverage;
 }
 
@@ -166,6 +176,7 @@ export interface InsufficientForecast {
   requiredHistoryDays: number;
   actualHistoryDays: number;
   coverage: PricingCoverage;
+  budgetCrossings: CostBudgetCrossing[];
 }
 
 export interface SavingsRecommendation {
@@ -175,10 +186,18 @@ export interface SavingsRecommendation {
   scopeLabel: string;
   savingsUsd: number;
   confidence: RecommendationConfidence;
-  evidence: string[];
+  evidence: SavingsEvidence[];
   riskKey: string;
   contributionSavings: Record<string, number>;
 }
+
+export type SavingsEvidence =
+  | { kind: 'sessions'; count: number }
+  | { kind: 'pricing-coverage'; percentage: number }
+  | { kind: 'baseline-samples'; count: number }
+  | { kind: 'baseline-scope'; scope: CostAnomalyBaselineScope }
+  | { kind: 'current-cache-percentage'; percentage: number }
+  | { kind: 'target-cache-percentage'; percentage: number };
 
 export interface CostOptimizationSnapshot {
   generatedAt: string;

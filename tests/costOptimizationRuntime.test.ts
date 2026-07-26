@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { BudgetSnapshot, ModelPricingEntry } from '../src/shared/budgetTypes';
 import { evaluateCostOptimization } from '../src/shared/costOptimizationEvaluation';
+import { createEmptyCostOptimizationIndex } from '../src/shared/costOptimizationIndex';
 import type { UsageScanCycle } from '../src/main/usageScanner';
 import {
   createCostOptimizationRuntime,
@@ -44,9 +45,113 @@ describe('cost optimization runtime', () => {
     expect(runtime.getSnapshot({ period: 'total' })).toEqual(
       expect.objectContaining({
         dataState: 'stale',
-        staleReason: 'scan failed',
+        staleReason: 'Cost optimization data refresh failed.',
         currentCostUsd: 2,
       })
+    );
+  });
+
+  it('does not commit a new index when its cache transaction fails', async () => {
+    const save = vi
+      .fn<CostOptimizationRuntimeDependencies['cacheStore']['save']>()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('cannot save C:\\private\\cache.json'));
+    const runtime = createCostOptimizationRuntime(
+      makeRuntimeDependencies({
+        cacheStore: {
+          load: vi.fn(async () => ({ index: undefined, warning: undefined })),
+          save,
+        },
+      })
+    );
+    await runtime.initialize();
+    await runtime.applyUsageCycle(makeCycleWithOneSource());
+
+    await expect(runtime.applyUsageCycle(makeCycleWithOneSource('2', 2_000_000))).rejects.toThrow(
+      'cannot save'
+    );
+    runtime.markStale(new Error('cannot save C:\\private\\cache.json'));
+
+    expect(runtime.getSnapshot({ period: 'total' })).toEqual(
+      expect.objectContaining({
+        dataState: 'stale',
+        staleReason: 'Cost optimization data refresh failed.',
+        currentCostUsd: 2,
+      })
+    );
+  });
+
+  it('retains unavailable candidates after a pricing change and allows removing them', async () => {
+    const dependencies = makeRuntimeDependencies();
+    const runtime = createCostOptimizationRuntime(dependencies);
+    await runtime.initialize();
+
+    await runtime.applyBudgetSnapshot({
+      ...makeBudgetSnapshotWithUpdatedPricing(),
+      pricing: PRICING.filter(({ modelId }) => modelId !== 'gpt-target'),
+    });
+    const snapshot = runtime.getSnapshot({ period: 'total' });
+
+    expect(snapshot.settings.candidateModelIds).toContain('gpt-target');
+    expect(snapshot.warnings).toContainEqual(expect.stringContaining('gpt-target'));
+
+    await runtime.updateSettings({
+      ...snapshot.settings,
+      candidateModelIds: [],
+    });
+    expect(dependencies.configStore.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settings: expect.objectContaining({ candidateModelIds: [] }),
+      }),
+      ['gpt-source']
+    );
+  });
+
+  it('reuses active snapshots when a scan cycle has no index changes', async () => {
+    const evaluate = vi.fn(evaluateCostOptimization);
+    const dependencies = makeRuntimeDependencies({ evaluate });
+    const runtime = createCostOptimizationRuntime(dependencies);
+    await runtime.initialize();
+    const firstCycle = makeCycleWithOneSource();
+    await runtime.applyUsageCycle(firstCycle);
+    const evaluationCount = evaluate.mock.calls.length;
+    const snapshot = runtime.getSnapshot({ period: 'total' });
+
+    const unchangedCycle: UsageScanCycle = {
+      ...firstCycle,
+      changes: {
+        upserted: [],
+        removedSourceFiles: [],
+        requiresFullRebuild: false,
+      },
+    };
+    const unchangedSnapshot = await runtime.applyUsageCycle(unchangedCycle);
+
+    expect(unchangedSnapshot).toBe(snapshot);
+    expect(evaluate).toHaveBeenCalledTimes(evaluationCount);
+    expect(dependencies.cacheStore.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('discards a cache created for a different sessions directory during initialization', async () => {
+    const evaluate = vi.fn(evaluateCostOptimization);
+    const runtime = createCostOptimizationRuntime(
+      makeRuntimeDependencies({
+        evaluate,
+        cacheStore: {
+          load: vi.fn(async () => ({
+            index: createEmptyCostOptimizationIndex('C:\\old-sessions', FIXED_NOW),
+            warning: undefined,
+          })),
+          save: vi.fn(async () => undefined),
+        },
+      })
+    );
+
+    await runtime.initialize();
+
+    expect(evaluate.mock.calls.at(-1)?.[0].index.sessionsDir).toBe('C:\\sessions');
+    expect(runtime.getSnapshot({ period: 'total' }).warnings).toContain(
+      'Cost optimization cache directory changed and will be rebuilt.'
     );
   });
 });
@@ -71,8 +176,8 @@ const makeRuntimeDependencies = (
   ...overrides,
 });
 
-const makeCycleWithOneSource = (): UsageScanCycle => {
-  const change = makeSourceChange('usage.jsonl', '1', SOURCE_TOKENS);
+const makeCycleWithOneSource = (fingerprint = '1', inputTokens = SOURCE_TOKENS): UsageScanCycle => {
+  const change = makeSourceChange('usage.jsonl', fingerprint, inputTokens);
   return {
     result: {
       sessionsDir: 'C:\\sessions',

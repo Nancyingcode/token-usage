@@ -5,12 +5,14 @@
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type {
+  CostAnomalyBaselineScope,
   RecommendationConfidence,
   SavingsRecommendation,
+  SavingsEvidence,
   SavingsRecommendationType,
 } from '../../shared/costOptimizationTypes';
 import { resolveRendererLocale } from '../i18n';
-import { formatUsd } from '../utils/formatters';
+import { formatPercent, formatUsd } from '../utils/formatters';
 
 export type SavingsTypeFilter = SavingsRecommendationType | 'all';
 export type SavingsConfidenceFilter = RecommendationConfidence | 'all';
@@ -43,6 +45,24 @@ const RISK_KEYS: Record<string, RecommendationRiskKey> = {
   'risk.anomalyRecurrence': 'savings.risk.anomalyRecurrence',
 };
 const DEFAULT_RISK_KEY: RecommendationRiskKey = 'savings.risk.unknown';
+const BASELINE_SCOPE_KEYS: Record<
+  CostAnomalyBaselineScope,
+  | 'anomalies.baselineScopes.globalDay'
+  | 'anomalies.baselineScopes.projectDay'
+  | 'anomalies.baselineScopes.globalModelDay'
+  | 'anomalies.baselineScopes.projectModelDay'
+  | 'anomalies.baselineScopes.projectModel'
+  | 'anomalies.baselineScopes.model'
+  | 'anomalies.baselineScopes.global'
+> = {
+  'global-day': 'anomalies.baselineScopes.globalDay',
+  'project-day': 'anomalies.baselineScopes.projectDay',
+  'global-model-day': 'anomalies.baselineScopes.globalModelDay',
+  'project-model-day': 'anomalies.baselineScopes.projectModelDay',
+  'project-model': 'anomalies.baselineScopes.projectModel',
+  model: 'anomalies.baselineScopes.model',
+  global: 'anomalies.baselineScopes.global',
+};
 
 export const filterSavingsRecommendations = (
   recommendations: SavingsRecommendation[],
@@ -75,6 +95,30 @@ const SavingsRecommendations: React.FC<SavingsRecommendationsProps> = ({
     () => filterSavingsRecommendations(recommendations, type, confidence),
     [confidence, recommendations, type]
   );
+  const formatEvidence = (evidence: SavingsEvidence): string => {
+    switch (evidence.kind) {
+      case 'sessions':
+        return t('savings.evidence.sessions', { count: evidence.count });
+      case 'pricing-coverage':
+        return t('savings.evidence.pricingCoverage', {
+          percentage: formatPercent(evidence.percentage, locale),
+        });
+      case 'baseline-samples':
+        return t('savings.evidence.baselineSamples', { count: evidence.count });
+      case 'baseline-scope':
+        return t('savings.evidence.baselineScope', {
+          scope: t(BASELINE_SCOPE_KEYS[evidence.scope]),
+        });
+      case 'current-cache-percentage':
+        return t('savings.evidence.currentCachePercentage', {
+          percentage: formatPercent(evidence.percentage, locale),
+        });
+      case 'target-cache-percentage':
+        return t('savings.evidence.targetCachePercentage', {
+          percentage: formatPercent(evidence.percentage, locale),
+        });
+    }
+  };
 
   return (
     <section className="cost-detail-stack">
@@ -133,7 +177,7 @@ const SavingsRecommendations: React.FC<SavingsRecommendationsProps> = ({
                 <h4>{t('savings.calculationBasis')}</h4>
                 <ul>
                   {recommendation.evidence.map((evidence) => (
-                    <li key={evidence}>{evidence}</li>
+                    <li key={JSON.stringify(evidence)}>{formatEvidence(evidence)}</li>
                   ))}
                 </ul>
               </section>

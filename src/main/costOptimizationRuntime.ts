@@ -73,6 +73,10 @@ const EMPTY_CACHE_STATS: CostOptimizationSnapshot['cacheStats'] = {
   removedSources: 0,
   reusedSources: 0,
 };
+const PUBLIC_STALE_REASON = 'Cost optimization data refresh failed.';
+const UNAVAILABLE_CANDIDATE_WARNING_PREFIX = 'Candidate models are no longer priced:';
+const CACHE_DIRECTORY_CHANGED_WARNING =
+  'Cost optimization cache directory changed and will be rebuilt.';
 
 const cloneSettings = (settings: CostOptimizationSettings): CostOptimizationSettings => ({
   ...settings,
@@ -85,12 +89,12 @@ const cloneDefaultSettings = (): CostOptimizationSettings =>
 const getQueryKey = (query: CostOptimizationQuery): string =>
   JSON.stringify([query.period, query.projectPath ?? null]);
 
-const getErrorMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error);
-
 const getPricingSignature = (pricing: ModelPricingEntry[]): string => JSON.stringify(pricing);
 
 const getBudgetSignature = (snapshot: BudgetSnapshot): string => JSON.stringify(snapshot.statuses);
+
+const getLocalDayKey = (date: Date): string =>
+  [date.getFullYear(), date.getMonth(), date.getDate()].join('-');
 
 const getProjectPaths = (index: CostOptimizationIndex): string[] => [
   ...new Set(
@@ -125,8 +129,23 @@ export const createCostOptimizationRuntime = (
   let cacheStats = { ...EMPTY_CACHE_STATS };
   let pricingSignature = getPricingSignature(pricing);
   let budgetSignature = JSON.stringify(budgets);
+  let lastEvaluationDayKey: string | undefined;
 
   activeQueries.set(getQueryKey(DEFAULT_QUERY), DEFAULT_QUERY);
+
+  const syncCandidatePricingWarning = (): void => {
+    [...warnings]
+      .filter((warning) => warning.startsWith(UNAVAILABLE_CANDIDATE_WARNING_PREFIX))
+      .forEach((warning) => warnings.delete(warning));
+    const pricedModelIds = new Set(pricing.map(({ modelId }) => modelId));
+    const unavailableCandidates = settings.candidateModelIds.filter(
+      (modelId) => !pricedModelIds.has(modelId)
+    );
+
+    if (unavailableCandidates.length > 0) {
+      warnings.add(`${UNAVAILABLE_CANDIDATE_WARNING_PREFIX} ${unavailableCandidates.join(', ')}.`);
+    }
+  };
 
   const evaluateQuery = (query: CostOptimizationQuery): CostOptimizationSnapshot =>
     evaluate({
@@ -162,6 +181,7 @@ export const createCostOptimizationRuntime = (
       snapshots.set(getQueryKey(DEFAULT_QUERY), defaultSnapshot);
     }
 
+    lastEvaluationDayKey = getLocalDayKey(now());
     return defaultSnapshot;
   };
 
@@ -182,13 +202,21 @@ export const createCostOptimizationRuntime = (
         dependencies.cacheStore.load(),
       ]);
       settings = cloneSettings(configResult.config.settings);
+      const cachedIndex = cacheResult.index;
+      const cacheMatchesSessionsDirectory = cachedIndex?.sessionsDir === dependencies.sessionsDir;
       index =
-        cacheResult.index ?? createEmptyCostOptimizationIndex(dependencies.sessionsDir, now());
+        cachedIndex && cacheMatchesSessionsDirectory
+          ? cachedIndex
+          : createEmptyCostOptimizationIndex(dependencies.sessionsDir, now());
       [configResult.warning, cacheResult.warning].forEach((warning) => {
         if (warning) {
           warnings.add(warning);
         }
       });
+      if (cacheResult.index && !cacheMatchesSessionsDirectory) {
+        warnings.add(CACHE_DIRECTORY_CHANGED_WARNING);
+      }
+      syncCandidatePricingWarning();
       reevaluateActiveQueries(false);
     });
 
@@ -211,17 +239,28 @@ export const createCostOptimizationRuntime = (
         requiresFullRebuild,
       };
 
-      index = requiresFullRebuild
+      const nextIndex = requiresFullRebuild
         ? rebuildCostOptimizationIndex(cycle.result.sessionsDir, changes.upserted, now())
         : applyUsageChangeSet(index, changes, now());
       const indexChanged =
         requiresFullRebuild || changes.upserted.length > 0 || changes.removedSourceFiles.length > 0;
+      const evaluationDayChanged = lastEvaluationDayKey !== getLocalDayKey(now());
+
+      if (
+        !indexChanged &&
+        !evaluationDayChanged &&
+        dataState === 'fresh' &&
+        staleReason === undefined
+      ) {
+        return snapshots.get(getQueryKey(DEFAULT_QUERY)) ?? reevaluateActiveQueries(false);
+      }
 
       if (indexChanged) {
-        await dependencies.cacheStore.save(index);
+        await dependencies.cacheStore.save(nextIndex);
       }
 
       const changedSourceFiles = new Set(changes.upserted.map(({ sourceFile }) => sourceFile));
+      index = nextIndex;
       cacheStats = {
         upsertedSources: changedSourceFiles.size,
         removedSources: changes.removedSourceFiles.length,
@@ -247,12 +286,13 @@ export const createCostOptimizationRuntime = (
       budgets = snapshot.statuses;
       pricingSignature = nextPricingSignature;
       budgetSignature = nextBudgetSignature;
+      syncCandidatePricingWarning();
       return reevaluateActiveQueries(true);
     });
 
-  const markStale = (error: unknown): CostOptimizationSnapshot => {
+  const markStale = (_error: unknown): CostOptimizationSnapshot => {
     dataState = 'stale';
-    staleReason = getErrorMessage(error);
+    staleReason = PUBLIC_STALE_REASON;
     return reevaluateActiveQueries(true);
   };
 
@@ -283,6 +323,7 @@ export const createCostOptimizationRuntime = (
       };
       await dependencies.configStore.save(config, pricedModelIds);
       settings = cloneSettings(nextSettings);
+      syncCandidatePricingWarning();
       return reevaluateActiveQueries(true);
     });
 

@@ -5,10 +5,12 @@
  */
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { rebuildCostOptimizationIndex } from '../shared/costOptimizationIndex';
 import type {
   CostOptimizationIndex,
   IndexedUsageBucket,
   IndexedUsageContribution,
+  UsageSourceChange,
 } from '../shared/costOptimizationTypes';
 import { isRecord } from '../shared/runtimeTypes';
 import type { TokenUsage } from '../shared/usageTypes';
@@ -144,6 +146,90 @@ const getBucketTotals = (buckets: Record<string, IndexedUsageBucket>): TokenUsag
 const tokenUsageEquals = (first: TokenUsage, second: TokenUsage): boolean =>
   TOKEN_USAGE_KEYS.every((key) => first[key] === second[key]);
 
+const getSortedCountEntries = (counts: Record<string, number>): Array<[string, number]> =>
+  Object.entries(counts).sort(([firstKey], [secondKey]) => firstKey.localeCompare(secondKey));
+
+const getCanonicalBuckets = (
+  buckets: Record<string, IndexedUsageBucket>
+): Array<readonly [string, readonly unknown[]]> =>
+  Object.entries(buckets)
+    .sort(([firstId], [secondId]) => firstId.localeCompare(secondId))
+    .map(([id, bucket]) => [
+      id,
+      [
+        bucket.id,
+        bucket.date ?? null,
+        bucket.projectPath ?? null,
+        bucket.projectName ?? null,
+        bucket.sessionId ?? null,
+        bucket.occurredAt ?? null,
+        bucket.modelId ?? null,
+        ...TOKEN_USAGE_KEYS.map((key) => bucket[key]),
+        getSortedCountEntries(bucket.memberCounts),
+        getSortedCountEntries(bucket.contributionCounts),
+      ],
+    ]);
+
+const bucketRecordsEqual = (
+  first: Record<string, IndexedUsageBucket>,
+  second: Record<string, IndexedUsageBucket>
+): boolean =>
+  JSON.stringify(getCanonicalBuckets(first)) === JSON.stringify(getCanonicalBuckets(second));
+
+const toSourceChange = (
+  sourceFile: string,
+  source: CostOptimizationIndex['sources'][string],
+  fallbackTimestamp: string
+): UsageSourceChange => {
+  const firstContribution = source.contributions[0];
+  const timestamps = source.contributions
+    .map(({ occurredAt }) => occurredAt)
+    .sort((first, second) => first.localeCompare(second));
+  const totals = getContributionTotals({ [sourceFile]: source });
+
+  return {
+    sourceFile,
+    fingerprint: source.fingerprint,
+    session: {
+      sessionId: firstContribution?.sessionId ?? sourceFile,
+      startedAt: timestamps[0] ?? fallbackTimestamp,
+      endedAt: timestamps.at(-1) ?? fallbackTimestamp,
+      projectPath: firstContribution?.projectPath ?? '',
+      projectName: firstContribution?.projectName ?? '',
+      usageSlices: source.contributions.map((contribution) => ({
+        occurredAt: contribution.occurredAt,
+        modelId: contribution.modelId,
+        inputTokens: contribution.inputTokens,
+        cachedInputTokens: contribution.cachedInputTokens,
+        outputTokens: contribution.outputTokens,
+        reasoningOutputTokens: contribution.reasoningOutputTokens,
+        totalTokens: contribution.totalTokens,
+      })),
+      ...totals,
+      eventCount: source.contributions.length,
+      sourceFile,
+      warnings: [],
+    },
+  };
+};
+
+const bucketsMatchSources = (index: CostOptimizationIndex): boolean => {
+  const sourceChanges = Object.entries(index.sources).map(([sourceFile, source]) =>
+    toSourceChange(sourceFile, source, index.generatedAt)
+  );
+  const expected = rebuildCostOptimizationIndex(
+    index.sessionsDir,
+    sourceChanges,
+    new Date(index.generatedAt)
+  );
+
+  return (
+    bucketRecordsEqual(index.dayModelBuckets, expected.dayModelBuckets) &&
+    bucketRecordsEqual(index.projectDayModelBuckets, expected.projectDayModelBuckets) &&
+    bucketRecordsEqual(index.sessionModelBuckets, expected.sessionModelBuckets)
+  );
+};
+
 const decodeIndex = (content: string): CostOptimizationIndex => {
   const raw: unknown = JSON.parse(content);
 
@@ -179,7 +265,8 @@ const decodeIndex = (content: string): CostOptimizationIndex => {
   if (
     bucketCollections.some(
       (buckets) => !tokenUsageEquals(contributionTotals, getBucketTotals(buckets))
-    )
+    ) ||
+    !bucketsMatchSources(index)
   ) {
     throw new TypeError('Cost optimization cache totals are inconsistent.');
   }
@@ -209,16 +296,11 @@ export const createCostOptimizationCacheStore = (cachePath: string): CostOptimiz
   };
 
   const save = async (index: CostOptimizationIndex): Promise<void> => {
-    const validatedIndex = decodeIndex(JSON.stringify(index));
     const tempPath = `${cachePath}${TEMP_FILE_SUFFIX}`;
     await mkdir(dirname(cachePath), { recursive: true });
 
     try {
-      await writeFile(
-        tempPath,
-        `${JSON.stringify(validatedIndex, null, JSON_INDENT_SPACES)}\n`,
-        'utf8'
-      );
+      await writeFile(tempPath, `${JSON.stringify(index, null, JSON_INDENT_SPACES)}\n`, 'utf8');
       await rename(tempPath, cachePath);
     } finally {
       await rm(tempPath, { force: true });

@@ -135,16 +135,42 @@ export const evaluateCostOptimization = (
     ? detectCostAnomalies(input.index, input.query, input.pricing, input.settings, input.now)
     : [];
   const historyBuckets = getHistoryBuckets(input.index, input.query.projectPath);
+  const forecastCoverage = getPricingCoverage(historyBuckets, input.pricing);
   const budgets = cloneBudgets(input.budgets);
-  const forecast = forecastCostTrend({
+  let forecast = forecastCostTrend({
     dailyCosts: buildDailyCosts(historyBuckets, input.pricing),
     settings: input.settings,
     budgets,
-    coverage,
+    coverage: forecastCoverage,
     query: input.query,
     currentPeriodCostUsd: currentCostUsd,
     now: input.now,
   });
+  if (input.query.projectPath !== undefined) {
+    const globalQuery: CostOptimizationQuery = { period: input.query.period };
+    const globalHistoryBuckets = getHistoryBuckets(input.index, undefined);
+    const globalSelectedBuckets = selectQueryBuckets(input.index, globalQuery, input.now);
+    const globalForecast = forecastCostTrend({
+      dailyCosts: buildDailyCosts(globalHistoryBuckets, input.pricing),
+      settings: input.settings,
+      budgets,
+      coverage: getPricingCoverage(globalHistoryBuckets, input.pricing),
+      query: globalQuery,
+      currentPeriodCostUsd: calculateEstimatedCost(
+        globalSelectedBuckets.map(toUsageSlice),
+        input.pricing
+      ).pricedCostUsd,
+      now: input.now,
+    });
+
+    forecast = {
+      ...forecast,
+      budgetCrossings: [...forecast.budgetCrossings, ...globalForecast.budgetCrossings].sort(
+        (first, second) =>
+          first.date.localeCompare(second.date) || first.policyId.localeCompare(second.policyId)
+      ),
+    };
+  }
   const contributions = selectQueryContributions(input.index, selectedBuckets);
   const recommendations = pricingCoverageIsSafe
     ? buildSavingsRecommendations({

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { BudgetPolicyStatus } from '../src/shared/budgetTypes';
+import type { BudgetPeriod, BudgetPolicyStatus } from '../src/shared/budgetTypes';
 import type { DailyCostObservation } from '../src/shared/costOptimizationTypes';
 import {
   buildContinuousDailyCosts,
@@ -78,7 +78,7 @@ describe('cost forecasting', () => {
     expect(result).toEqual(expect.objectContaining({ kind: 'ready', method: 'weekday-trend' }));
     if (result.kind === 'ready') {
       expect(result.budgetCrossings[0]?.policyId).toBe('monthly-cost');
-      expect(result.intervalLabel).toBe('80% empirical interval');
+      expect(result.intervalKind).toBe('empirical-80');
     }
   });
 
@@ -94,6 +94,27 @@ describe('cost forecasting', () => {
     });
 
     expect(result.kind).toBe('pricing-incomplete');
+  });
+
+  it('resets projected budget usage at day, week, and month boundaries', () => {
+    const result = forecastCostTrend({
+      dailyCosts: makeDailyCosts(7, () => 1),
+      settings: { ...SETTINGS, forecastHorizonDays: 30 },
+      budgets: [
+        makeCostBudget('daily-cost', 10, 'day', 9),
+        makeCostBudget('weekly-cost', 10, 'week', 8),
+        makeCostBudget('monthly-cost', 25, 'month', 18),
+      ],
+      coverage: COVERAGE,
+      query: { period: 'total' },
+      currentPeriodCostUsd: 18,
+      now: FIXED_NOW,
+    });
+
+    expect(result.kind).toBe('ready');
+    if (result.kind === 'ready') {
+      expect(result.budgetCrossings).toEqual([]);
+    }
   });
 });
 
@@ -111,11 +132,16 @@ const makeDailyCosts = (
 const makeWeekdayPatternCosts = (count: number): DailyCostObservation[] =>
   makeDailyCosts(count, (index) => (index % 7 < 5 ? 2 : 1) + index * 0.02);
 
-const makeCostBudget = (id: string, limitUsd: number): BudgetPolicyStatus => ({
+const makeCostBudget = (
+  id: string,
+  limitUsd: number,
+  period: BudgetPeriod = 'month',
+  usedUsd = 50
+): BudgetPolicyStatus => ({
   policy: {
     id,
     scope: 'global',
-    period: 'month',
+    period,
     costLimitUsd: limitUsd,
     createdAt: '2026-07-01T00:00:00.000Z',
     updatedAt: '2026-07-01T00:00:00.000Z',
@@ -123,9 +149,9 @@ const makeCostBudget = (id: string, limitUsd: number): BudgetPolicyStatus => ({
   periodStart: '2026-07-01T00:00:00.000Z',
   periodEnd: FIXED_NOW.toISOString(),
   cost: {
-    used: 50,
+    used: usedUsd,
     limit: limitUsd,
-    percent: (50 / limitUsd) * 100,
+    percent: (usedUsd / limitUsd) * 100,
     severity: 'normal',
   },
   unpricedTokens: 0,

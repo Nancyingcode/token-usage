@@ -47,6 +47,7 @@ interface SessionFileResult {
   session?: UsageSession;
   fingerprint?: string;
   cacheHit: boolean;
+  cachedReadFailure?: boolean;
   warnings: UsageWarning[];
 }
 
@@ -110,13 +111,17 @@ export const createUsageScanner = (
 
           return { session, fingerprint, cacheHit, warnings: session.warnings };
         } catch (error) {
-          if (previousCachedPaths.has(file)) {
+          const wasCached = previousCachedPaths.has(file);
+          const sourceWasRemoved = isFileNotFoundError(error);
+
+          if (wasCached && sourceWasRemoved) {
             cache.delete(file);
             removedSourceFiles.add(file);
           }
 
           return {
             cacheHit: false,
+            cachedReadFailure: wasCached && !sourceWasRemoved,
             warnings: [
               {
                 sourceFile: file,
@@ -128,6 +133,14 @@ export const createUsageScanner = (
         }
       }
     );
+    const cachedReadFailed = fileResults.some(
+      ({ cachedReadFailure }) => cachedReadFailure === true
+    );
+
+    if (cachedReadFailed) {
+      throw new Error('Unable to refresh cached session files.');
+    }
+
     const sessions = fileResults.flatMap(({ session }) => (session ? [session] : []));
     const warnings = [
       ...discovery.warnings,
@@ -193,16 +206,7 @@ const findJsonlFiles = async (dir: string): Promise<FileDiscoveryResult> => {
       warnings: discoveries.flatMap((discovery) => discovery.warnings),
     };
   } catch (error) {
-    return {
-      files: [],
-      warnings: [
-        {
-          sourceFile: dir,
-          code: 'sessions-directory-unreadable',
-          details: errorMessage(error),
-        },
-      ],
-    };
+    throw new Error('Unable to discover sessions directory.', { cause: error });
   }
 };
 
@@ -285,3 +289,5 @@ const mapWithConcurrency = async <Input, Output>(
 
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
+
+const isFileNotFoundError = (error: unknown): boolean => isRecord(error) && error.code === 'ENOENT';

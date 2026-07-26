@@ -56,7 +56,13 @@ const renderCostOptimizationTab = (
     case 'anomalies':
       return <CostAnomalies anomalies={snapshot.anomalies} />;
     case 'forecast':
-      return <CostForecast forecast={snapshot.forecast} budgets={snapshot.budgets} />;
+      return (
+        <CostForecast
+          forecast={snapshot.forecast}
+          budgets={snapshot.budgets}
+          query={snapshot.query}
+        />
+      );
     case 'savings':
       return (
         <SavingsRecommendations

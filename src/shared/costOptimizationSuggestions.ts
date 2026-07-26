@@ -134,8 +134,8 @@ const buildModelSubstitutionRecommendations = (
         savingsUsd,
         confidence: 'high',
         evidence: [
-          `sessions:${scenario.affectedSessionCount}`,
-          `pricing-coverage:${input.coverage.percentage}`,
+          { kind: 'sessions', count: scenario.affectedSessionCount },
+          { kind: 'pricing-coverage', percentage: input.coverage.percentage },
         ],
         riskKey: 'risk.modelEquivalence',
         contributionSavings,
@@ -200,8 +200,8 @@ const buildAnomalyRecoveryRecommendations = (
         savingsUsd,
         confidence: anomaly.sampleCount >= HIGH_CONFIDENCE_BASELINE_SAMPLES ? 'high' : 'medium',
         evidence: [
-          `baseline-samples:${anomaly.sampleCount}`,
-          `baseline-scope:${anomaly.baselineScope}`,
+          { kind: 'baseline-samples', count: anomaly.sampleCount },
+          { kind: 'baseline-scope', scope: anomaly.baselineScope },
         ],
         riskKey: 'risk.anomalyRecurrence',
         contributionSavings,
@@ -287,8 +287,11 @@ const buildCacheImprovementRecommendations = (
         savingsUsd,
         confidence: 'medium',
         evidence: [
-          `current-cache-percentage:${currentCachePercentage}`,
-          `target-cache-percentage:${input.settings.targetCachePercentage}`,
+          { kind: 'current-cache-percentage', percentage: currentCachePercentage },
+          {
+            kind: 'target-cache-percentage',
+            percentage: input.settings.targetCachePercentage,
+          },
         ],
         riskKey: 'risk.cacheEligibility',
         contributionSavings,

@@ -32,18 +32,11 @@ describe('usageScanner', () => {
     expect(result.warnings.some(({ code }) => code === 'invalid-jsonl-record')).toBe(true);
   });
 
-  it('returns a directory warning when the sessions path is missing', async () => {
+  it('rejects the cycle when the sessions directory cannot be discovered', async () => {
     const missingDirectory = join(testDirectory, 'missing');
-    const result = await scanCodexUsage({ sessionsDir: missingDirectory });
 
-    expect(result.summary.sessions).toEqual([]);
-    expect(result.warnings).toHaveLength(1);
-    expect(result.warnings[0].sourceFile).toBe(missingDirectory);
-    expect(result.warnings[0]).toEqual(
-      expect.objectContaining({
-        code: 'sessions-directory-unreadable',
-        details: expect.any(String),
-      })
+    await expect(scanCodexUsage({ sessionsDir: missingDirectory })).rejects.toThrow(
+      'Unable to discover sessions directory'
     );
   });
 
@@ -151,6 +144,44 @@ describe('usageScanner', () => {
       sessionIndexPath: missingIndexPath,
     });
     expect(removed.changes.removedSourceFiles).toEqual([sessionFile]);
+  });
+
+  it('rejects a transient cached-file read failure without converting it to removal', async () => {
+    const sessionFile = join(testDirectory, 'transient.jsonl');
+    const missingIndexPath = join(testDirectory, 'missing-index.jsonl');
+    let denySessionRead = false;
+    await writeFile(sessionFile, validSession('transient', '2026-07-16T00:00:00.000Z'));
+    const scanner = createUsageScanner({
+      readFile: async (path, encoding) => {
+        if (String(path) === sessionFile && denySessionRead) {
+          throw new Error('temporary file lock');
+        }
+
+        return readFile(path, encoding);
+      },
+    });
+
+    await scanner.scanCycle({
+      sessionsDir: testDirectory,
+      sessionIndexPath: missingIndexPath,
+    });
+    await appendFile(sessionFile, '\n');
+    denySessionRead = true;
+
+    await expect(
+      scanner.scanCycle({
+        sessionsDir: testDirectory,
+        sessionIndexPath: missingIndexPath,
+      })
+    ).rejects.toThrow('Unable to refresh cached session files');
+
+    denySessionRead = false;
+    const recovered = await scanner.scanCycle({
+      sessionsDir: testDirectory,
+      sessionIndexPath: missingIndexPath,
+    });
+    expect(recovered.changes.upserted).toHaveLength(1);
+    expect(recovered.changes.removedSourceFiles).toEqual([]);
   });
 });
 

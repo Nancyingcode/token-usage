@@ -109,7 +109,7 @@ export const makeSourceChange = (
 export const READY_FORECAST: CostForecast = {
   kind: 'ready',
   method: 'weekday-trend',
-  intervalLabel: '80% empirical interval',
+  intervalKind: 'empirical-80',
   historyDays: 56,
   horizonDays: 30,
   points: [
@@ -213,7 +213,10 @@ export const SNAPSHOT: CostOptimizationSnapshot = {
       scopeLabel: 'gpt-source → gpt-target',
       savingsUsd: 11.8,
       confidence: 'high',
-      evidence: ['7 sessions', '100% pricing coverage'],
+      evidence: [
+        { kind: 'sessions', count: 7 },
+        { kind: 'pricing-coverage', percentage: 100 },
+      ],
       riskKey: 'risk.modelEquivalence',
       contributionSavings: { 'contribution-1': 11.8 },
     },

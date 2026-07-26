@@ -72,6 +72,24 @@ describe('cost optimization config store', () => {
     await expect(readFile(configPath, 'utf8')).resolves.toContain('"schemaVersion": 1');
   });
 
+  it('preserves candidates that lost pricing instead of resetting the configuration', async () => {
+    const store = createCostOptimizationConfigStore(configPath, fixedNow);
+    const config = {
+      schemaVersion: COST_OPTIMIZATION_CONFIG_SCHEMA_VERSION,
+      settings: {
+        ...DEFAULT_COST_OPTIMIZATION_SETTINGS,
+        candidateModelIds: ['retired-model'],
+      },
+    };
+    await store.save(config, ['retired-model']);
+
+    const result = await store.load([]);
+
+    expect(result.config).toEqual(config);
+    expect(result.warning).toContain('retired-model');
+    await expect(readdir(testDirectory)).resolves.toEqual([CONFIG_FILE_NAME]);
+  });
+
   it('refuses a future schema without replacing the source file', async () => {
     const futureConfig = '{"schemaVersion":2,"settings":{}}';
     await writeFile(configPath, futureConfig, 'utf8');

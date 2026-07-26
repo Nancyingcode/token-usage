@@ -71,141 +71,75 @@ const cloneBucket = (bucket: IndexedUsageBucket): IndexedUsageBucket => ({
   contributionCounts: { ...bucket.contributionCounts },
 });
 
-const cloneIndex = (index: CostOptimizationIndex): CostOptimizationIndex => ({
-  ...index,
-  sources: Object.fromEntries(
-    Object.entries(index.sources).map(([sourceFile, source]) => [
-      sourceFile,
-      {
-        fingerprint: source.fingerprint,
-        contributions: source.contributions.map((contribution) => ({ ...contribution })),
-      },
-    ])
-  ),
-  dayModelBuckets: Object.fromEntries(
-    Object.entries(index.dayModelBuckets).map(([id, bucket]) => [id, cloneBucket(bucket)])
-  ),
-  projectDayModelBuckets: Object.fromEntries(
-    Object.entries(index.projectDayModelBuckets).map(([id, bucket]) => [id, cloneBucket(bucket)])
-  ),
-  sessionModelBuckets: Object.fromEntries(
-    Object.entries(index.sessionModelBuckets).map(([id, bucket]) => [id, cloneBucket(bucket)])
-  ),
-});
-
-const updateCount = (
-  counts: Record<string, number>,
-  key: string,
-  direction: 1 | -1
-): Record<string, number> => {
-  const nextCount = (counts[key] ?? 0) + direction;
-  const nextCounts = { ...counts };
-
-  if (nextCount <= 0) {
-    delete nextCounts[key];
-    return nextCounts;
-  }
-
-  nextCounts[key] = nextCount;
-  return nextCounts;
-};
-
 const isEmptyBucket = (bucket: IndexedUsageBucket): boolean =>
   TOKEN_USAGE_KEYS.every((key) => bucket[key] === 0) &&
   Object.keys(bucket.memberCounts).length === 0 &&
   Object.keys(bucket.contributionCounts).length === 0;
 
-const applyContributionToBucket = (
-  buckets: Record<string, IndexedUsageBucket>,
-  bucketId: string,
-  metadata: Omit<
-    IndexedUsageBucket,
-    keyof TokenUsage | 'id' | 'memberCounts' | 'contributionCounts'
-  >,
-  contribution: IndexedUsageContribution,
-  direction: 1 | -1
-): Record<string, IndexedUsageBucket> => {
-  const existing = buckets[bucketId];
-  const nextBuckets = { ...buckets };
-  const bucket: IndexedUsageBucket = existing
-    ? cloneBucket(existing)
-    : {
-        id: bucketId,
-        ...EMPTY_TOKEN_USAGE,
-        ...metadata,
-        memberCounts: {},
-        contributionCounts: {},
-      };
+type BucketMetadata = Omit<
+  IndexedUsageBucket,
+  keyof TokenUsage | 'id' | 'memberCounts' | 'contributionCounts'
+>;
 
-  TOKEN_USAGE_KEYS.forEach((key) => {
-    bucket[key] += contribution[key] * direction;
-  });
-  bucket.memberCounts = updateCount(bucket.memberCounts, contribution.sessionId, direction);
-  bucket.contributionCounts = updateCount(bucket.contributionCounts, contribution.id, direction);
+class BucketCollectionDraft {
+  private readonly buckets: Record<string, IndexedUsageBucket>;
 
-  if (isEmptyBucket(bucket)) {
-    delete nextBuckets[bucketId];
-    return nextBuckets;
+  private readonly touchedBucketIds = new Set<string>();
+
+  public constructor(initialBuckets: Record<string, IndexedUsageBucket>, reset: boolean) {
+    this.buckets = reset ? {} : { ...initialBuckets };
   }
 
-  nextBuckets[bucketId] = bucket;
-  return nextBuckets;
-};
+  public apply(
+    bucketId: string,
+    metadata: BucketMetadata,
+    contribution: IndexedUsageContribution,
+    direction: 1 | -1
+  ): void {
+    const existing = this.buckets[bucketId];
+    const bucket =
+      existing && this.touchedBucketIds.has(bucketId)
+        ? existing
+        : existing
+          ? cloneBucket(existing)
+          : {
+              id: bucketId,
+              ...EMPTY_TOKEN_USAGE,
+              ...metadata,
+              memberCounts: {},
+              contributionCounts: {},
+            };
+    this.touchedBucketIds.add(bucketId);
 
-const applyContribution = (
-  index: CostOptimizationIndex,
-  contribution: IndexedUsageContribution,
-  direction: 1 | -1
-): CostOptimizationIndex => {
-  const dayBucketId = getDayModelBucketId(contribution.date, contribution.modelId);
-  const dayModelBuckets = applyContributionToBucket(
-    index.dayModelBuckets,
-    dayBucketId,
-    { date: contribution.date, modelId: contribution.modelId },
-    contribution,
-    direction
-  );
+    TOKEN_USAGE_KEYS.forEach((key) => {
+      bucket[key] += contribution[key] * direction;
+    });
+    const nextMemberCount = (bucket.memberCounts[contribution.sessionId] ?? 0) + direction;
+    const nextContributionCount = (bucket.contributionCounts[contribution.id] ?? 0) + direction;
 
-  const projectBucketId = getProjectDayModelBucketId(
-    contribution.projectPath,
-    contribution.date,
-    contribution.modelId
-  );
-  const projectDayModelBuckets = applyContributionToBucket(
-    index.projectDayModelBuckets,
-    projectBucketId,
-    {
-      date: contribution.date,
-      projectPath: contribution.projectPath,
-      projectName: contribution.projectName,
-      modelId: contribution.modelId,
-    },
-    contribution,
-    direction
-  );
+    if (nextMemberCount <= 0) {
+      delete bucket.memberCounts[contribution.sessionId];
+    } else {
+      bucket.memberCounts[contribution.sessionId] = nextMemberCount;
+    }
+    if (nextContributionCount <= 0) {
+      delete bucket.contributionCounts[contribution.id];
+    } else {
+      bucket.contributionCounts[contribution.id] = nextContributionCount;
+    }
 
-  const sessionBucketId = getSessionModelBucketId(contribution.sessionId, contribution.modelId);
-  const sessionModelBuckets = applyContributionToBucket(
-    index.sessionModelBuckets,
-    sessionBucketId,
-    {
-      sessionId: contribution.sessionId,
-      occurredAt: contribution.occurredAt,
-      projectPath: contribution.projectPath,
-      projectName: contribution.projectName,
-      modelId: contribution.modelId,
-    },
-    contribution,
-    direction
-  );
+    if (isEmptyBucket(bucket)) {
+      delete this.buckets[bucketId];
+      return;
+    }
 
-  return {
-    ...index,
-    dayModelBuckets,
-    projectDayModelBuckets,
-    sessionModelBuckets,
-  };
-};
+    this.buckets[bucketId] = bucket;
+  }
+
+  public toRecord(): Record<string, IndexedUsageBucket> {
+    return this.buckets;
+  }
+}
 
 const getSourceContributions = (sourceChange: UsageSourceChange): IndexedUsageContribution[] =>
   getSessionUsageSlices(sourceChange.session).map((slice, index) => ({
@@ -228,43 +162,6 @@ const getSourceContributions = (sourceChange: UsageSourceChange): IndexedUsageCo
     reasoningOutputTokens: slice.reasoningOutputTokens,
     totalTokens: slice.totalTokens,
   }));
-
-const removeSource = (index: CostOptimizationIndex, sourceFile: string): CostOptimizationIndex => {
-  const source = index.sources[sourceFile];
-
-  if (!source) {
-    return index;
-  }
-
-  let nextIndex = index;
-  source.contributions.forEach((contribution) => {
-    nextIndex = applyContribution(nextIndex, contribution, -1);
-  });
-  const sources = { ...nextIndex.sources };
-  delete sources[sourceFile];
-  return { ...nextIndex, sources };
-};
-
-const addSource = (
-  index: CostOptimizationIndex,
-  sourceChange: UsageSourceChange
-): CostOptimizationIndex => {
-  const contributions = getSourceContributions(sourceChange);
-  let nextIndex = index;
-  contributions.forEach((contribution) => {
-    nextIndex = applyContribution(nextIndex, contribution, 1);
-  });
-  return {
-    ...nextIndex,
-    sources: {
-      ...nextIndex.sources,
-      [sourceChange.sourceFile]: {
-        fingerprint: sourceChange.fingerprint,
-        contributions,
-      },
-    },
-  };
-};
 
 export const createEmptyCostOptimizationIndex = (
   sessionsDir: string,
@@ -299,21 +196,83 @@ export const applyUsageChangeSet = (
   changes: UsageChangeSet,
   now: Date = new Date()
 ): CostOptimizationIndex => {
-  let nextIndex = changes.requiresFullRebuild
-    ? createEmptyCostOptimizationIndex(index.sessionsDir, now)
-    : cloneIndex(index);
+  const hasSourceChanges = changes.upserted.length > 0 || changes.removedSourceFiles.length > 0;
+
+  if (!changes.requiresFullRebuild && !hasSourceChanges) {
+    return index;
+  }
+
+  const sources = changes.requiresFullRebuild ? {} : { ...index.sources };
+  const dayModelBuckets = new BucketCollectionDraft(
+    index.dayModelBuckets,
+    changes.requiresFullRebuild
+  );
+  const projectDayModelBuckets = new BucketCollectionDraft(
+    index.projectDayModelBuckets,
+    changes.requiresFullRebuild
+  );
+  const sessionModelBuckets = new BucketCollectionDraft(
+    index.sessionModelBuckets,
+    changes.requiresFullRebuild
+  );
   const sourcesToReplace = changes.upserted.map(({ sourceFile }) => sourceFile);
   const sourcesToRemove = new Set([...changes.removedSourceFiles, ...sourcesToReplace]);
 
+  const applyContribution = (contribution: IndexedUsageContribution, direction: 1 | -1): void => {
+    dayModelBuckets.apply(
+      getDayModelBucketId(contribution.date, contribution.modelId),
+      { date: contribution.date, modelId: contribution.modelId },
+      contribution,
+      direction
+    );
+    projectDayModelBuckets.apply(
+      getProjectDayModelBucketId(contribution.projectPath, contribution.date, contribution.modelId),
+      {
+        date: contribution.date,
+        projectPath: contribution.projectPath,
+        projectName: contribution.projectName,
+        modelId: contribution.modelId,
+      },
+      contribution,
+      direction
+    );
+    sessionModelBuckets.apply(
+      getSessionModelBucketId(contribution.sessionId, contribution.modelId),
+      {
+        sessionId: contribution.sessionId,
+        occurredAt: contribution.occurredAt,
+        projectPath: contribution.projectPath,
+        projectName: contribution.projectName,
+        modelId: contribution.modelId,
+      },
+      contribution,
+      direction
+    );
+  };
+
   sourcesToRemove.forEach((sourceFile) => {
-    nextIndex = removeSource(nextIndex, sourceFile);
+    const source = sources[sourceFile];
+
+    if (source) {
+      source.contributions.forEach((contribution) => applyContribution(contribution, -1));
+      delete sources[sourceFile];
+    }
   });
   changes.upserted.forEach((sourceChange) => {
-    nextIndex = addSource(nextIndex, sourceChange);
+    const contributions = getSourceContributions(sourceChange);
+    contributions.forEach((contribution) => applyContribution(contribution, 1));
+    sources[sourceChange.sourceFile] = {
+      fingerprint: sourceChange.fingerprint,
+      contributions,
+    };
   });
 
   return {
-    ...nextIndex,
+    ...index,
     generatedAt: now.toISOString(),
+    sources,
+    dayModelBuckets: dayModelBuckets.toRecord(),
+    projectDayModelBuckets: projectDayModelBuckets.toRecord(),
+    sessionModelBuckets: sessionModelBuckets.toRecord(),
   };
 };

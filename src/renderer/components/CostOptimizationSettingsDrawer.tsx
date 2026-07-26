@@ -2,7 +2,7 @@
  * @file 成本优化设置抽屉
  * @description 提供可访问的分析参数编辑、客户端校验和结构化 IPC 错误映射。
  */
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { TFunction } from 'i18next';
 import { Save, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -46,6 +46,14 @@ interface NumericFieldDefinition {
 }
 
 const PRIMARY_NUMERIC_FIELD_COUNT = 3;
+const FOCUSABLE_ELEMENT_SELECTOR = [
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[href]',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
 
 const NUMERIC_FIELDS: NumericFieldDefinition[] = [
   {
@@ -133,6 +141,23 @@ const CostOptimizationSettingsDrawer: React.FC<CostOptimizationSettingsDrawerPro
   const [issues, setIssues] = useState<CostOptimizationValidationIssue[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const dialogRef = useRef<HTMLElement>(null);
+  const pricedModelIdSet = new Set(pricedModelIds);
+  const displayedModelIds = [
+    ...pricedModelIds,
+    ...settings.candidateModelIds.filter((modelId) => !pricedModelIdSet.has(modelId)),
+  ];
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialog?.querySelector<HTMLElement>(FOCUSABLE_ELEMENT_SELECTOR)?.focus();
+
+    return () => {
+      previouslyFocused?.focus();
+    };
+  }, []);
 
   const updateField = (field: CostOptimizationSettingsFormField, value: string): void => {
     setForm((current) => updateCostOptimizationSettingsForm(current, field, value));
@@ -167,12 +192,44 @@ const CostOptimizationSettingsDrawer: React.FC<CostOptimizationSettingsDrawerPro
     }
   };
 
+  const handleDialogKeyDown = (event: React.KeyboardEvent<HTMLElement>): void => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      onClose();
+      return;
+    }
+    if (event.key !== 'Tab') {
+      return;
+    }
+
+    const focusableElements = [
+      ...(dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_ELEMENT_SELECTOR) ?? []),
+    ];
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements.at(-1);
+    const shouldWrapBackward =
+      event.shiftKey &&
+      (document.activeElement === firstElement ||
+        !dialogRef.current?.contains(document.activeElement));
+    const shouldWrapForward = !event.shiftKey && document.activeElement === lastElement;
+
+    if (shouldWrapBackward) {
+      event.preventDefault();
+      lastElement?.focus();
+    } else if (shouldWrapForward) {
+      event.preventDefault();
+      firstElement?.focus();
+    }
+  };
+
   return (
     <aside
+      ref={dialogRef}
       className="budget-drawer cost-optimization-drawer"
       role="dialog"
       aria-modal="true"
       aria-labelledby="cost-optimization-settings-title"
+      onKeyDown={handleDialogKeyDown}
     >
       <form className="drawer-form" onSubmit={handleSubmit}>
         <div className="drawer-heading">
@@ -248,16 +305,21 @@ const CostOptimizationSettingsDrawer: React.FC<CostOptimizationSettingsDrawerPro
         <fieldset>
           <legend>{t('drawer.candidateModels')}</legend>
           <div className="cost-optimization-model-options">
-            {pricedModelIds.map((modelId) => (
-              <label key={modelId}>
-                <input
-                  type="checkbox"
-                  checked={form.candidateModelIds.includes(modelId)}
-                  onChange={() => updateField('candidateModelIds', modelId)}
-                />
-                <span>{modelId}</span>
-              </label>
-            ))}
+            {displayedModelIds.map((modelId) => {
+              const pricingUnavailable = !pricedModelIdSet.has(modelId);
+
+              return (
+                <label key={modelId}>
+                  <input
+                    type="checkbox"
+                    checked={form.candidateModelIds.includes(modelId)}
+                    onChange={() => updateField('candidateModelIds', modelId)}
+                  />
+                  <span>{modelId}</span>
+                  {pricingUnavailable ? <small>{t('drawer.pricingUnavailable')}</small> : null}
+                </label>
+              );
+            })}
           </div>
           {getIssueMessage(issues, 'candidateModelIds', t) ? (
             <small className="field-error">{getIssueMessage(issues, 'candidateModelIds', t)}</small>

@@ -94,7 +94,8 @@ const decodeSettings = (raw: unknown): CostOptimizationSettings => {
 
 const decodeConfig = (
   content: string,
-  pricedModelIds: string[]
+  pricedModelIds: string[],
+  validateCandidateAvailability: boolean
 ): PersistedCostOptimizationConfig => {
   const raw: unknown = JSON.parse(content);
 
@@ -110,7 +111,9 @@ const decodeConfig = (
   }
 
   const settings = decodeSettings(raw.settings);
-  const issues = getCostOptimizationSettingsIssues(settings, pricedModelIds);
+  const issues = getCostOptimizationSettingsIssues(settings, pricedModelIds).filter(
+    ({ code }) => validateCandidateAvailability || code !== 'candidate-model-unpriced'
+  );
 
   if (issues.length > 0) {
     throw new TypeError(
@@ -145,9 +148,18 @@ export const createCostOptimizationConfigStore = (
     }
 
     try {
+      const config = decodeConfig(content, pricedModelIds, false);
+      const normalizedPricedIds = new Set(pricedModelIds.map(normalizeModelId));
+      const unavailableCandidates = config.settings.candidateModelIds.filter(
+        (modelId) => !normalizedPricedIds.has(normalizeModelId(modelId))
+      );
+
       return {
-        config: decodeConfig(content, pricedModelIds),
-        warning: undefined,
+        config,
+        warning:
+          unavailableCandidates.length > 0
+            ? `Candidate models are no longer priced: ${unavailableCandidates.join(', ')}.`
+            : undefined,
       };
     } catch (error) {
       if (error instanceof FutureCostOptimizationSchemaError) {
@@ -168,7 +180,7 @@ export const createCostOptimizationConfigStore = (
     config: PersistedCostOptimizationConfig,
     pricedModelIds: string[]
   ): Promise<void> => {
-    const validatedConfig = decodeConfig(JSON.stringify(config), pricedModelIds);
+    const validatedConfig = decodeConfig(JSON.stringify(config), pricedModelIds, true);
     const tempPath = `${configPath}${TEMP_FILE_SUFFIX}`;
     await mkdir(dirname(configPath), { recursive: true });
 

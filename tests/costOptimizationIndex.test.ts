@@ -110,4 +110,67 @@ describe('cost optimization index', () => {
       )
     ).toBe(300);
   });
+
+  it('returns the same index for an empty change set', () => {
+    const indexed = applyUsageChangeSet(
+      createEmptyCostOptimizationIndex('C:\\sessions', FIXED_NOW),
+      {
+        upserted: [makeSourceChange('usage.jsonl', '1', 100)],
+        removedSourceFiles: [],
+        requiresFullRebuild: false,
+      },
+      FIXED_NOW
+    );
+
+    const unchanged = applyUsageChangeSet(
+      indexed,
+      {
+        upserted: [],
+        removedSourceFiles: [],
+        requiresFullRebuild: false,
+      },
+      new Date(FIXED_NOW.getTime() + 1)
+    );
+
+    expect(unchanged).toBe(indexed);
+  });
+
+  it('preserves untouched bucket references during a single-source replacement', () => {
+    const earlierSource = makeSourceChange('earlier.jsonl', '1', 100);
+    earlierSource.session.startedAt = '2026-07-23T12:00:00.000Z';
+    earlierSource.session.endedAt = '2026-07-23T12:00:00.000Z';
+    earlierSource.session.usageSlices[0].occurredAt = '2026-07-23T12:00:00.000Z';
+    const indexed = applyUsageChangeSet(
+      createEmptyCostOptimizationIndex('C:\\sessions', FIXED_NOW),
+      {
+        upserted: [earlierSource, makeSourceChange('latest.jsonl', '1', 200)],
+        removedSourceFiles: [],
+        requiresFullRebuild: false,
+      },
+      FIXED_NOW
+    );
+    const untouchedBucket = Object.values(indexed.dayModelBuckets).find(
+      ({ date }) => date === '2026-07-23'
+    );
+    const touchedBucket = Object.values(indexed.dayModelBuckets).find(
+      ({ date }) => date === '2026-07-24'
+    );
+
+    const changed = applyUsageChangeSet(
+      indexed,
+      {
+        upserted: [makeSourceChange('latest.jsonl', '2', 300)],
+        removedSourceFiles: [],
+        requiresFullRebuild: false,
+      },
+      FIXED_NOW
+    );
+
+    expect(Object.values(changed.dayModelBuckets).find(({ date }) => date === '2026-07-23')).toBe(
+      untouchedBucket
+    );
+    expect(
+      Object.values(changed.dayModelBuckets).find(({ date }) => date === '2026-07-24')
+    ).not.toBe(touchedBucket);
+  });
 });

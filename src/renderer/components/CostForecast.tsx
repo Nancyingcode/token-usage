@@ -8,6 +8,7 @@ import type { BudgetPolicyStatus } from '../../shared/budgetTypes';
 import type {
   CostForecast as CostForecastModel,
   CostForecastPoint,
+  CostOptimizationQuery,
   InsufficientForecast,
 } from '../../shared/costOptimizationTypes';
 import { resolveRendererLocale } from '../i18n';
@@ -16,6 +17,7 @@ import { formatPercent, formatUsd } from '../utils/formatters';
 interface CostForecastProps {
   forecast: CostForecastModel | InsufficientForecast;
   budgets: BudgetPolicyStatus[];
+  query: CostOptimizationQuery;
 }
 
 const CHART_WIDTH = 720;
@@ -23,6 +25,9 @@ const CHART_HEIGHT = 260;
 const CHART_PADDING = 34;
 const CHART_INNER_WIDTH = CHART_WIDTH - CHART_PADDING * 2;
 const CHART_INNER_HEIGHT = CHART_HEIGHT - CHART_PADDING * 2;
+const INTERVAL_KEYS: Record<CostForecastModel['intervalKind'], 'forecast.interval.empirical80'> = {
+  'empirical-80': 'forecast.interval.empirical80',
+};
 
 const getPointX = (index: number, pointCount: number): number =>
   CHART_PADDING +
@@ -43,33 +48,87 @@ const getPolylinePoints = (
     )
     .join(' ');
 
-const CostForecast: React.FC<CostForecastProps> = ({ forecast, budgets }) => {
+export const buildCumulativeForecastPoints = (
+  points: CostForecastPoint[],
+  startingCostUsd: number
+): CostForecastPoint[] => {
+  let predictedCostUsd = Math.max(startingCostUsd, 0);
+  let lowerCostUsd = Math.max(startingCostUsd, 0);
+  let upperCostUsd = Math.max(startingCostUsd, 0);
+
+  return points.map((point) => {
+    predictedCostUsd += point.predictedCostUsd;
+    lowerCostUsd += point.lowerCostUsd;
+    upperCostUsd += point.upperCostUsd;
+
+    return {
+      date: point.date,
+      predictedCostUsd,
+      lowerCostUsd,
+      upperCostUsd,
+    };
+  });
+};
+
+export const getForecastBandPoints = (points: CostForecastPoint[], maximum: number): string => {
+  const upperCoordinates = points.map(
+    (point, index) => `${getPointX(index, points.length)},${getPointY(point.upperCostUsd, maximum)}`
+  );
+  const lowerCoordinates = points
+    .map(
+      (point, index) =>
+        `${getPointX(index, points.length)},${getPointY(point.lowerCostUsd, maximum)}`
+    )
+    .reverse();
+
+  return [...upperCoordinates, ...lowerCoordinates].join(' ');
+};
+
+const budgetMatchesForecastScope = (
+  budget: BudgetPolicyStatus | undefined,
+  query: CostOptimizationQuery
+): boolean => {
+  if (!budget?.cost) {
+    return false;
+  }
+  if (query.projectPath) {
+    return budget.policy.scope === 'project' && budget.policy.projectPath === query.projectPath;
+  }
+  return budget.policy.scope === 'global';
+};
+
+const CostForecast: React.FC<CostForecastProps> = ({ forecast, budgets, query }) => {
   const { t, i18n } = useTranslation('costOptimization');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
-  const crossingPolicyIds =
-    forecast.kind === 'ready'
-      ? [...new Set(forecast.budgetCrossings.map(({ policyId }) => policyId))]
-      : [];
+  const crossingPolicyIds = [...new Set(forecast.budgetCrossings.map(({ policyId }) => policyId))];
   const [selectedPolicyId, setSelectedPolicyId] = useState(crossingPolicyIds[0] ?? '');
   const effectiveSelectedPolicyId = crossingPolicyIds.includes(selectedPolicyId)
     ? selectedPolicyId
     : (crossingPolicyIds[0] ?? '');
   const selectedCrossing =
-    forecast.kind === 'ready'
-      ? (forecast.budgetCrossings.find(({ policyId }) => policyId === effectiveSelectedPolicyId) ??
-        forecast.budgetCrossings[0])
-      : undefined;
+    forecast.budgetCrossings.find(({ policyId }) => policyId === effectiveSelectedPolicyId) ??
+    forecast.budgetCrossings[0];
   const selectedBudget = budgets.find(({ policy }) => policy.id === selectedCrossing?.policyId);
+  const selectedBudgetMatchesForecast = budgetMatchesForecastScope(selectedBudget, query);
+  const startingCostUsd =
+    selectedBudgetMatchesForecast && selectedBudget?.cost ? selectedBudget.cost.used : 0;
+  const chartPoints = useMemo(
+    () =>
+      forecast.kind === 'ready'
+        ? buildCumulativeForecastPoints(forecast.points, startingCostUsd)
+        : [],
+    [forecast, startingCostUsd]
+  );
   const maximum = useMemo(
     () =>
       forecast.kind === 'ready'
         ? Math.max(
-            ...forecast.points.map(({ upperCostUsd }) => upperCostUsd),
-            ...forecast.budgetCrossings.map(({ limitUsd }) => limitUsd),
+            ...chartPoints.map(({ upperCostUsd }) => upperCostUsd),
+            selectedBudgetMatchesForecast && selectedCrossing ? selectedCrossing.limitUsd : 0,
             1
           )
         : 1,
-    [forecast]
+    [chartPoints, forecast.kind, selectedBudgetMatchesForecast, selectedCrossing]
   );
 
   if (forecast.kind !== 'ready') {
@@ -87,26 +146,30 @@ const CostForecast: React.FC<CostForecastProps> = ({ forecast, budgets }) => {
             coverage: formatPercent(forecast.coverage.percentage, locale),
           })}
         </p>
+        {selectedCrossing ? (
+          <p>
+            {t('forecast.crossingDescription', {
+              budget: selectedBudget?.policy.projectPath ?? selectedCrossing.policyId,
+              date: selectedCrossing.date,
+              limit: formatUsd(selectedCrossing.limitUsd, locale),
+            })}
+          </p>
+        ) : null}
       </section>
     );
   }
 
-  const upperPoints = getPolylinePoints(
-    forecast.points,
-    maximum,
-    ({ upperCostUsd }) => upperCostUsd
-  );
-  const lowerPoints = getPolylinePoints(
-    [...forecast.points].reverse(),
-    maximum,
-    ({ lowerCostUsd }) => lowerCostUsd
-  );
+  const intervalLabel = t(INTERVAL_KEYS[forecast.intervalKind]);
+  const bandPoints = getForecastBandPoints(chartPoints, maximum);
   const predictionPoints = getPolylinePoints(
-    forecast.points,
+    chartPoints,
     maximum,
     ({ predictedCostUsd }) => predictedCostUsd
   );
-  const budgetY = selectedCrossing ? getPointY(selectedCrossing.limitUsd, maximum) : undefined;
+  const budgetY =
+    selectedBudgetMatchesForecast && selectedCrossing
+      ? getPointY(selectedCrossing.limitUsd, maximum)
+      : undefined;
 
   return (
     <section className="cost-detail-stack">
@@ -116,7 +179,7 @@ const CostForecast: React.FC<CostForecastProps> = ({ forecast, budgets }) => {
           <p>
             {t('forecast.summary', {
               value: formatUsd(forecast.projectedCostUsd, locale),
-              interval: forecast.intervalLabel,
+              interval: intervalLabel,
             })}
           </p>
         </div>
@@ -147,7 +210,7 @@ const CostForecast: React.FC<CostForecastProps> = ({ forecast, budgets }) => {
           <title id="cost-forecast-title">{t('forecast.chartTitle')}</title>
           <desc id="cost-forecast-description">
             {t('forecast.chartDescription', {
-              interval: forecast.intervalLabel,
+              interval: intervalLabel,
               currency: 'USD',
             })}
           </desc>
@@ -158,7 +221,7 @@ const CostForecast: React.FC<CostForecastProps> = ({ forecast, budgets }) => {
             x2={CHART_WIDTH - CHART_PADDING}
             y2={CHART_HEIGHT - CHART_PADDING}
           />
-          <polygon className="cost-chart-band" points={`${upperPoints} ${lowerPoints}`} />
+          <polygon className="cost-chart-band" points={bandPoints} />
           <polyline className="cost-chart-line" points={predictionPoints} />
           {budgetY === undefined ? null : (
             <line
@@ -169,11 +232,11 @@ const CostForecast: React.FC<CostForecastProps> = ({ forecast, budgets }) => {
               y2={budgetY}
             />
           )}
-          {forecast.points.map((point, index) => (
+          {chartPoints.map((point, index) => (
             <circle
               key={point.date}
               className="cost-chart-point"
-              cx={getPointX(index, forecast.points.length)}
+              cx={getPointX(index, chartPoints.length)}
               cy={getPointY(point.predictedCostUsd, maximum)}
               r="4"
               tabIndex={0}
@@ -192,7 +255,7 @@ const CostForecast: React.FC<CostForecastProps> = ({ forecast, budgets }) => {
       </div>
 
       <div className="cost-forecast-legend">
-        <span>{forecast.intervalLabel}</span>
+        <span>{intervalLabel}</span>
         <span>{t(`overview.method.${forecast.method}`)}</span>
         <span>{t('forecast.currency', { currency: 'USD' })}</span>
       </div>

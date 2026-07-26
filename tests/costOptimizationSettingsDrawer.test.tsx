@@ -21,4 +21,21 @@ describe('CostOptimizationSettingsDrawer', () => {
     expect(markup).toContain('Minimum pricing coverage');
     expect(markup).toContain('gpt-test');
   });
+
+  it('keeps a selected unpriced candidate visible so the user can remove it', () => {
+    const markup = renderWithI18n(
+      <CostOptimizationSettingsDrawer
+        settings={{
+          ...DEFAULT_COST_OPTIMIZATION_SETTINGS,
+          candidateModelIds: ['retired-model'],
+        }}
+        pricedModelIds={['gpt-test']}
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+      />
+    );
+
+    expect(markup).toContain('retired-model');
+    expect(markup).toContain('Pricing unavailable');
+  });
 });

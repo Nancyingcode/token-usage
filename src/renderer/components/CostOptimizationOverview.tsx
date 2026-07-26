@@ -100,7 +100,7 @@ const CostOptimizationOverview: React.FC<CostOptimizationOverviewProps> = ({ sna
               {snapshot.forecast.kind === 'ready'
                 ? t('overview.forecastRange', {
                     value: formatUsd(snapshot.forecast.projectedCostUsd, locale),
-                    interval: snapshot.forecast.intervalLabel,
+                    interval: t('forecast.interval.empirical80'),
                   })
                 : t('overview.needsHistory', {
                     count: snapshot.forecast.requiredHistoryDays,

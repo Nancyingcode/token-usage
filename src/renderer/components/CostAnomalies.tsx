@@ -7,6 +7,7 @@ import { AlertTriangle, CircleAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type {
   CostAnomaly,
+  CostAnomalyBaselineScope,
   CostAnomalyLevel,
   CostAnomalySeverity,
 } from '../../shared/costOptimizationTypes';
@@ -22,6 +23,24 @@ interface CostAnomaliesProps {
 }
 
 const PERCENT_BASE = 100;
+const BASELINE_SCOPE_KEYS: Record<
+  CostAnomalyBaselineScope,
+  | 'anomalies.baselineScopes.globalDay'
+  | 'anomalies.baselineScopes.projectDay'
+  | 'anomalies.baselineScopes.globalModelDay'
+  | 'anomalies.baselineScopes.projectModelDay'
+  | 'anomalies.baselineScopes.projectModel'
+  | 'anomalies.baselineScopes.model'
+  | 'anomalies.baselineScopes.global'
+> = {
+  'global-day': 'anomalies.baselineScopes.globalDay',
+  'project-day': 'anomalies.baselineScopes.projectDay',
+  'global-model-day': 'anomalies.baselineScopes.globalModelDay',
+  'project-model-day': 'anomalies.baselineScopes.projectModelDay',
+  'project-model': 'anomalies.baselineScopes.projectModel',
+  model: 'anomalies.baselineScopes.model',
+  global: 'anomalies.baselineScopes.global',
+};
 
 export const filterCostAnomalies = (
   anomalies: CostAnomaly[],
@@ -127,7 +146,7 @@ const CostAnomalies: React.FC<CostAnomaliesProps> = ({ anomalies }) => {
                   </div>
                   <div>
                     <dt>{t('anomalies.baselineScope')}</dt>
-                    <dd>{anomaly.baselineScope}</dd>
+                    <dd>{t(BASELINE_SCOPE_KEYS[anomaly.baselineScope])}</dd>
                   </div>
                   <div>
                     <dt>{t('anomalies.coverage')}</dt>

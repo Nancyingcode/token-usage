@@ -415,6 +415,15 @@ export const zhCN = {
       equivalenceDisclaimer: '更低价格不代表质量、速度或能力等价。请结合实际工作负载验证替代方案。',
     },
     anomalies: {
+      baselineScopes: {
+        globalDay: '全局每日历史',
+        projectDay: '项目每日历史',
+        globalModelDay: '全局模型每日历史',
+        projectModelDay: '项目模型每日历史',
+        projectModel: '项目模型会话',
+        model: '模型会话',
+        global: '全局会话',
+      },
       levelFilter: '异常层级',
       severityFilter: '严重程度',
       baseline: '基线成本',
@@ -428,6 +437,9 @@ export const zhCN = {
       empty: '没有符合当前筛选条件的异常。',
     },
     forecast: {
+      interval: {
+        empirical80: '80% 经验区间',
+      },
       title: '成本趋势预测',
       summary: '预计 {{value}} · {{interval}}',
       budget: '预算',
@@ -444,6 +456,16 @@ export const zhCN = {
         '当前有 {{actual}} 天历史数据，需要 {{required}} 天。定价覆盖率：{{coverage}}。',
     },
     savings: {
+      evidence: {
+        sessions_one: '{{count}} 个会话',
+        sessions_other: '{{count}} 个会话',
+        pricingCoverage: '定价覆盖率：{{percentage}}',
+        baselineSamples_one: '{{count}} 个基线样本',
+        baselineSamples_other: '{{count}} 个基线样本',
+        baselineScope: '基线范围：{{scope}}',
+        currentCachePercentage: '当前缓存占比：{{percentage}}',
+        targetCachePercentage: '目标缓存占比：{{percentage}}',
+      },
       conservativeTotal: '保守节省额',
       overlapNotice: '重叠的节省金额不会重复相加。',
       typeFilter: '建议类型',
@@ -476,6 +498,7 @@ export const zhCN = {
       targetCachePercentage: '目标缓存占比',
       minimumPricingCoveragePercentage: '最低定价覆盖率',
       candidateModels: '候选替代模型',
+      pricingUnavailable: '暂无定价',
     },
     validation: {
       'history-window-range': '历史窗口必须是 7 到 90 之间的整数。',

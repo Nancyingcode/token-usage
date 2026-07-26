@@ -1,10 +1,14 @@
 import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createCostOptimizationCacheStore } from '../src/main/costOptimizationCacheStore';
-import { createEmptyCostOptimizationIndex } from '../src/shared/costOptimizationIndex';
-import { FIXED_NOW } from './helpers/costOptimizationFixtures';
+import {
+  applyUsageChangeSet,
+  createEmptyCostOptimizationIndex,
+} from '../src/shared/costOptimizationIndex';
+import * as costOptimizationIndexModule from '../src/shared/costOptimizationIndex';
+import { FIXED_NOW, makeSourceChange } from './helpers/costOptimizationFixtures';
 
 const TEST_DIRECTORY_PREFIX = 'codex-cost-cache-';
 const CACHE_FILE_NAME = 'cost-optimization-cache.json';
@@ -83,13 +87,72 @@ describe('cost optimization cache store', () => {
     });
   });
 
-  it('round-trips a structurally valid index through one cache file', async () => {
+  it('round-trips a non-empty structurally valid index through one cache file', async () => {
     const store = createCostOptimizationCacheStore(cachePath);
-    const index = createEmptyCostOptimizationIndex('C:\\sessions', FIXED_NOW);
+    const index = applyUsageChangeSet(
+      createEmptyCostOptimizationIndex('C:\\sessions', FIXED_NOW),
+      {
+        upserted: [makeSourceChange('usage.jsonl', '1', 100)],
+        removedSourceFiles: [],
+        requiresFullRebuild: false,
+      },
+      FIXED_NOW
+    );
 
     await store.save(index);
 
     await expect(store.load()).resolves.toEqual({ index, warning: undefined });
     await expect(readdir(testDirectory)).resolves.toEqual([CACHE_FILE_NAME]);
+  });
+
+  it('rejects a cache whose bucket assignments are wrong despite matching global totals', async () => {
+    const earlierSource = makeSourceChange('earlier.jsonl', '1', 100);
+    earlierSource.session.startedAt = '2026-07-23T12:00:00.000Z';
+    earlierSource.session.endedAt = '2026-07-23T12:00:00.000Z';
+    earlierSource.session.usageSlices[0].occurredAt = '2026-07-23T12:00:00.000Z';
+    const index = applyUsageChangeSet(
+      createEmptyCostOptimizationIndex('C:\\sessions', FIXED_NOW),
+      {
+        upserted: [earlierSource, makeSourceChange('latest.jsonl', '1', 200)],
+        removedSourceFiles: [],
+        requiresFullRebuild: false,
+      },
+      FIXED_NOW
+    );
+    const entries = Object.entries(index.dayModelBuckets);
+    const [firstId, firstBucket] = entries[0];
+    const [secondId, secondBucket] = entries[1];
+    const corruptedIndex = {
+      ...index,
+      dayModelBuckets: {
+        [firstId]: { ...secondBucket, id: firstId },
+        [secondId]: { ...firstBucket, id: secondId },
+      },
+    };
+    await writeFile(cachePath, JSON.stringify(corruptedIndex), 'utf8');
+
+    await expect(createCostOptimizationCacheStore(cachePath).load()).resolves.toEqual({
+      index: undefined,
+      warning: REBUILD_WARNING,
+    });
+  });
+
+  it('does not rebuild the complete index while saving an incremental cache update', async () => {
+    const rebuildSpy = vi.spyOn(costOptimizationIndexModule, 'rebuildCostOptimizationIndex');
+    const index = applyUsageChangeSet(
+      createEmptyCostOptimizationIndex('C:\\sessions', FIXED_NOW),
+      {
+        upserted: [makeSourceChange('usage.jsonl', '1', 100)],
+        removedSourceFiles: [],
+        requiresFullRebuild: false,
+      },
+      FIXED_NOW
+    );
+    rebuildSpy.mockClear();
+
+    await createCostOptimizationCacheStore(cachePath).save(index);
+
+    expect(rebuildSpy).not.toHaveBeenCalled();
+    rebuildSpy.mockRestore();
   });
 });

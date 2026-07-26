@@ -8,7 +8,7 @@
  * - 定价覆盖不足时不输出完整金额预测
  * - 所有点预测和区间下界均不得为负数
  */
-import type { BudgetPolicyStatus } from './budgetTypes';
+import type { BudgetPeriod, BudgetPolicyStatus } from './budgetTypes';
 import { median, medianAbsoluteDeviation } from './costOptimizationAnomalies';
 import type {
   CostForecast,
@@ -27,6 +27,7 @@ const EMPIRICAL_INTERVAL_FACTOR = 1.28;
 const DAYS_PER_WEEK = 7;
 const DATE_PART_LENGTH = 2;
 const DATE_PART_COUNT = 3;
+const YEAR_MONTH_KEY_LENGTH = 7;
 const DAYS_FROM_SUNDAY_TO_MONDAY = 6;
 const END_OF_DAY_HOUR = 23;
 const END_OF_HOUR_MINUTE = 59;
@@ -221,6 +222,24 @@ const getPeriodEndProjection = (
   return currentPeriodCostUsd + remainingProjection;
 };
 
+const getBudgetPeriodKey = (period: BudgetPeriod, dateKey: string): string => {
+  if (period === 'day') {
+    return dateKey;
+  }
+  if (period === 'month') {
+    return dateKey.slice(0, YEAR_MONTH_KEY_LENGTH);
+  }
+
+  const date = parseLocalDateKey(dateKey);
+
+  if (!date) {
+    return dateKey;
+  }
+
+  const mondayOffset = (date.getDay() + DAYS_FROM_SUNDAY_TO_MONDAY) % DAYS_PER_WEEK;
+  return toLocalDateKey(addDays(date, -mondayOffset));
+};
+
 const queryPeriodMatchesBudget = (
   query: CostOptimizationQuery,
   budget: BudgetPolicyStatus
@@ -258,8 +277,15 @@ const getBudgetCrossings = (
       }
 
       let projectedCostUsd = cost.used;
+      let activePeriodKey = getBudgetPeriodKey(budget.policy.period, toLocalDateKey(now));
 
       for (const point of points) {
+        const pointPeriodKey = getBudgetPeriodKey(budget.policy.period, point.date);
+
+        if (pointPeriodKey !== activePeriodKey) {
+          projectedCostUsd = 0;
+          activePeriodKey = pointPeriodKey;
+        }
         projectedCostUsd += point.predictedCostUsd;
 
         if (projectedCostUsd >= cost.limit) {
@@ -300,6 +326,7 @@ export const forecastCostTrend = ({
     requiredHistoryDays: settings.forecastMinimumHistoryDays,
     actualHistoryDays,
     coverage,
+    budgetCrossings: [],
   };
 
   if (coverage.percentage < settings.minimumPricingCoveragePercentage) {
@@ -335,7 +362,7 @@ export const forecastCostTrend = ({
   return {
     kind: 'ready',
     method: methodResult.method,
-    intervalLabel: '80% empirical interval',
+    intervalKind: 'empirical-80',
     historyDays: actualHistoryDays,
     horizonDays: settings.forecastHorizonDays,
     points,

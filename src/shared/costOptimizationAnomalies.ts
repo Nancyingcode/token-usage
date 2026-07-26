@@ -11,6 +11,7 @@ import type { ModelPricingEntry } from './budgetTypes';
 import { getPricingCoverage } from './costOptimizationCost';
 import type {
   CostAnomaly,
+  CostAnomalyBaselineScope,
   CostAnomalyLevel,
   CostOptimizationIndex,
   CostOptimizationQuery,
@@ -38,7 +39,7 @@ interface CostObservation {
   level: CostAnomalyLevel;
   key: string;
   seriesKey: string;
-  baselineScope: string;
+  baselineScope: CostAnomalyBaselineScope;
   occurredAt: string;
   date?: string;
   projectPath?: string;
@@ -54,7 +55,7 @@ interface ObservationMetadata {
   level: CostAnomalyLevel;
   key: string;
   seriesKey: string;
-  baselineScope: string;
+  baselineScope: CostAnomalyBaselineScope;
   occurredAt: string;
   date?: string;
   projectPath?: string;
@@ -289,7 +290,7 @@ const hasSafeCoverage = (
 const toAnomaly = (
   observation: CostObservation,
   history: CostObservation[],
-  baselineScope: string,
+  baselineScope: CostAnomalyBaselineScope,
   settings: CostOptimizationSettings
 ): CostAnomaly | undefined => {
   const baselineValues = history.map(({ actualCostUsd }) => actualCostUsd);
@@ -384,14 +385,14 @@ const getSessionBaseline = (
   observations: CostObservation[],
   current: CostObservation,
   settings: CostOptimizationSettings
-): { history: CostObservation[]; scope: string } | undefined => {
+): { history: CostObservation[]; scope: CostAnomalyBaselineScope } | undefined => {
   const prior = observations.filter(
     (observation) =>
       observation.occurredAt < current.occurredAt && hasSafeCoverage(observation, settings)
   );
   const modelKey = normalizeModelId(current.modelId);
   const candidates: Array<{
-    scope: string;
+    scope: CostAnomalyBaselineScope;
     observations: CostObservation[];
   }> = [
     {

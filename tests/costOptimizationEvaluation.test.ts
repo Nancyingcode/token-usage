@@ -6,6 +6,7 @@ import {
 import { evaluateCostOptimization } from '../src/shared/costOptimizationEvaluation';
 import type { CostOptimizationIndex, UsageSourceChange } from '../src/shared/costOptimizationTypes';
 import { FIXED_NOW, PRICING, SETTINGS } from './helpers/costOptimizationFixtures';
+import type { BudgetPolicyStatus } from '../src/shared/budgetTypes';
 
 const BASE_INPUT_TOKENS = 200_000;
 const BASE_OUTPUT_TOKENS = 200_000;
@@ -30,6 +31,110 @@ describe('cost optimization evaluation', () => {
     expect(snapshot.forecast.kind).toBe('pricing-incomplete');
     expect(snapshot.recommendations).toEqual([]);
     expect(snapshot.conservativeSavingsUsd).toBe(0);
+  });
+
+  it('gates forecasting with full forecast-history coverage, not the current query window', () => {
+    const snapshot = evaluateCostOptimization({
+      ...makeEvaluationInputWithUnpricedUsage(),
+      query: { period: 'today' },
+    });
+
+    expect(snapshot.coverage.percentage).toBe(100);
+    expect(snapshot.forecast.kind).toBe('pricing-incomplete');
+    expect(snapshot.forecast.coverage.percentage).toBeLessThan(80);
+  });
+
+  it('includes global budget crossings in a project-scoped forecast', () => {
+    const globalBudget: BudgetPolicyStatus = {
+      policy: {
+        id: 'global-month',
+        scope: 'global',
+        period: 'month',
+        costLimitUsd: 1,
+        createdAt: FIXED_NOW.toISOString(),
+        updatedAt: FIXED_NOW.toISOString(),
+      },
+      periodStart: '2026-07-01T00:00:00.000Z',
+      periodEnd: FIXED_NOW.toISOString(),
+      cost: {
+        used: 1,
+        limit: 1,
+        percent: 100,
+        severity: 'over',
+      },
+      unpricedTokens: 0,
+      unpricedModelIds: [],
+    };
+    const snapshot = evaluateCostOptimization({
+      ...makeEvaluationInput(),
+      query: { period: 'total', projectPath: 'C:\\repo' },
+      budgets: [globalBudget],
+    });
+
+    expect(snapshot.forecast.kind).toBe('ready');
+    if (snapshot.forecast.kind === 'ready') {
+      expect(snapshot.forecast.budgetCrossings).toContainEqual(
+        expect.objectContaining({ policyId: 'global-month' })
+      );
+    }
+  });
+
+  it('retains an independently ready global budget forecast when project history is insufficient', () => {
+    const changes = Array.from({ length: HISTORY_DAYS }, (_, index) => {
+      const day = String(index + 17).padStart(2, '0');
+      const change = makeSourceChange(
+        `global-${index}.jsonl`,
+        `2026-07-${day}`,
+        'gpt-source',
+        BASE_INPUT_TOKENS,
+        BASE_OUTPUT_TOKENS
+      );
+      const belongsToSelectedProject = index >= HISTORY_DAYS - 2;
+      change.session.projectPath = belongsToSelectedProject ? 'C:\\selected' : 'C:\\other';
+      change.session.projectName = belongsToSelectedProject ? 'selected' : 'other';
+      return change;
+    });
+    const index = applyUsageChangeSet(
+      createEmptyCostOptimizationIndex('C:\\sessions', FIXED_NOW),
+      {
+        upserted: changes,
+        removedSourceFiles: [],
+        requiresFullRebuild: false,
+      },
+      FIXED_NOW
+    );
+    const globalBudget: BudgetPolicyStatus = {
+      policy: {
+        id: 'global-ready',
+        scope: 'global',
+        period: 'month',
+        costLimitUsd: 1,
+        createdAt: FIXED_NOW.toISOString(),
+        updatedAt: FIXED_NOW.toISOString(),
+      },
+      periodStart: '2026-07-01T00:00:00.000Z',
+      periodEnd: FIXED_NOW.toISOString(),
+      cost: {
+        used: 1,
+        limit: 1,
+        percent: 100,
+        severity: 'over',
+      },
+      unpricedTokens: 0,
+      unpricedModelIds: [],
+    };
+
+    const snapshot = evaluateCostOptimization({
+      ...makeEvaluationInput(),
+      index,
+      query: { period: 'total', projectPath: 'C:\\selected' },
+      budgets: [globalBudget],
+    });
+
+    expect(snapshot.forecast.kind).toBe('insufficient-data');
+    expect(snapshot.forecast.budgetCrossings).toContainEqual(
+      expect.objectContaining({ policyId: 'global-ready' })
+    );
   });
 });
 

@@ -78,6 +78,7 @@ const COST_SNAPSHOT: CostOptimizationSnapshot = {
       percentage: 100,
       unpricedModelIds: [],
     },
+    budgetCrossings: [],
   },
   recommendations: [],
   conservativeSavingsUsd: 0,

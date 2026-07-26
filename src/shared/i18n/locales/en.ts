@@ -427,6 +427,15 @@ export const en = {
       score: 'Anomaly score',
       samples: 'Baseline samples',
       baselineScope: 'Baseline scope',
+      baselineScopes: {
+        globalDay: 'Global daily history',
+        projectDay: 'Project daily history',
+        globalModelDay: 'Global model daily history',
+        projectModelDay: 'Project model daily history',
+        projectModel: 'Project model sessions',
+        model: 'Model sessions',
+        global: 'Global sessions',
+      },
       coverage: 'Pricing coverage',
       contributionChain: 'Contribution chain',
       contribution: 'Contribution',
@@ -448,6 +457,9 @@ export const en = {
       pricingIncomplete: 'Pricing coverage is too low for a complete forecast',
       insufficientDescription:
         '{{actual}} of {{required}} required history days are available. Pricing coverage: {{coverage}}.',
+      interval: {
+        empirical80: '80% empirical interval',
+      },
     },
     savings: {
       conservativeTotal: 'Conservative savings',
@@ -459,6 +471,16 @@ export const en = {
         medium: 'Medium confidence',
       },
       calculationBasis: 'Calculation basis',
+      evidence: {
+        sessions_one: '{{count}} session',
+        sessions_other: '{{count}} sessions',
+        pricingCoverage: 'Pricing coverage: {{percentage}}',
+        baselineSamples_one: '{{count}} baseline sample',
+        baselineSamples_other: '{{count}} baseline samples',
+        baselineScope: 'Baseline scope: {{scope}}',
+        currentCachePercentage: 'Current cache percentage: {{percentage}}',
+        targetCachePercentage: 'Target cache percentage: {{percentage}}',
+      },
       riskLabel: 'Risk',
       risk: {
         modelEquivalence: 'The replacement may differ in quality, speed, or capability.',
@@ -482,6 +504,7 @@ export const en = {
       targetCachePercentage: 'Target cache percentage',
       minimumPricingCoveragePercentage: 'Minimum pricing coverage',
       candidateModels: 'Candidate replacement models',
+      pricingUnavailable: 'Pricing unavailable',
     },
     validation: {
       'history-window-range': 'History window must be an integer from 7 to 90.',
