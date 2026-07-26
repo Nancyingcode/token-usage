@@ -45,4 +45,23 @@ describe('CostOptimizationView', () => {
     expect(loadingMarkup).toContain('Loading cost analysis');
     expect(errorMarkup).toContain('analysis unavailable');
   });
+
+  it('renders all five tabs with accessible selection state', () => {
+    const markup = renderWithI18n(
+      <CostOptimizationView
+        model={{ kind: 'ready', snapshot: SNAPSHOT }}
+        projectOptions={['C:\\repo']}
+        projectPath={null}
+        onProjectPathChange={vi.fn()}
+        onUpdateSettings={vi.fn()}
+      />
+    );
+
+    expect(markup).toContain('Overview');
+    expect(markup).toContain('Model comparison');
+    expect(markup).toContain('Anomalies');
+    expect(markup).toContain('Forecast');
+    expect(markup).toContain('Savings');
+    expect(markup).toContain('aria-selected="true"');
+  });
 });

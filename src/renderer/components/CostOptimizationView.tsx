@@ -8,10 +8,15 @@ import { useTranslation } from 'react-i18next';
 import type {
   CostOptimizationSettings,
   CostOptimizationSnapshot,
+  CostOptimizationTab,
 } from '../../shared/costOptimizationTypes';
 import { ICON_SIZE_LARGE, ICON_SIZE_SMALL } from '../constants/ui';
+import CostAnomalies from './CostAnomalies';
+import CostForecast from './CostForecast';
 import CostOptimizationOverview from './CostOptimizationOverview';
 import CostOptimizationSettingsDrawer from './CostOptimizationSettingsDrawer';
+import ModelCostComparison from './ModelCostComparison';
+import SavingsRecommendations from './SavingsRecommendations';
 
 export type CostOptimizationContentModel =
   | { kind: 'loading' }
@@ -26,6 +31,42 @@ interface CostOptimizationViewProps {
   onUpdateSettings: (settings: CostOptimizationSettings) => Promise<unknown>;
 }
 
+const COST_OPTIMIZATION_TABS = [
+  { key: 'overview', labelKey: 'tabs.overview' },
+  { key: 'comparison', labelKey: 'tabs.comparison' },
+  { key: 'anomalies', labelKey: 'tabs.anomalies' },
+  { key: 'forecast', labelKey: 'tabs.forecast' },
+  { key: 'savings', labelKey: 'tabs.savings' },
+] as const satisfies ReadonlyArray<{
+  key: CostOptimizationTab;
+  labelKey: string;
+}>;
+
+const renderCostOptimizationTab = (
+  tab: CostOptimizationTab,
+  snapshot: CostOptimizationSnapshot
+): React.ReactNode => {
+  switch (tab) {
+    case 'overview':
+      return <CostOptimizationOverview snapshot={snapshot} />;
+    case 'comparison':
+      return (
+        <ModelCostComparison rows={snapshot.modelRows} scenarios={snapshot.substitutionScenarios} />
+      );
+    case 'anomalies':
+      return <CostAnomalies anomalies={snapshot.anomalies} />;
+    case 'forecast':
+      return <CostForecast forecast={snapshot.forecast} budgets={snapshot.budgets} />;
+    case 'savings':
+      return (
+        <SavingsRecommendations
+          recommendations={snapshot.recommendations}
+          conservativeSavingsUsd={snapshot.conservativeSavingsUsd}
+        />
+      );
+  }
+};
+
 const CostOptimizationView: React.FC<CostOptimizationViewProps> = ({
   model,
   projectOptions,
@@ -35,6 +76,7 @@ const CostOptimizationView: React.FC<CostOptimizationViewProps> = ({
 }) => {
   const { t } = useTranslation('costOptimization');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<CostOptimizationTab>('overview');
   const [dismissedWarnings, setDismissedWarnings] = useState<string[]>([]);
   const visibleWarnings = useMemo(
     () =>
@@ -122,7 +164,29 @@ const CostOptimizationView: React.FC<CostOptimizationViewProps> = ({
               </button>
             </div>
           ))}
-          <CostOptimizationOverview snapshot={model.snapshot} />
+          <div className="cost-optimization-tabs" role="tablist" aria-label={t('tabs.label')}>
+            {COST_OPTIMIZATION_TABS.map((tab) => (
+              <button
+                key={tab.key}
+                id={`cost-tab-${tab.key}`}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab.key}
+                aria-controls={`cost-panel-${tab.key}`}
+                className={activeTab === tab.key ? 'active' : undefined}
+                onClick={() => setActiveTab(tab.key)}
+              >
+                {t(tab.labelKey)}
+              </button>
+            ))}
+          </div>
+          <div
+            id={`cost-panel-${activeTab}`}
+            role="tabpanel"
+            aria-labelledby={`cost-tab-${activeTab}`}
+          >
+            {renderCostOptimizationTab(activeTab, model.snapshot)}
+          </div>
           {settingsOpen ? (
             <CostOptimizationSettingsDrawer
               settings={model.snapshot.settings}

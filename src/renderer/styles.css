@@ -1801,6 +1801,398 @@ code {
   font-size: 11px;
 }
 
+.cost-optimization-tabs {
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.cost-optimization-tabs button {
+  min-width: max-content;
+  height: 34px;
+  padding: 0 2px;
+  color: #777777;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  font-size: 11px;
+}
+
+.cost-optimization-tabs button.active {
+  color: #1f664a;
+  border-bottom-color: #2f9b70;
+  font-weight: 700;
+}
+
+.cost-detail-stack,
+.cost-anomaly-list,
+.cost-savings-list {
+  display: grid;
+  gap: 12px;
+}
+
+.cost-detail-panel,
+.cost-savings-card {
+  padding: 15px;
+}
+
+.cost-table-scroll {
+  overflow-x: auto;
+}
+
+.cost-detail-table {
+  width: 100%;
+  min-width: 780px;
+  border-collapse: collapse;
+  font-size: 10px;
+}
+
+.cost-detail-table th,
+.cost-detail-table td {
+  padding: 9px 10px;
+  text-align: left;
+  border-bottom: 1px solid #eeeeee;
+  vertical-align: top;
+}
+
+.cost-detail-table th {
+  color: #888888;
+  background: #fafafa;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.cost-detail-table td > strong,
+.cost-detail-table td > small {
+  display: block;
+}
+
+.cost-detail-table td > small {
+  margin-top: 3px;
+  color: #888888;
+  white-space: nowrap;
+}
+
+.cost-positive {
+  color: #257556;
+  font-weight: 700;
+}
+
+.cost-detail-disclaimer {
+  margin: 12px 0 0;
+  padding: 9px 11px;
+  color: #6f561c;
+  background: #fff9e8;
+  border: 1px solid #eed594;
+  border-radius: 6px;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.cost-detail-filter-bar,
+.cost-forecast-header {
+  min-height: 38px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 9px;
+}
+
+.cost-detail-filter-bar label,
+.cost-forecast-header label {
+  display: grid;
+  gap: 5px;
+  color: #777777;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.cost-detail-filter-bar select,
+.cost-forecast-header select {
+  min-height: 29px;
+  padding: 0 27px 0 8px;
+  color: #333333;
+  background: #ffffff;
+  border: 1px solid #dddddd;
+  border-radius: 6px;
+  font-size: 10px;
+}
+
+.cost-anomaly-card {
+  padding: 13px;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-left: 3px solid #d79b35;
+  border-radius: 7px;
+}
+
+.cost-anomaly-card.critical {
+  border-left-color: #d14b4b;
+}
+
+.cost-anomaly-heading {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.cost-anomaly-heading > div {
+  display: grid;
+  gap: 2px;
+}
+
+.cost-anomaly-heading strong,
+.cost-anomaly-heading span,
+.cost-anomaly-heading em {
+  font-size: 10px;
+}
+
+.cost-anomaly-heading span {
+  color: #777777;
+}
+
+.cost-anomaly-heading em {
+  font-style: normal;
+  font-weight: 700;
+}
+
+.cost-detail-definition-grid {
+  margin: 12px 0;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(90px, 1fr));
+  gap: 8px;
+}
+
+.cost-detail-definition-grid > div {
+  min-width: 0;
+  padding: 8px;
+  background: #f8f8f8;
+  border-radius: 5px;
+}
+
+.cost-detail-definition-grid dt {
+  color: #888888;
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.cost-detail-definition-grid dd {
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  font-size: 10px;
+}
+
+.cost-anomaly-card details {
+  font-size: 10px;
+}
+
+.cost-anomaly-card summary {
+  color: #356f58;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.cost-contribution-chain {
+  margin: 9px 0 0;
+  padding-left: 21px;
+  color: #666666;
+}
+
+.cost-detail-empty {
+  padding: 28px;
+  color: #777777;
+  font-size: 11px;
+  text-align: center;
+}
+
+.cost-detail-empty h3 {
+  margin: 0 0 5px;
+}
+
+.cost-detail-empty p {
+  margin: 0;
+}
+
+.cost-forecast-header {
+  justify-content: space-between;
+}
+
+.cost-forecast-header h3,
+.cost-forecast-header p {
+  margin: 0;
+}
+
+.cost-forecast-header h3 {
+  font-size: 14px;
+}
+
+.cost-forecast-header p {
+  margin-top: 4px;
+  color: #777777;
+  font-size: 10px;
+}
+
+.cost-forecast-chart {
+  padding: 12px;
+  overflow-x: auto;
+  background: #ffffff;
+  border: 1px solid #e6e6e6;
+  border-radius: 8px;
+}
+
+.cost-forecast-chart svg {
+  width: 100%;
+  min-width: 620px;
+  display: block;
+}
+
+.cost-chart-axis {
+  stroke: #cfcfcf;
+  stroke-width: 1;
+}
+
+.cost-chart-band {
+  fill: rgba(55, 139, 104, 0.14);
+  stroke: none;
+}
+
+.cost-chart-line {
+  fill: none;
+  stroke: #257556;
+  stroke-width: 3;
+}
+
+.cost-chart-budget {
+  stroke: #c74e4e;
+  stroke-dasharray: 6 4;
+  stroke-width: 2;
+}
+
+.cost-chart-point {
+  fill: #ffffff;
+  stroke: #257556;
+  stroke-width: 2;
+}
+
+.cost-chart-point:focus {
+  outline: none;
+  stroke: #111111;
+  stroke-width: 4;
+}
+
+.cost-forecast-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cost-forecast-legend span {
+  padding: 4px 7px;
+  color: #666666;
+  background: #f5f5f5;
+  border-radius: 5px;
+  font-size: 9px;
+}
+
+.cost-budget-crossing {
+  padding: 10px 12px;
+  display: grid;
+  gap: 3px;
+  color: #8e3939;
+  background: #fff4f3;
+  border: 1px solid #edc3bf;
+  border-radius: 6px;
+  font-size: 10px;
+}
+
+.cost-savings-summary {
+  padding: 13px 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  color: #205f49;
+  background: #f0f8f4;
+  border: 1px solid #cbe2d7;
+  border-radius: 8px;
+}
+
+.cost-savings-summary > div {
+  display: grid;
+  gap: 3px;
+}
+
+.cost-savings-summary span,
+.cost-savings-summary p {
+  font-size: 10px;
+}
+
+.cost-savings-summary strong {
+  font-size: 20px;
+}
+
+.cost-savings-summary p {
+  margin: 0;
+  color: #547265;
+}
+
+.cost-savings-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cost-savings-heading h3,
+.cost-savings-heading p {
+  margin: 0;
+}
+
+.cost-savings-heading h3 {
+  margin-top: 4px;
+  font-size: 13px;
+}
+
+.cost-savings-heading span,
+.cost-savings-heading p {
+  color: #777777;
+  font-size: 9px;
+}
+
+.cost-savings-heading > strong {
+  color: #257556;
+  font-size: 18px;
+}
+
+.cost-savings-card section {
+  margin-top: 12px;
+}
+
+.cost-savings-card h4 {
+  margin: 0 0 5px;
+  font-size: 10px;
+}
+
+.cost-savings-card ul,
+.cost-savings-card p {
+  margin: 0;
+  color: #666666;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.cost-savings-card ul {
+  padding-left: 18px;
+}
+
+.cost-savings-risk {
+  padding: 9px 10px;
+  background: #fff9e8;
+  border-radius: 6px;
+}
+
 @media (max-width: 1050px) {
   .app-frame {
     grid-template-columns: 70px minmax(0, 1fr);
@@ -1821,6 +2213,10 @@ code {
   .content-grid,
   .cost-optimization-metric-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .cost-detail-definition-grid {
+    grid-template-columns: repeat(3, minmax(90px, 1fr));
   }
 }
 
@@ -1864,6 +2260,17 @@ code {
   .cost-optimization-toolbar {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .cost-detail-filter-bar,
+  .cost-forecast-header,
+  .cost-savings-summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cost-detail-definition-grid {
+    grid-template-columns: repeat(2, minmax(90px, 1fr));
   }
 
   .activity-grid {
