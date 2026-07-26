@@ -42,6 +42,23 @@ describe('reduceAppNavigationState', () => {
     });
   });
 
+  it('opens cost optimization without reusing the Sessions project as navigation state', () => {
+    const state: AppNavigationState = {
+      activeView: 'overview',
+      selectedProjectPath: null,
+    };
+
+    expect(
+      reduceAppNavigationState(state, {
+        type: 'select-view',
+        view: 'costOptimization',
+      })
+    ).toEqual({
+      activeView: 'costOptimization',
+      selectedProjectPath: null,
+    });
+  });
+
   it('clears only the project filter when requested', () => {
     const state: AppNavigationState = {
       activeView: 'sessions',

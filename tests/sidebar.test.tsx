@@ -29,6 +29,15 @@ describe('Sidebar', () => {
     expect(markup).toContain('<em class="nav-badge">2</em>');
   });
 
+  it('renders cost optimization between budgets and sessions', () => {
+    const markup = renderWithI18n(
+      <Sidebar activeView="costOptimization" warningCount={0} onChange={vi.fn()} />
+    );
+
+    expect(markup.indexOf('Budgets')).toBeLessThan(markup.indexOf('Cost Optimization'));
+    expect(markup.indexOf('Cost Optimization')).toBeLessThan(markup.indexOf('Sessions'));
+  });
+
   it('renders Chinese navigation and accessibility copy', () => {
     const markup = renderWithI18n(
       <Sidebar activeView="overview" warningCount={0} onChange={vi.fn()} />,

@@ -2,11 +2,16 @@ import React from 'react';
 import type { TFunction } from 'i18next';
 import { AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import type {
+  CostOptimizationSettings,
+  CostOptimizationSnapshot,
+} from '../../shared/costOptimizationTypes';
 import { ICON_SIZE_LARGE } from '../constants/ui';
 import type { BudgetSnapshot } from '../../shared/budgetTypes';
 import type { BudgetActions } from '../hooks/useBudgetSnapshot';
 import type { AppContentModel } from '../utils/appContentModel';
 import BudgetsView from './BudgetsView';
+import CostOptimizationView, { type CostOptimizationContentModel } from './CostOptimizationView';
 import EmptyState from './EmptyState';
 import Overview from './Overview';
 import PeriodEmptyState from './PeriodEmptyState';
@@ -26,6 +31,11 @@ interface AppContentProps {
   budgetActions?: BudgetActions;
   focusedPolicyId?: string | null;
   onFocusedPolicyConsumed?: () => void;
+  costOptimizationModel?: CostOptimizationContentModel;
+  costProjectOptions?: string[];
+  costProjectPath?: string | null;
+  onCostProjectPathChange?: (projectPath: string | undefined) => void;
+  onCostSettingsUpdate?: (settings: CostOptimizationSettings) => Promise<CostOptimizationSnapshot>;
 }
 
 export type BudgetContentModel =
@@ -89,6 +99,11 @@ const AppContent: React.FC<AppContentProps> = ({
   budgetActions,
   focusedPolicyId,
   onFocusedPolicyConsumed,
+  costOptimizationModel,
+  costProjectOptions = [],
+  costProjectPath,
+  onCostProjectPathChange,
+  onCostSettingsUpdate,
 }) => {
   const { t } = useTranslation('common');
 
@@ -99,6 +114,18 @@ const AppContent: React.FC<AppContentProps> = ({
       focusedPolicyId,
       onFocusedPolicyConsumed,
       t
+    );
+  }
+
+  if (activeView === 'costOptimization') {
+    return (
+      <CostOptimizationView
+        model={costOptimizationModel ?? { kind: 'loading' }}
+        projectOptions={costProjectOptions}
+        projectPath={costProjectPath}
+        onProjectPathChange={onCostProjectPathChange ?? (() => undefined)}
+        onUpdateSettings={onCostSettingsUpdate ?? (async () => undefined)}
+      />
     );
   }
 

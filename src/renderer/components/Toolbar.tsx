@@ -33,6 +33,7 @@ interface ToolbarProps extends PeriodToggleProps {
 const VIEW_TRANSLATION_KEYS = {
   overview: 'navigation.overview',
   budgets: 'navigation.budgets',
+  costOptimization: 'navigation.costOptimization',
   sessions: 'navigation.sessions',
   tools: 'navigation.tools',
   performance: 'navigation.performance',

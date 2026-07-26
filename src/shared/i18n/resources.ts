@@ -16,6 +16,7 @@ export const I18N_NAMESPACES = [
   'warnings',
   'analytics',
   'budgets',
+  'costOptimization',
 ] as const;
 
 export const I18N_RESOURCES = {

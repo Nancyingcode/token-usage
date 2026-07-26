@@ -1,9 +1,18 @@
 import React from 'react';
-import { BarChart3, Boxes, Gauge, MessageSquareText, WalletCards, Wrench } from 'lucide-react';
+import {
+  BarChart3,
+  Boxes,
+  Gauge,
+  MessageSquareText,
+  TrendingDown,
+  WalletCards,
+  Wrench,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ICON_SIZE_SMALL, NAV_ICON_STROKE_WIDTH } from '../constants/ui';
 
-export type ViewKey = 'overview' | 'budgets' | 'sessions' | 'tools' | 'performance' | 'wrapped';
+export type ViewKey =
+  'overview' | 'budgets' | 'costOptimization' | 'sessions' | 'tools' | 'performance' | 'wrapped';
 
 interface SidebarProps {
   activeView: ViewKey;
@@ -15,6 +24,11 @@ interface SidebarProps {
 const NAV_ITEMS = [
   { key: 'overview', translationKey: 'navigation.overview', icon: BarChart3 },
   { key: 'budgets', translationKey: 'navigation.budgets', icon: WalletCards },
+  {
+    key: 'costOptimization',
+    translationKey: 'navigation.costOptimization',
+    icon: TrendingDown,
+  },
   { key: 'sessions', translationKey: 'navigation.sessions', icon: MessageSquareText },
   { key: 'tools', translationKey: 'navigation.tools', icon: Wrench },
   { key: 'performance', translationKey: 'navigation.performance', icon: Gauge },

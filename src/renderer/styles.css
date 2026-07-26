@@ -1633,6 +1633,174 @@ code {
   border-radius: 999px;
 }
 
+.cost-optimization-workspace,
+.cost-optimization-overview {
+  display: grid;
+  gap: 16px;
+}
+
+.cost-optimization-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.cost-optimization-heading h1 {
+  margin: 3px 0 5px;
+  font-size: 19px;
+}
+
+.cost-optimization-heading > div > span {
+  color: #288361;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cost-optimization-heading p,
+.cost-optimization-forecast-summary > p,
+.cost-optimization-summary-grid .panel > p {
+  margin: 0;
+  color: #777777;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.cost-optimization-toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.cost-optimization-toolbar label {
+  display: grid;
+  gap: 5px;
+  color: #666666;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.cost-optimization-toolbar select,
+.cost-optimization-drawer select {
+  min-height: 30px;
+  padding: 0 28px 0 9px;
+  color: #333333;
+  background: #ffffff;
+  border: 1px solid #dddddd;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.cost-optimization-warning {
+  min-height: 38px;
+  padding: 6px 8px 6px 11px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #825108;
+  background: #fff9e8;
+  border: 1px solid #f0d599;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.cost-optimization-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.cost-optimization-metric-grid .metric-copy strong {
+  font-size: 19px;
+}
+
+.cost-optimization-metric-grid .metric-copy small,
+.cost-optimization-metric-grid .metric-copy em {
+  color: #777777;
+  font-size: 9px;
+  font-style: normal;
+}
+
+.cost-optimization-pricing-gate {
+  padding: 11px 13px;
+  display: grid;
+  gap: 3px;
+  color: #7a550d;
+  background: #fff9e8;
+  border: 1px solid #eed594;
+  border-radius: 7px;
+  font-size: 10px;
+}
+
+.cost-optimization-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.cost-optimization-forecast-summary,
+.cost-optimization-summary-grid .panel {
+  padding: 15px;
+}
+
+.cost-optimization-summary-list {
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+  list-style: none;
+}
+
+.cost-optimization-summary-list li {
+  min-width: 0;
+  padding: 8px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-top: 1px solid #eeeeee;
+}
+
+.cost-optimization-summary-list li > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.cost-optimization-summary-list strong,
+.cost-optimization-summary-list span {
+  overflow-wrap: anywhere;
+  font-size: 10px;
+}
+
+.cost-optimization-summary-list span {
+  color: #888888;
+}
+
+.cost-optimization-summary-list em {
+  color: #257556;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cost-optimization-model-options {
+  display: grid;
+  gap: 7px;
+}
+
+.cost-optimization-model-options label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #555555;
+  font-size: 11px;
+}
+
 @media (max-width: 1050px) {
   .app-frame {
     grid-template-columns: 70px minmax(0, 1fr);
@@ -1650,7 +1818,8 @@ code {
   .metric-grid,
   .performance-grid,
   .settings-grid,
-  .content-grid {
+  .content-grid,
+  .cost-optimization-metric-grid {
     grid-template-columns: 1fr 1fr;
   }
 }
@@ -1685,8 +1854,16 @@ code {
   .metric-grid,
   .performance-grid,
   .settings-grid,
-  .content-grid {
+  .content-grid,
+  .cost-optimization-metric-grid,
+  .cost-optimization-summary-grid {
     grid-template-columns: 1fr;
+  }
+
+  .cost-optimization-heading,
+  .cost-optimization-toolbar {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .activity-grid {

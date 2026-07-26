@@ -9,6 +9,7 @@ import AppContent from './components/AppContent';
 import Sidebar, { type ViewKey } from './components/Sidebar';
 import Toolbar from './components/Toolbar';
 import { useBudgetSnapshot } from './hooks/useBudgetSnapshot';
+import { useCostOptimizationSnapshot } from './hooks/useCostOptimizationSnapshot';
 import { resolveAppContentModel } from './utils/appContentModel';
 import {
   loadUsagePeriodPreference,
@@ -67,6 +68,7 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [focusedPolicyId, setFocusedPolicyId] = useState<string | null>(null);
   const budgetState = useBudgetSnapshot();
+  const costOptimizationState = useCostOptimizationSnapshot(period);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -123,6 +125,10 @@ const App: React.FC = () => {
     () => (result ? filterUsageSummary(result.summary, period) : null),
     [period, result]
   );
+  const costProjectOptions = useMemo(
+    () => result?.summary.byProject.map(({ projectPath }) => projectPath) ?? [],
+    [result]
+  );
   const warningCount = result?.warnings.length ?? 0;
   const budgetAlertCount =
     (budgetState.snapshot?.summary.warningCount ?? 0) +
@@ -133,6 +139,13 @@ const App: React.FC = () => {
       ? { kind: 'error' as const, message: budgetState.error }
       : budgetState.snapshot
         ? { kind: 'ready' as const, snapshot: budgetState.snapshot }
+        : { kind: 'loading' as const };
+  const costOptimizationModel = costOptimizationState.loading
+    ? { kind: 'loading' as const }
+    : costOptimizationState.error
+      ? { kind: 'error' as const, message: costOptimizationState.error }
+      : costOptimizationState.snapshot
+        ? { kind: 'ready' as const, snapshot: costOptimizationState.snapshot }
         : { kind: 'loading' as const };
   const contentModel = resolveAppContentModel({
     error,
@@ -170,6 +183,11 @@ const App: React.FC = () => {
           onProjectSelect={handleProjectSelect}
           selectedProjectPath={selectedProjectPath}
           onClearProjectFilter={clearProjectFilter}
+          costOptimizationModel={costOptimizationModel}
+          costProjectOptions={costProjectOptions}
+          costProjectPath={costOptimizationState.projectPath}
+          onCostProjectPathChange={costOptimizationState.setProjectPath}
+          onCostSettingsUpdate={costOptimizationState.updateSettings}
         />
       </main>
     </div>
