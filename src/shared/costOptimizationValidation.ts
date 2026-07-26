@@ -3,6 +3,7 @@ import type {
   CostOptimizationSettings,
   CostOptimizationValidationIssue,
 } from './costOptimizationTypes';
+import { LONG_FORECAST_HORIZON_DAYS, SHORT_FORECAST_HORIZON_DAYS } from './costOptimizationTypes';
 
 const MIN_HISTORY_WINDOW = 7;
 const MAX_HISTORY_WINDOW = 90;
@@ -18,7 +19,7 @@ export const DEFAULT_COST_OPTIMIZATION_SETTINGS: CostOptimizationSettings = {
   anomalyHistoryWindow: 28,
   anomalyMinimumSamples: 7,
   anomalySensitivity: 3.5,
-  forecastHorizonDays: 30,
+  forecastHorizonDays: LONG_FORECAST_HORIZON_DAYS,
   forecastMinimumHistoryDays: 7,
   candidateModelIds: [],
   minimumSavingsUsd: 1,
@@ -58,7 +59,10 @@ export const getCostOptimizationSettingsIssues = (
   if (!isFiniteInRange(settings.anomalySensitivity, MIN_SENSITIVITY, MAX_SENSITIVITY)) {
     issues.push({ field: 'anomalySensitivity', code: 'sensitivity-range' });
   }
-  if (settings.forecastHorizonDays !== 7 && settings.forecastHorizonDays !== 30) {
+  if (
+    settings.forecastHorizonDays !== SHORT_FORECAST_HORIZON_DAYS &&
+    settings.forecastHorizonDays !== LONG_FORECAST_HORIZON_DAYS
+  ) {
     issues.push({ field: 'forecastHorizonDays', code: 'forecast-horizon-invalid' });
   }
   if (

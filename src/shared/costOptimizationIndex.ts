@@ -93,15 +93,21 @@ const cloneIndex = (index: CostOptimizationIndex): CostOptimizationIndex => ({
   ),
 });
 
-const updateCount = (counts: Record<string, number>, key: string, direction: 1 | -1): void => {
+const updateCount = (
+  counts: Record<string, number>,
+  key: string,
+  direction: 1 | -1
+): Record<string, number> => {
   const nextCount = (counts[key] ?? 0) + direction;
+  const nextCounts = { ...counts };
 
   if (nextCount <= 0) {
-    delete counts[key];
-    return;
+    delete nextCounts[key];
+    return nextCounts;
   }
 
-  counts[key] = nextCount;
+  nextCounts[key] = nextCount;
+  return nextCounts;
 };
 
 const isEmptyBucket = (bucket: IndexedUsageBucket): boolean =>
@@ -118,8 +124,9 @@ const applyContributionToBucket = (
   >,
   contribution: IndexedUsageContribution,
   direction: 1 | -1
-): void => {
+): Record<string, IndexedUsageBucket> => {
   const existing = buckets[bucketId];
+  const nextBuckets = { ...buckets };
   const bucket: IndexedUsageBucket = existing
     ? cloneBucket(existing)
     : {
@@ -133,24 +140,25 @@ const applyContributionToBucket = (
   TOKEN_USAGE_KEYS.forEach((key) => {
     bucket[key] += contribution[key] * direction;
   });
-  updateCount(bucket.memberCounts, contribution.sessionId, direction);
-  updateCount(bucket.contributionCounts, contribution.id, direction);
+  bucket.memberCounts = updateCount(bucket.memberCounts, contribution.sessionId, direction);
+  bucket.contributionCounts = updateCount(bucket.contributionCounts, contribution.id, direction);
 
   if (isEmptyBucket(bucket)) {
-    delete buckets[bucketId];
-    return;
+    delete nextBuckets[bucketId];
+    return nextBuckets;
   }
 
-  buckets[bucketId] = bucket;
+  nextBuckets[bucketId] = bucket;
+  return nextBuckets;
 };
 
 const applyContribution = (
   index: CostOptimizationIndex,
   contribution: IndexedUsageContribution,
   direction: 1 | -1
-): void => {
+): CostOptimizationIndex => {
   const dayBucketId = getDayModelBucketId(contribution.date, contribution.modelId);
-  applyContributionToBucket(
+  const dayModelBuckets = applyContributionToBucket(
     index.dayModelBuckets,
     dayBucketId,
     { date: contribution.date, modelId: contribution.modelId },
@@ -163,7 +171,7 @@ const applyContribution = (
     contribution.date,
     contribution.modelId
   );
-  applyContributionToBucket(
+  const projectDayModelBuckets = applyContributionToBucket(
     index.projectDayModelBuckets,
     projectBucketId,
     {
@@ -177,7 +185,7 @@ const applyContribution = (
   );
 
   const sessionBucketId = getSessionModelBucketId(contribution.sessionId, contribution.modelId);
-  applyContributionToBucket(
+  const sessionModelBuckets = applyContributionToBucket(
     index.sessionModelBuckets,
     sessionBucketId,
     {
@@ -190,6 +198,13 @@ const applyContribution = (
     contribution,
     direction
   );
+
+  return {
+    ...index,
+    dayModelBuckets,
+    projectDayModelBuckets,
+    sessionModelBuckets,
+  };
 };
 
 const getSourceContributions = (sourceChange: UsageSourceChange): IndexedUsageContribution[] =>
@@ -214,27 +229,40 @@ const getSourceContributions = (sourceChange: UsageSourceChange): IndexedUsageCo
     totalTokens: slice.totalTokens,
   }));
 
-const removeSource = (index: CostOptimizationIndex, sourceFile: string): void => {
+const removeSource = (index: CostOptimizationIndex, sourceFile: string): CostOptimizationIndex => {
   const source = index.sources[sourceFile];
 
   if (!source) {
-    return;
+    return index;
   }
 
+  let nextIndex = index;
   source.contributions.forEach((contribution) => {
-    applyContribution(index, contribution, -1);
+    nextIndex = applyContribution(nextIndex, contribution, -1);
   });
-  delete index.sources[sourceFile];
+  const sources = { ...nextIndex.sources };
+  delete sources[sourceFile];
+  return { ...nextIndex, sources };
 };
 
-const addSource = (index: CostOptimizationIndex, sourceChange: UsageSourceChange): void => {
+const addSource = (
+  index: CostOptimizationIndex,
+  sourceChange: UsageSourceChange
+): CostOptimizationIndex => {
   const contributions = getSourceContributions(sourceChange);
+  let nextIndex = index;
   contributions.forEach((contribution) => {
-    applyContribution(index, contribution, 1);
+    nextIndex = applyContribution(nextIndex, contribution, 1);
   });
-  index.sources[sourceChange.sourceFile] = {
-    fingerprint: sourceChange.fingerprint,
-    contributions,
+  return {
+    ...nextIndex,
+    sources: {
+      ...nextIndex.sources,
+      [sourceChange.sourceFile]: {
+        fingerprint: sourceChange.fingerprint,
+        contributions,
+      },
+    },
   };
 };
 
@@ -271,17 +299,17 @@ export const applyUsageChangeSet = (
   changes: UsageChangeSet,
   now: Date = new Date()
 ): CostOptimizationIndex => {
-  const nextIndex = changes.requiresFullRebuild
+  let nextIndex = changes.requiresFullRebuild
     ? createEmptyCostOptimizationIndex(index.sessionsDir, now)
     : cloneIndex(index);
   const sourcesToReplace = changes.upserted.map(({ sourceFile }) => sourceFile);
   const sourcesToRemove = new Set([...changes.removedSourceFiles, ...sourcesToReplace]);
 
   sourcesToRemove.forEach((sourceFile) => {
-    removeSource(nextIndex, sourceFile);
+    nextIndex = removeSource(nextIndex, sourceFile);
   });
   changes.upserted.forEach((sourceChange) => {
-    addSource(nextIndex, sourceChange);
+    nextIndex = addSource(nextIndex, sourceChange);
   });
 
   return {

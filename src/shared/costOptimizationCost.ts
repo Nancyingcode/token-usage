@@ -19,6 +19,7 @@ import type {
 import type { RollingUsagePeriod, TokenUsage } from './usageTypes';
 
 const TOKENS_PER_MILLION = 1_000_000;
+const COMPLETE_PRICING_PERCENTAGE = 100;
 const UNKNOWN_MODEL_ID = 'Unknown model';
 const UNKNOWN_MODEL_KEY = 'unknown-model';
 const DATE_PART_LENGTH = 2;
@@ -181,7 +182,10 @@ export const getPricingCoverage = (
     pricedTokens,
     unpricedTokens,
     totalTokens,
-    percentage: totalTokens > 0 ? (pricedTokens / totalTokens) * 100 : 100,
+    percentage:
+      totalTokens > 0
+        ? (pricedTokens / totalTokens) * COMPLETE_PRICING_PERCENTAGE
+        : COMPLETE_PRICING_PERCENTAGE,
     unpricedModelIds: [...unpricedModelIds.values()].sort((first, second) =>
       first.localeCompare(second)
     ),
@@ -223,7 +227,7 @@ const toCoverage = (
   pricedTokens: pricing ? group.totalTokens : 0,
   unpricedTokens: pricing ? 0 : group.totalTokens,
   totalTokens: group.totalTokens,
-  percentage: pricing || group.totalTokens === 0 ? 100 : 0,
+  percentage: pricing || group.totalTokens === 0 ? COMPLETE_PRICING_PERCENTAGE : 0,
   unpricedModelIds: pricing ? [] : [group.modelId?.trim() || UNKNOWN_MODEL_ID],
 });
 
