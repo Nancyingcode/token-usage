@@ -67,6 +67,7 @@ const COST_SNAPSHOT: CostOptimizationSnapshot = {
   modelRows: [],
   substitutionScenarios: [],
   anomalies: [],
+  diagnostics: [],
   forecast: {
     kind: 'insufficient-data',
     requiredHistoryDays: DEFAULT_COST_OPTIMIZATION_SETTINGS.forecastMinimumHistoryDays,

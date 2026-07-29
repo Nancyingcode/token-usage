@@ -204,6 +204,7 @@ export const SNAPSHOT: CostOptimizationSnapshot = {
       contributionIds: ['contribution-1'],
     },
   ],
+  diagnostics: [],
   forecast: READY_FORECAST,
   recommendations: [
     {

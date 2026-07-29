@@ -185,9 +185,9 @@ export const detectCacheDegradation = ({
     confidence: capCacheConfidence(candidateConfidence),
     normalizedScore: Math.max(
       normalizeDiagnosisScore(baseline?.score ?? 0, settings.anomalySensitivity * 2),
-      normalizeDiagnosisScore(historicalGap, CACHE_CRITICAL_GAP_POINTS),
-      normalizeDiagnosisScore(targetGap, CACHE_CRITICAL_GAP_POINTS),
-      normalizeDiagnosisScore(withinSessionDecline, CACHE_CRITICAL_GAP_POINTS)
+      normalizeDiagnosisScore(historicalGap, PERCENTAGE_SCALE),
+      normalizeDiagnosisScore(targetGap, PERCENTAGE_SCALE),
+      normalizeDiagnosisScore(withinSessionDecline, PERCENTAGE_SCALE)
     ),
     ...(historicalFinding || historicalPointFinding ? { baseline } : {}),
     evidence: {

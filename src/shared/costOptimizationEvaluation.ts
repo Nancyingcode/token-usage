@@ -27,6 +27,7 @@ import type {
   IndexedUsageContribution,
 } from './costOptimizationTypes';
 import { calculateEstimatedCost } from './pricing';
+import { evaluateSessionDiagnostics } from './sessionDiagnosisEvaluation';
 import type { UsageSlice } from './usageTypes';
 
 export interface EvaluateCostOptimizationInput {
@@ -172,6 +173,14 @@ export const evaluateCostOptimization = (
     };
   }
   const contributions = selectQueryContributions(input.index, selectedBuckets);
+  const diagnostics = evaluateSessionDiagnostics({
+    index: input.index,
+    query: input.query,
+    settings: input.settings,
+    pricing: input.pricing,
+    anomalies,
+    now: input.now,
+  });
   const recommendations = pricingCoverageIsSafe
     ? buildSavingsRecommendations({
         contributions,
@@ -200,6 +209,7 @@ export const evaluateCostOptimization = (
     modelRows,
     substitutionScenarios,
     anomalies,
+    diagnostics,
     forecast,
     recommendations,
     conservativeSavingsUsd: getConservativeSavingsUsd(recommendations),

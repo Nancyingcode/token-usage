@@ -354,6 +354,7 @@ export interface CostOptimizationSnapshot {
   modelRows: ModelCostRow[];
   substitutionScenarios: ModelSubstitutionScenario[];
   anomalies: CostAnomaly[];
+  diagnostics: SessionDiagnosisSummary[];
   forecast: CostForecast | InsufficientForecast;
   recommendations: SavingsRecommendation[];
   conservativeSavingsUsd: number;

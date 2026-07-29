@@ -24,6 +24,14 @@ describe('cost optimization evaluation', () => {
     expect(snapshot.conservativeSavingsUsd).toBeGreaterThan(0);
   });
 
+  it('includes lightweight session diagnosis summaries without timeline data', () => {
+    const snapshot = evaluateCostOptimization(makeEvaluationInput());
+
+    expect(snapshot.diagnostics.length).toBeGreaterThan(0);
+    expect(snapshot.diagnostics[0]).not.toHaveProperty('timeline');
+    expect(snapshot.diagnostics.every(({ diagnosisId }) => diagnosisId.length > 0)).toBe(true);
+  });
+
   it('hides full forecast and recommendations below minimum pricing coverage', () => {
     const snapshot = evaluateCostOptimization(makeEvaluationInputWithUnpricedUsage());
 
