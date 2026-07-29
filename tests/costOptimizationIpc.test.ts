@@ -8,10 +8,12 @@ import {
 import type { LocaleService } from '../src/main/localeService';
 import type { UsageRuntime } from '../src/main/usageRuntime';
 import {
+  COST_OPTIMIZATION_GET_SESSION_DIAGNOSIS_CHANNEL,
   COST_OPTIMIZATION_GET_SNAPSHOT_CHANNEL,
   COST_OPTIMIZATION_UPDATED_CHANNEL,
   COST_OPTIMIZATION_UPDATE_SETTINGS_CHANNEL,
 } from '../src/shared/ipcChannels';
+import type { SessionDiagnosisRequest } from '../src/shared/costOptimizationTypes';
 import { DEFAULT_COST_OPTIMIZATION_SETTINGS } from '../src/shared/costOptimizationValidation';
 import { SNAPSHOT } from './helpers/costOptimizationFixtures';
 
@@ -45,7 +47,7 @@ describe('cost optimization IPC', () => {
     electronMocks.removeHandler.mockClear();
   });
 
-  it('registers snapshot and settings handlers and unregisters both channels', async () => {
+  it('registers cost handlers and unregisters every channel', async () => {
     const harness = makeIpcHarness();
     const unregister = registerUsageIpc(harness.dependencies);
     const query = { period: 'month' as const };
@@ -57,11 +59,24 @@ describe('cost optimization IPC', () => {
     await expect(
       invokeHandler(COST_OPTIMIZATION_UPDATE_SETTINGS_CHANNEL, DEFAULT_COST_OPTIMIZATION_SETTINGS)
     ).resolves.toEqual({ ok: true, value: SNAPSHOT });
+    await expect(
+      invokeHandler(COST_OPTIMIZATION_GET_SESSION_DIAGNOSIS_CHANNEL, {
+        query: { period: 'total' },
+        diagnosisId: 'missing',
+      })
+    ).resolves.toEqual({
+      ok: true,
+      value: { kind: 'not-found', diagnosisId: 'missing' },
+    });
 
     expect(harness.costRuntime.getSnapshot).toHaveBeenCalledWith(query);
     expect(harness.costRuntime.updateSettings).toHaveBeenCalledWith(
       DEFAULT_COST_OPTIMIZATION_SETTINGS
     );
+    expect(harness.costRuntime.getSessionDiagnosis).toHaveBeenCalledWith({
+      query: { period: 'total' },
+      diagnosisId: 'missing',
+    });
 
     unregister();
     expect(electronMocks.removeHandler).toHaveBeenCalledWith(
@@ -69,6 +84,9 @@ describe('cost optimization IPC', () => {
     );
     expect(electronMocks.removeHandler).toHaveBeenCalledWith(
       COST_OPTIMIZATION_UPDATE_SETTINGS_CHANNEL
+    );
+    expect(electronMocks.removeHandler).toHaveBeenCalledWith(
+      COST_OPTIMIZATION_GET_SESSION_DIAGNOSIS_CHANNEL
     );
   });
 
@@ -123,9 +141,10 @@ describe('cost optimization IPC', () => {
 
 interface CostRuntimeMock extends Pick<
   CostOptimizationRuntime,
-  'getSnapshot' | 'updateSettings' | 'subscribe'
+  'getSnapshot' | 'getSessionDiagnosis' | 'updateSettings' | 'subscribe'
 > {
   getSnapshot: ReturnType<typeof vi.fn>;
+  getSessionDiagnosis: ReturnType<typeof vi.fn>;
   updateSettings: ReturnType<typeof vi.fn>;
 }
 
@@ -140,6 +159,10 @@ const makeIpcHarness = (): IpcHarness => {
   let snapshotListener: Parameters<CostOptimizationRuntime['subscribe']>[0] | undefined;
   const costRuntime: CostRuntimeMock = {
     getSnapshot: vi.fn(() => SNAPSHOT),
+    getSessionDiagnosis: vi.fn(({ diagnosisId }: SessionDiagnosisRequest) => ({
+      kind: 'not-found',
+      diagnosisId,
+    })),
     updateSettings: vi.fn(async () => SNAPSHOT),
     subscribe: vi.fn((listener) => {
       snapshotListener = listener;

@@ -8,6 +8,7 @@ import type {
   CostOptimizationIpcResponse,
   CostOptimizationQuery,
   CostOptimizationSettings,
+  SessionDiagnosisRequest,
 } from '../shared/costOptimizationTypes';
 import {
   BUDGET_DELETE_POLICY_CHANNEL,
@@ -19,6 +20,7 @@ import {
   BUDGET_UPDATED_CHANNEL,
   BUDGET_UPDATE_THRESHOLDS_CHANNEL,
   COST_OPTIMIZATION_GET_SNAPSHOT_CHANNEL,
+  COST_OPTIMIZATION_GET_SESSION_DIAGNOSIS_CHANNEL,
   COST_OPTIMIZATION_UPDATED_CHANNEL,
   COST_OPTIMIZATION_UPDATE_SETTINGS_CHANNEL,
   LOCALE_GET_CHANNEL,
@@ -42,7 +44,10 @@ export interface UsageIpcDependencies {
   applicationRuntime: ApplicationRuntime;
   usageRuntime: UsageRuntime;
   budgetRuntime: BudgetRuntime;
-  costRuntime: Pick<CostOptimizationRuntime, 'getSnapshot' | 'updateSettings' | 'subscribe'>;
+  costRuntime: Pick<
+    CostOptimizationRuntime,
+    'getSnapshot' | 'getSessionDiagnosis' | 'updateSettings' | 'subscribe'
+  >;
   localeService: LocaleService;
   getWindow: () => BrowserWindow | null;
 }
@@ -56,6 +61,7 @@ const HANDLED_CHANNELS = [
   BUDGET_SAVE_PRICING_CHANNEL,
   BUDGET_RESET_PRICING_CHANNEL,
   COST_OPTIMIZATION_GET_SNAPSHOT_CHANNEL,
+  COST_OPTIMIZATION_GET_SESSION_DIAGNOSIS_CHANNEL,
   COST_OPTIMIZATION_UPDATE_SETTINGS_CHANNEL,
   LOCALE_GET_CHANNEL,
   LOCALE_SET_CHANNEL,
@@ -132,6 +138,11 @@ const registerUsageIpc = ({
   );
   ipcMain.handle(COST_OPTIMIZATION_GET_SNAPSHOT_CHANNEL, (_event, query: CostOptimizationQuery) =>
     runCostOptimizationOperation(() => costRuntime.getSnapshot(query))
+  );
+  ipcMain.handle(
+    COST_OPTIMIZATION_GET_SESSION_DIAGNOSIS_CHANNEL,
+    (_event, request: SessionDiagnosisRequest) =>
+      runCostOptimizationOperation(() => costRuntime.getSessionDiagnosis(request))
   );
   ipcMain.handle(
     COST_OPTIMIZATION_UPDATE_SETTINGS_CHANNEL,

@@ -511,6 +511,7 @@ export const zhCN = {
       'minimum-savings-range': '最低节省金额必须大于或等于零。',
       'percentage-range': '百分比必须在 0 到 100 之间。',
       'project-not-found': '所选项目已不可用。',
+      'diagnosis-id-empty': '必须提供会话诊断 ID。',
     },
   },
 } satisfies TranslationShape<typeof en>;

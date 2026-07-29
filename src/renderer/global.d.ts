@@ -8,6 +8,8 @@ import type {
   CostOptimizationQuery,
   CostOptimizationSettings,
   CostOptimizationSnapshot,
+  SessionDiagnosisDetailResult,
+  SessionDiagnosisRequest,
 } from '../shared/costOptimizationTypes';
 import type { SupportedLocale } from '../shared/i18n/locale';
 import type { UsageScanResult } from '../shared/usageTypes';
@@ -31,6 +33,7 @@ interface LocaleApi {
 
 interface CostOptimizationApi {
   getSnapshot: (query: CostOptimizationQuery) => Promise<CostOptimizationSnapshot>;
+  getSessionDiagnosis: (request: SessionDiagnosisRequest) => Promise<SessionDiagnosisDetailResult>;
   updateSettings: (settings: CostOptimizationSettings) => Promise<CostOptimizationSnapshot>;
   onUpdated: (listener: (snapshot: CostOptimizationSnapshot) => void) => () => void;
 }

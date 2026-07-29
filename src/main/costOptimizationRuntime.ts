@@ -26,12 +26,15 @@ import type {
   CostOptimizationSnapshot,
   CostOptimizationValidationIssue,
   PersistedCostOptimizationConfig,
+  SessionDiagnosisDetailResult,
+  SessionDiagnosisRequest,
 } from '../shared/costOptimizationTypes';
 import {
   DEFAULT_COST_OPTIMIZATION_SETTINGS,
   getCostOptimizationQueryIssues,
   getCostOptimizationSettingsIssues,
 } from '../shared/costOptimizationValidation';
+import { evaluateSessionDiagnosisDetail } from '../shared/sessionDiagnosisEvaluation';
 import type { CostOptimizationCacheStore } from './costOptimizationCacheStore';
 import type { CostOptimizationConfigStore } from './costOptimizationConfigStore';
 import type { UsageScanCycle } from './usageScanner';
@@ -53,6 +56,7 @@ export interface CostOptimizationRuntime {
   applyBudgetSnapshot: (snapshot: BudgetSnapshot) => Promise<CostOptimizationSnapshot>;
   markStale: (error: unknown) => CostOptimizationSnapshot;
   getSnapshot: (query: CostOptimizationQuery) => CostOptimizationSnapshot;
+  getSessionDiagnosis: (request: SessionDiagnosisRequest) => SessionDiagnosisDetailResult;
   updateSettings: (settings: CostOptimizationSettings) => Promise<CostOptimizationSnapshot>;
   subscribe: (listener: RuntimeListener) => () => void;
 }
@@ -311,6 +315,35 @@ export const createCostOptimizationRuntime = (
     return snapshot;
   };
 
+  const getSessionDiagnosis = ({
+    query,
+    diagnosisId: requestedDiagnosisId,
+  }: SessionDiagnosisRequest): SessionDiagnosisDetailResult => {
+    throwForIssues(getCostOptimizationQueryIssues(query, getProjectPaths(index)));
+    const diagnosisId = requestedDiagnosisId.trim();
+
+    if (diagnosisId.length === 0) {
+      throw new CostOptimizationRuntimeValidationError([
+        {
+          field: 'diagnosisId',
+          code: 'diagnosis-id-empty',
+        },
+      ]);
+    }
+
+    const snapshot = snapshots.get(getQueryKey(query)) ?? evaluateQuery(query);
+
+    return evaluateSessionDiagnosisDetail({
+      index,
+      query,
+      settings,
+      pricing,
+      anomalies: snapshot.anomalies,
+      now: now(),
+      diagnosisId,
+    });
+  };
+
   const updateSettings = (
     nextSettings: CostOptimizationSettings
   ): Promise<CostOptimizationSnapshot> =>
@@ -347,6 +380,7 @@ export const createCostOptimizationRuntime = (
     applyBudgetSnapshot,
     markStale,
     getSnapshot,
+    getSessionDiagnosis,
     updateSettings,
     subscribe,
   };

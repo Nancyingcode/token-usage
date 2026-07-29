@@ -517,6 +517,7 @@ export const en = {
       'minimum-savings-range': 'Minimum savings must be zero or greater.',
       'percentage-range': 'Percentage must be between 0 and 100.',
       'project-not-found': 'The selected project is no longer available.',
+      'diagnosis-id-empty': 'Session diagnosis ID is required.',
     },
   },
 } as const;

@@ -9,6 +9,8 @@ export const BUDGET_RESET_PRICING_CHANNEL = 'budget:reset-pricing';
 export const BUDGET_UPDATED_CHANNEL = 'budget:updated';
 export const BUDGET_NAVIGATE_CHANNEL = 'budget:navigate';
 export const COST_OPTIMIZATION_GET_SNAPSHOT_CHANNEL = 'cost-optimization:get-snapshot';
+export const COST_OPTIMIZATION_GET_SESSION_DIAGNOSIS_CHANNEL =
+  'cost-optimization:get-session-diagnosis';
 export const COST_OPTIMIZATION_UPDATE_SETTINGS_CHANNEL = 'cost-optimization:update-settings';
 export const COST_OPTIMIZATION_UPDATED_CHANNEL = 'cost-optimization:updated';
 export const OPEN_EXTERNAL_CHANNEL = 'app:open-external';

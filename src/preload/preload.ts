@@ -9,6 +9,7 @@ import {
   BUDGET_UPDATED_CHANNEL,
   BUDGET_UPDATE_THRESHOLDS_CHANNEL,
   COST_OPTIMIZATION_GET_SNAPSHOT_CHANNEL,
+  COST_OPTIMIZATION_GET_SESSION_DIAGNOSIS_CHANNEL,
   COST_OPTIMIZATION_UPDATED_CHANNEL,
   COST_OPTIMIZATION_UPDATE_SETTINGS_CHANNEL,
   LOCALE_GET_CHANNEL,
@@ -23,6 +24,8 @@ import type {
   CostOptimizationQuery,
   CostOptimizationSettings,
   CostOptimizationSnapshot,
+  SessionDiagnosisDetailResult,
+  SessionDiagnosisRequest,
 } from '../shared/costOptimizationTypes';
 import type {
   BudgetPolicyInput,
@@ -44,7 +47,7 @@ const subscribe = <Payload>(
 
 const invokeCostOptimization = async <Result>(
   channel: string,
-  input: CostOptimizationQuery | CostOptimizationSettings
+  input: CostOptimizationQuery | CostOptimizationSettings | SessionDiagnosisRequest
 ): Promise<Result> => {
   const response = (await ipcRenderer.invoke(
     channel,
@@ -90,6 +93,10 @@ contextBridge.exposeInMainWorld('codexUsage', {
   costOptimization: {
     getSnapshot: (query: CostOptimizationQuery): Promise<CostOptimizationSnapshot> =>
       invokeCostOptimization(COST_OPTIMIZATION_GET_SNAPSHOT_CHANNEL, query),
+    getSessionDiagnosis: (
+      request: SessionDiagnosisRequest
+    ): Promise<SessionDiagnosisDetailResult> =>
+      invokeCostOptimization(COST_OPTIMIZATION_GET_SESSION_DIAGNOSIS_CHANNEL, request),
     updateSettings: (settings: CostOptimizationSettings): Promise<CostOptimizationSnapshot> =>
       invokeCostOptimization(COST_OPTIMIZATION_UPDATE_SETTINGS_CHANNEL, settings),
     onUpdated: (listener: (snapshot: CostOptimizationSnapshot) => void): (() => void) =>

@@ -13,6 +13,73 @@ const UPDATED_COST_USD = 4;
 const SOURCE_TOKENS = 1_000_000;
 
 describe('cost optimization runtime', () => {
+  it('evaluates one diagnosis from the latest index without rescanning usage', async () => {
+    const dependencies = makeRuntimeDependencies();
+    const runtime = createCostOptimizationRuntime(dependencies);
+    await runtime.initialize();
+    await runtime.applyUsageCycle(makeCycleWithOneSource());
+    const snapshot = runtime.getSnapshot({ period: 'total' });
+    const diagnosisId = snapshot.diagnostics[0]?.diagnosisId ?? '';
+
+    const result = runtime.getSessionDiagnosis({
+      query: { period: 'total' },
+      diagnosisId,
+    });
+
+    expect(result).toMatchObject({ kind: 'ready' });
+    expect(dependencies.cacheStore.load).toHaveBeenCalledTimes(1);
+    expect(dependencies.cacheStore.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns not-found after the source is removed', async () => {
+    const runtime = createCostOptimizationRuntime(makeRuntimeDependencies());
+    await runtime.initialize();
+    await runtime.applyUsageCycle(makeCycleWithOneSource());
+    const diagnosisId = runtime.getSnapshot({ period: 'total' }).diagnostics[0].diagnosisId;
+    await runtime.applyUsageCycle(makeEmptyRemovalCycle());
+
+    expect(
+      runtime.getSessionDiagnosis({
+        query: { period: 'total' },
+        diagnosisId,
+      })
+    ).toEqual({ kind: 'not-found', diagnosisId });
+  });
+
+  it('revalues detail after pricing changes without rebuilding the index', async () => {
+    const dependencies = makeRuntimeDependencies();
+    const runtime = createCostOptimizationRuntime(dependencies);
+    await runtime.initialize();
+    await runtime.applyUsageCycle(makeCycleWithOneSource());
+    const diagnosisId = runtime.getSnapshot({ period: 'total' }).diagnostics[0].diagnosisId;
+
+    await runtime.applyBudgetSnapshot(makeBudgetSnapshotWithUpdatedPricing());
+    const result = runtime.getSessionDiagnosis({
+      query: { period: 'total' },
+      diagnosisId,
+    });
+
+    expect(result).toMatchObject({
+      kind: 'ready',
+      detail: {
+        summary: { pricedCostUsd: UPDATED_COST_USD },
+      },
+    });
+    expect(dependencies.cacheStore.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a blank diagnosis id with a structured validation issue', async () => {
+    const runtime = createCostOptimizationRuntime(makeRuntimeDependencies());
+    await runtime.initialize();
+
+    expect(() =>
+      runtime.getSessionDiagnosis({
+        query: { period: 'total' },
+        diagnosisId: '   ',
+      })
+    ).toThrow('diagnosis-id-empty');
+  });
+
   it('persists changed sources and revalues without rebuilding the token index', async () => {
     const evaluate = vi.fn(evaluateCostOptimization);
     const dependencies = makeRuntimeDependencies({ evaluate });
@@ -219,4 +286,29 @@ const makeBudgetSnapshotWithUpdatedPricing = (): BudgetSnapshot => ({
     entry.modelId === 'gpt-source' ? { ...entry, inputUsdPerMillion: UPDATED_COST_USD } : entry
   ),
   unpricedModels: [],
+});
+
+const makeEmptyRemovalCycle = (): UsageScanCycle => ({
+  result: {
+    sessionsDir: 'C:\\sessions',
+    scannedAt: FIXED_NOW.toISOString(),
+    summary: {
+      totals: {
+        inputTokens: 0,
+        cachedInputTokens: 0,
+        outputTokens: 0,
+        reasoningOutputTokens: 0,
+        totalTokens: 0,
+      },
+      byDay: [],
+      byProject: [],
+      sessions: [],
+    },
+    warnings: [],
+  },
+  changes: {
+    upserted: [],
+    removedSourceFiles: ['usage.jsonl'],
+    requiresFullRebuild: false,
+  },
 });

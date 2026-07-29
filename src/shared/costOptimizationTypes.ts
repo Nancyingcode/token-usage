@@ -377,7 +377,8 @@ export interface CostOptimizationValidationIssue {
     | 'candidate-model-unpriced'
     | 'minimum-savings-range'
     | 'percentage-range'
-    | 'project-not-found';
+    | 'project-not-found'
+    | 'diagnosis-id-empty';
 }
 
 export interface CostOptimizationIpcError {

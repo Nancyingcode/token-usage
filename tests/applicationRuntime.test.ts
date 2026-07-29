@@ -7,7 +7,10 @@ import type { BudgetRuntime } from '../src/main/budgetRuntime';
 import type { CostOptimizationRuntime } from '../src/main/costOptimizationRuntime';
 import type { UsageRuntime } from '../src/main/usageRuntime';
 import type { BudgetSnapshot } from '../src/shared/budgetTypes';
-import type { CostOptimizationSnapshot } from '../src/shared/costOptimizationTypes';
+import type {
+  CostOptimizationSnapshot,
+  SessionDiagnosisRequest,
+} from '../src/shared/costOptimizationTypes';
 import { DEFAULT_COST_OPTIMIZATION_SETTINGS } from '../src/shared/costOptimizationValidation';
 import { buildUsageSummary } from '../src/shared/usageMath';
 import type { UsageScanResult } from '../src/shared/usageTypes';
@@ -178,6 +181,10 @@ const makeRuntimeHarness = (callOrder: string[] = []): RuntimeHarness => {
     }),
     markStale: vi.fn(() => COST_SNAPSHOT),
     getSnapshot: vi.fn(() => COST_SNAPSHOT),
+    getSessionDiagnosis: vi.fn(({ diagnosisId }: SessionDiagnosisRequest) => ({
+      kind: 'not-found' as const,
+      diagnosisId,
+    })),
     updateSettings: vi.fn(async () => COST_SNAPSHOT),
     subscribe: vi.fn(() => () => undefined),
   };

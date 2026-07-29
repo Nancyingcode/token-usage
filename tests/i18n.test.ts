@@ -51,5 +51,8 @@ describe('shared i18n', () => {
     expect(instance.t('analytics:sessions.projectFilter', { project: 'repo' })).toBe('项目：repo');
     expect(instance.t('analytics:sessions.showAll')).toBe('查看全部会话');
     expect(instance.t('analytics:sessions.filteredEmptyTitle')).toBe('此时间范围内该项目没有会话');
+    expect(instance.t('costOptimization:validation.diagnosis-id-empty')).toBe(
+      '必须提供会话诊断 ID。'
+    );
   });
 });
