@@ -1,25 +1,69 @@
-## 注意事项
+# Agent 工作规范
 
-- 设计文档使用中文
-  
-## Key Documentation
+## 1. 开发流程
 
-- [Coding Standards](./rules/style-guide.md): definitive guide for running targets.
+- 设计文档和实施计划使用中文。
+- 非简单功能、跨模块修改或行为变更：
+  1. 先在 `docs/superpowers/specs/` 编写中文设计文档。
+  2. 设计确认后，在 `docs/superpowers/plans/` 编写中文实施计划。
+  3. 按计划拆分任务，并为每个任务执行红—绿—重构循环。
+- Bug 修复必须先添加能够复现问题的回归测试，再实现修复。
+- 纯文档修改、简单重命名和不改变行为的小范围调整可以跳过设计文档与实施计划。
+- 未确认设计前，不提前实现存在明显产品选择或架构选择的功能。
 
-## 4. Code Style（代码风格规范）
+## 2. 验证要求
+
+- 开发过程中优先运行受影响的单个测试文件或最小相关测试集。
+- 声称任务完成前，至少运行：
+  - `npm test`
+  - `npm run typecheck`
+  - `npm run lint`
+- 修改构建配置、Electron 主进程、preload 或打包配置时，额外运行 `npm run build`。
+- 运行命令以 `package.json` 中的 scripts 为准。
+- 不得在测试、类型检查或 lint 失败时声称任务已经完成。
+- 修复失败时应定位并说明根因，不得通过删除测试、放宽有效断言、禁用规则或隐藏错误绕过验证。
+
+## 3. 项目不变量
+
+- Codex 会话目录始终只读；不得修改、删除或上传其中的数据。
+- Renderer 不直接访问文件系统；文件访问必须由 Electron 主进程负责。
+- 主进程与 Renderer 之间通过类型化的 IPC 和 preload API 通信。
+- 未知模型价格不得猜测；必须保留 Token 数据并明确标记为未计价。
+- 费用始终属于本地估算，不得描述为 OpenAI 实际账单。
+- 核心计算优先实现为无副作用的纯函数，避免修改输入对象。
+
+## 4. 代码与界面规范
 
 ### 4.1 通用规则
 
-- 禁止使用：any 类型、var 声明、硬编码魔法值（如直接写 100 代替 MAX_PAGE_SIZE）
+- 禁止使用 `any` 类型和 `var` 声明。
+- 禁止硬编码业务魔法值；业务阈值应使用具名常量或配置。
 
-### 4.2 React+TS 专属规则
+### 4.2 React 与 TypeScript
 
-- [文件头规范](./rules/react-guide.md)
+- React 组件、Props、命名、渲染条件和状态建模遵循 [React 规范](./rules/react-guide.md)。
 
-### 4.3 注释规则
+### 4.3 国际化与可访问性
 
-- [注释规范](./rules/annotation-guide.md)
+- 新增或修改用户可见文案时，同时维护英文和简体中文资源。
+- 禁止在 React 组件中硬编码用户可见文案。
+- 金额、百分比和日期使用现有 locale formatter。
+- 交互控件必须支持键盘操作。
+- 颜色不得作为状态、严重程度或置信度的唯一表达方式。
 
-### 4.4 文件头
+## 5. 规则文档与自动化
 
-- [文件头规范](./rules/file-header.md)
+- 根 `AGENTS.md` 只维护长期有效的项目原则和规则入口，不复制大段语法示例。
+- JavaScript/TypeScript 风格以 ESLint、Prettier 和 TypeScript 配置的自动检查结果为准。
+- 项目补充代码规范参见 [Coding Standards](./rules/style-guide.md)。
+- 注释规范参见 [注释规范](./rules/annotation-guide.md)。
+- 文件头规范参见 [文件头规范](./rules/file-header.md)。
+- 能通过 lint、类型检查或测试自动执行的规则，应优先添加自动化检查，避免仅依赖文字约束。
+
+## 6. Git 与变更范围
+
+- 提交信息遵循 Conventional Commits。
+- 每个提交只包含一个可独立解释的任务，且只包含该任务涉及的文件。
+- 保留工作区中与当前任务无关的用户修改，不覆盖、不回滚、不顺带格式化无关文件。
+- 除非用户明确要求，或正在执行已确认且要求逐任务提交的实施计划，否则不主动创建提交。
+- 未经用户明确要求，不执行 push、创建 Pull Request、变基或破坏性 Git 操作。
