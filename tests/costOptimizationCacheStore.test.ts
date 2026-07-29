@@ -43,14 +43,37 @@ describe('cost optimization cache store', () => {
     await expect(readdir(testDirectory)).resolves.toEqual([CACHE_FILE_NAME]);
   });
 
-  it('rejects unsupported or structurally inconsistent indexes', async () => {
+  it('rejects schema 1 and malformed schema 2 metadata', async () => {
     const index = createEmptyCostOptimizationIndex('C:\\sessions', FIXED_NOW);
-    await writeFile(cachePath, JSON.stringify({ ...index, schemaVersion: 2 }), 'utf8');
+    await writeFile(cachePath, JSON.stringify({ ...index, schemaVersion: 1 }), 'utf8');
     await expect(createCostOptimizationCacheStore(cachePath).load()).resolves.toEqual({
       index: undefined,
       warning: REBUILD_WARNING,
     });
 
+    const sourceIndex = applyUsageChangeSet(
+      index,
+      {
+        upserted: [makeSourceChange('usage.jsonl', '1', 100)],
+        removedSourceFiles: [],
+        requiresFullRebuild: false,
+      },
+      FIXED_NOW
+    );
+    const broken = structuredClone(sourceIndex) as unknown as {
+      sources: Record<string, { metadata: { eventCount: unknown } }>;
+    };
+    broken.sources['usage.jsonl'].metadata.eventCount = -1;
+    await writeFile(cachePath, JSON.stringify(broken), 'utf8');
+
+    await expect(createCostOptimizationCacheStore(cachePath).load()).resolves.toEqual({
+      index: undefined,
+      warning: REBUILD_WARNING,
+    });
+  });
+
+  it('rejects structurally inconsistent indexes', async () => {
+    const index = createEmptyCostOptimizationIndex('C:\\sessions', FIXED_NOW);
     await writeFile(
       cachePath,
       JSON.stringify({
@@ -58,6 +81,15 @@ describe('cost optimization cache store', () => {
         sources: {
           'usage.jsonl': {
             fingerprint: '1',
+            metadata: {
+              sessionId: 'session',
+              startedAt: FIXED_NOW.toISOString(),
+              endedAt: FIXED_NOW.toISOString(),
+              projectPath: 'C:\\repo',
+              projectName: 'repo',
+              eventCount: 1,
+              sourceFile: 'usage.jsonl',
+            },
             contributions: [
               {
                 id: 'contribution',

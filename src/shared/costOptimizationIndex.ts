@@ -12,12 +12,13 @@ import type {
   CostOptimizationIndex,
   IndexedUsageBucket,
   IndexedUsageContribution,
+  IndexedUsageSessionMetadata,
   UsageChangeSet,
   UsageSourceChange,
 } from './costOptimizationTypes';
 import type { TokenUsage } from './usageTypes';
 
-const INDEX_SCHEMA_VERSION = 1;
+export const COST_OPTIMIZATION_INDEX_SCHEMA_VERSION = 2;
 const UNKNOWN_MODEL_KEY = 'unknown-model';
 const KEY_SEPARATOR = '\u001f';
 const DATE_PART_LENGTH = 2;
@@ -163,11 +164,22 @@ const getSourceContributions = (sourceChange: UsageSourceChange): IndexedUsageCo
     totalTokens: slice.totalTokens,
   }));
 
+const getSessionMetadata = (sourceChange: UsageSourceChange): IndexedUsageSessionMetadata => ({
+  sessionId: sourceChange.session.sessionId,
+  ...(sourceChange.session.threadName ? { threadName: sourceChange.session.threadName } : {}),
+  startedAt: sourceChange.session.startedAt,
+  endedAt: sourceChange.session.endedAt,
+  projectPath: sourceChange.session.projectPath,
+  projectName: sourceChange.session.projectName,
+  eventCount: sourceChange.session.eventCount,
+  sourceFile: sourceChange.sourceFile,
+});
+
 export const createEmptyCostOptimizationIndex = (
   sessionsDir: string,
   now: Date = new Date()
 ): CostOptimizationIndex => ({
-  schemaVersion: INDEX_SCHEMA_VERSION,
+  schemaVersion: COST_OPTIMIZATION_INDEX_SCHEMA_VERSION,
   sessionsDir,
   generatedAt: now.toISOString(),
   sources: {},
@@ -263,12 +275,14 @@ export const applyUsageChangeSet = (
     contributions.forEach((contribution) => applyContribution(contribution, 1));
     sources[sourceChange.sourceFile] = {
       fingerprint: sourceChange.fingerprint,
+      metadata: getSessionMetadata(sourceChange),
       contributions,
     };
   });
 
   return {
     ...index,
+    schemaVersion: COST_OPTIMIZATION_INDEX_SCHEMA_VERSION,
     generatedAt: now.toISOString(),
     sources,
     dayModelBuckets: dayModelBuckets.toRecord(),

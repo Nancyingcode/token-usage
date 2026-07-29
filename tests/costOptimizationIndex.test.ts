@@ -6,6 +6,74 @@ import {
 import { FIXED_NOW, makeSourceChange } from './helpers/costOptimizationFixtures';
 
 describe('cost optimization index', () => {
+  it('stores immutable diagnosis metadata with each indexed source', () => {
+    const source = makeSourceChange('usage.jsonl', '1', 100);
+    source.session.threadName = 'Investigate budget spike';
+    source.session.startedAt = '2026-07-24T10:00:00.000Z';
+    source.session.endedAt = '2026-07-24T10:45:00.000Z';
+    source.session.eventCount = 3;
+
+    const indexed = applyUsageChangeSet(
+      createEmptyCostOptimizationIndex('C:\\sessions', FIXED_NOW),
+      {
+        upserted: [source],
+        removedSourceFiles: [],
+        requiresFullRebuild: false,
+      },
+      FIXED_NOW
+    );
+
+    expect(indexed.schemaVersion).toBe(2);
+    expect(indexed.sources['usage.jsonl'].metadata).toEqual({
+      sessionId: 'usage.jsonl',
+      threadName: 'Investigate budget spike',
+      startedAt: '2026-07-24T10:00:00.000Z',
+      endedAt: '2026-07-24T10:45:00.000Z',
+      projectPath: 'C:\\repo',
+      projectName: 'repo',
+      eventCount: 3,
+      sourceFile: 'usage.jsonl',
+    });
+    expect(indexed.sources['usage.jsonl'].metadata).not.toBe(source.session);
+  });
+
+  it('replaces and removes diagnosis metadata with the source lifecycle', () => {
+    const firstSource = makeSourceChange('usage.jsonl', '1', 100);
+    firstSource.session.threadName = 'Before';
+    const first = applyUsageChangeSet(
+      createEmptyCostOptimizationIndex('C:\\sessions', FIXED_NOW),
+      {
+        upserted: [firstSource],
+        removedSourceFiles: [],
+        requiresFullRebuild: false,
+      },
+      FIXED_NOW
+    );
+    const nextSource = makeSourceChange('usage.jsonl', '2', 250);
+    nextSource.session.threadName = 'After';
+    const changed = applyUsageChangeSet(
+      first,
+      {
+        upserted: [nextSource],
+        removedSourceFiles: [],
+        requiresFullRebuild: false,
+      },
+      FIXED_NOW
+    );
+    const removed = applyUsageChangeSet(
+      changed,
+      {
+        upserted: [],
+        removedSourceFiles: ['usage.jsonl'],
+        requiresFullRebuild: false,
+      },
+      FIXED_NOW
+    );
+
+    expect(changed.sources['usage.jsonl'].metadata.threadName).toBe('After');
+    expect(removed.sources['usage.jsonl']).toBeUndefined();
+  });
+
   it('reverses old contributions before applying a changed source', () => {
     const empty = createEmptyCostOptimizationIndex('C:\\sessions', FIXED_NOW);
     const first = applyUsageChangeSet(

@@ -65,6 +65,17 @@ export interface IndexedUsageContribution extends TokenUsage {
   modelId?: string;
 }
 
+export interface IndexedUsageSessionMetadata {
+  sessionId: string;
+  threadName?: string;
+  startedAt: string;
+  endedAt: string;
+  projectPath: string;
+  projectName: string;
+  eventCount: number;
+  sourceFile: string;
+}
+
 export interface IndexedUsageBucket extends TokenUsage {
   id: string;
   date?: string;
@@ -79,6 +90,7 @@ export interface IndexedUsageBucket extends TokenUsage {
 
 export interface IndexedUsageSource {
   fingerprint: string;
+  metadata: IndexedUsageSessionMetadata;
   contributions: IndexedUsageContribution[];
 }
 

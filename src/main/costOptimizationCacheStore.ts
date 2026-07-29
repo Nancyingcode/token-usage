@@ -5,17 +5,20 @@
  */
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { rebuildCostOptimizationIndex } from '../shared/costOptimizationIndex';
+import {
+  COST_OPTIMIZATION_INDEX_SCHEMA_VERSION,
+  rebuildCostOptimizationIndex,
+} from '../shared/costOptimizationIndex';
 import type {
   CostOptimizationIndex,
   IndexedUsageBucket,
   IndexedUsageContribution,
+  IndexedUsageSessionMetadata,
   UsageSourceChange,
 } from '../shared/costOptimizationTypes';
 import { isRecord } from '../shared/runtimeTypes';
 import type { TokenUsage } from '../shared/usageTypes';
 
-const CACHE_SCHEMA_VERSION = 1;
 const JSON_INDENT_SPACES = 2;
 const TEMP_FILE_SUFFIX = '.tmp';
 const REBUILD_WARNING = 'Cost optimization cache will be rebuilt.';
@@ -71,6 +74,21 @@ const isContribution = (value: unknown): value is IndexedUsageContribution => {
   );
 };
 
+const isSessionMetadata = (
+  value: unknown,
+  sourceFile: string
+): value is IndexedUsageSessionMetadata =>
+  isRecord(value) &&
+  typeof value.sessionId === 'string' &&
+  hasOptionalString(value, 'threadName') &&
+  typeof value.startedAt === 'string' &&
+  typeof value.endedAt === 'string' &&
+  typeof value.projectPath === 'string' &&
+  typeof value.projectName === 'string' &&
+  Number.isInteger(value.eventCount) &&
+  Number(value.eventCount) >= 0 &&
+  value.sourceFile === sourceFile;
+
 const isBucket = (value: unknown): value is IndexedUsageBucket => {
   if (!isRecord(value) || !hasTokenUsage(value)) {
     return false;
@@ -99,6 +117,7 @@ const isSourcesRecord = (value: unknown): value is CostOptimizationIndex['source
     ([sourceFile, source]) =>
       isRecord(source) &&
       typeof source.fingerprint === 'string' &&
+      isSessionMetadata(source.metadata, sourceFile) &&
       Array.isArray(source.contributions) &&
       source.contributions.every(
         (contribution) => isContribution(contribution) && contribution.sourceFile === sourceFile
@@ -178,24 +197,21 @@ const bucketRecordsEqual = (
 
 const toSourceChange = (
   sourceFile: string,
-  source: CostOptimizationIndex['sources'][string],
-  fallbackTimestamp: string
+  source: CostOptimizationIndex['sources'][string]
 ): UsageSourceChange => {
-  const firstContribution = source.contributions[0];
-  const timestamps = source.contributions
-    .map(({ occurredAt }) => occurredAt)
-    .sort((first, second) => first.localeCompare(second));
   const totals = getContributionTotals({ [sourceFile]: source });
+  const { metadata } = source;
 
   return {
     sourceFile,
     fingerprint: source.fingerprint,
     session: {
-      sessionId: firstContribution?.sessionId ?? sourceFile,
-      startedAt: timestamps[0] ?? fallbackTimestamp,
-      endedAt: timestamps.at(-1) ?? fallbackTimestamp,
-      projectPath: firstContribution?.projectPath ?? '',
-      projectName: firstContribution?.projectName ?? '',
+      sessionId: metadata.sessionId,
+      ...(metadata.threadName ? { threadName: metadata.threadName } : {}),
+      startedAt: metadata.startedAt,
+      endedAt: metadata.endedAt,
+      projectPath: metadata.projectPath,
+      projectName: metadata.projectName,
       usageSlices: source.contributions.map((contribution) => ({
         occurredAt: contribution.occurredAt,
         modelId: contribution.modelId,
@@ -206,8 +222,8 @@ const toSourceChange = (
         totalTokens: contribution.totalTokens,
       })),
       ...totals,
-      eventCount: source.contributions.length,
-      sourceFile,
+      eventCount: metadata.eventCount,
+      sourceFile: metadata.sourceFile,
       warnings: [],
     },
   };
@@ -215,7 +231,7 @@ const toSourceChange = (
 
 const bucketsMatchSources = (index: CostOptimizationIndex): boolean => {
   const sourceChanges = Object.entries(index.sources).map(([sourceFile, source]) =>
-    toSourceChange(sourceFile, source, index.generatedAt)
+    toSourceChange(sourceFile, source)
   );
   const expected = rebuildCostOptimizationIndex(
     index.sessionsDir,
@@ -235,7 +251,7 @@ const decodeIndex = (content: string): CostOptimizationIndex => {
 
   if (
     !isRecord(raw) ||
-    raw.schemaVersion !== CACHE_SCHEMA_VERSION ||
+    raw.schemaVersion !== COST_OPTIMIZATION_INDEX_SCHEMA_VERSION ||
     typeof raw.sessionsDir !== 'string' ||
     typeof raw.generatedAt !== 'string' ||
     !isSourcesRecord(raw.sources) ||
@@ -247,7 +263,7 @@ const decodeIndex = (content: string): CostOptimizationIndex => {
   }
 
   const index: CostOptimizationIndex = {
-    schemaVersion: CACHE_SCHEMA_VERSION,
+    schemaVersion: COST_OPTIMIZATION_INDEX_SCHEMA_VERSION,
     sessionsDir: raw.sessionsDir,
     generatedAt: raw.generatedAt,
     sources: raw.sources,
