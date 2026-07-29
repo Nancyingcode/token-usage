@@ -27,7 +27,7 @@ export interface NumericDiagnosisMetric {
 export interface ResolveDiagnosisBaselineInput {
   current: NumericDiagnosisMetric;
   history: NumericDiagnosisMetric[];
-  scopeOrder: SessionDiagnosisBaselineScope[];
+  scopeOrder: readonly SessionDiagnosisBaselineScope[];
   minimumSamples: number;
   historyWindow: number;
   direction: 'positive' | 'negative';

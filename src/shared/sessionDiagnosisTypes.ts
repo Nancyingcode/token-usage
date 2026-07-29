@@ -53,3 +53,9 @@ export interface SessionDiagnosisDetectorContext {
   settings: CostOptimizationSettings;
   pricing: ModelPricingEntry[];
 }
+
+export const clampUnitInterval = (value: number): number =>
+  Number.isFinite(value) ? Math.min(Math.max(value, 0), 1) : 0;
+
+export const normalizeDiagnosisScore = (score: number, criticalThreshold: number): number =>
+  criticalThreshold > 0 ? clampUnitInterval(score / criticalThreshold) : 0;
