@@ -15,7 +15,8 @@ const TOKENS_PER_MILLION = 1_000_000;
 const UNKNOWN_MODEL_ID = 'Unknown model';
 const DATE_PART_LENGTH = 2;
 
-const normalizeModelId = (modelId: string): string => modelId.trim().toLocaleLowerCase('en-US');
+export const normalizeModelId = (modelId: string): string =>
+  modelId.trim().toLocaleLowerCase('en-US');
 
 const toOverrideEntry = (override: ModelPricingOverride, sourceUrl?: string): ModelPricingEntry => {
   const { updatedAt, ...pricing } = override;

@@ -20,9 +20,9 @@ import type {
   PricingCoverage,
 } from './costOptimizationTypes';
 import { calculateEstimatedCost } from './pricing';
+import { getRobustScore } from './robustStatistics';
 import type { RollingUsagePeriod, UsageSlice } from './usageTypes';
 
-const MAD_SCALE_FACTOR = 1.4826;
 const ZERO_MAD_RELATIVE_SCALE = 0.25;
 const ZERO_MAD_ABSOLUTE_SCALE_USD = 0.01;
 const CRITICAL_SCORE_MULTIPLIER = 2;
@@ -64,20 +64,7 @@ interface ObservationMetadata {
   sessionId?: string;
 }
 
-export const median = (values: number[]): number => {
-  if (values.length === 0) {
-    return 0;
-  }
-
-  const sorted = [...values].sort((first, second) => first - second);
-  const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
-};
-
-export const medianAbsoluteDeviation = (
-  values: number[],
-  center: number = median(values)
-): number => median(values.map((value) => Math.abs(value - center)));
+export { median, medianAbsoluteDeviation } from './robustStatistics';
 
 const normalizeModelId = (modelId: string | undefined): string =>
   modelId?.trim().toLocaleLowerCase('en-US') || UNKNOWN_MODEL_KEY;
@@ -294,24 +281,19 @@ const toAnomaly = (
   settings: CostOptimizationSettings
 ): CostAnomaly | undefined => {
   const baselineValues = history.map(({ actualCostUsd }) => actualCostUsd);
-  const baselineCostUsd = median(baselineValues);
-  const deviation = medianAbsoluteDeviation(baselineValues, baselineCostUsd);
-  const scale =
-    deviation > 0
-      ? MAD_SCALE_FACTOR * deviation
-      : Math.max(baselineCostUsd * ZERO_MAD_RELATIVE_SCALE, ZERO_MAD_ABSOLUTE_SCALE_USD);
-  const score = (observation.actualCostUsd - baselineCostUsd) / scale;
+  const robustScore = getRobustScore(observation.actualCostUsd, baselineValues, {
+    zeroMadRelativeScale: ZERO_MAD_RELATIVE_SCALE,
+    zeroMadAbsoluteScale: ZERO_MAD_ABSOLUTE_SCALE_USD,
+  });
 
-  if (score < settings.anomalySensitivity) {
+  if (robustScore.score < settings.anomalySensitivity) {
     return undefined;
   }
 
   const severity =
-    score >= settings.anomalySensitivity * CRITICAL_SCORE_MULTIPLIER ? 'critical' : 'warning';
-  const deviationRatio =
-    baselineCostUsd > 0
-      ? observation.actualCostUsd / baselineCostUsd
-      : observation.actualCostUsd / ZERO_MAD_ABSOLUTE_SCALE_USD;
+    robustScore.score >= settings.anomalySensitivity * CRITICAL_SCORE_MULTIPLIER
+      ? 'critical'
+      : 'warning';
 
   return {
     id: observation.key,
@@ -324,9 +306,9 @@ const toAnomaly = (
     modelId: observation.modelId,
     sessionId: observation.sessionId,
     actualCostUsd: observation.actualCostUsd,
-    baselineCostUsd,
-    deviationRatio,
-    score,
+    baselineCostUsd: robustScore.median,
+    deviationRatio: robustScore.ratio,
+    score: robustScore.score,
     sampleCount: history.length,
     baselineScope,
     coverage: observation.coverage,

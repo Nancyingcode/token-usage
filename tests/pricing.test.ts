@@ -4,6 +4,7 @@ import {
   buildDailyCostEstimates,
   calculateEstimatedCost,
   mergeModelPricing,
+  normalizeModelId,
 } from '../src/shared/pricing';
 import type { ModelPricingEntry, ModelPricingOverride } from '../src/shared/budgetTypes';
 import type { UsageSlice } from '../src/shared/usageTypes';
@@ -20,6 +21,10 @@ const TEST_PRICING: ModelPricingEntry = {
 };
 
 describe('pricing', () => {
+  it('normalizes model ids for shared price matching', () => {
+    expect(normalizeModelId('  GPT-Test  ')).toBe('gpt-test');
+  });
+
   it('prices cached input separately and does not add reasoning twice', () => {
     const estimate = calculateEstimatedCost(
       [makeSlice('2026-07-20T00:00:00.000Z', 'gpt-test', 100, 40, 20, 5, 120)],

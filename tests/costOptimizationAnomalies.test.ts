@@ -83,7 +83,7 @@ const makeDailyIndex = (costs: number[]): CostOptimizationIndex => {
   });
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     sessionsDir: 'C:\\sessions',
     generatedAt: FIXED_NOW_ISO,
     sources: {},

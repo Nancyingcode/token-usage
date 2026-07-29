@@ -112,6 +112,135 @@ export interface PricingCoverage {
   unpricedModelIds: string[];
 }
 
+export type SessionDiagnosisCause =
+  | 'input-growth'
+  | 'cache-degradation'
+  | 'generation-concentration'
+  | 'model-cost-dominance'
+  | 'interaction-accumulation';
+export type SessionDiagnosisSeverity = 'warning' | 'critical';
+export type SessionDiagnosisConfidence = 'low' | 'medium' | 'high';
+export type SessionDetectorState = 'finding' | 'not-found' | 'insufficient-data' | 'not-applicable';
+export type SessionDiagnosisBaselineScope =
+  'session' | 'project-model' | 'model' | 'project' | 'global';
+
+export interface SessionDiagnosisBaseline {
+  scope: SessionDiagnosisBaselineScope;
+  sampleCount: number;
+  median: number;
+  mad: number;
+  score: number;
+}
+
+export type SessionDiagnosisEvidence =
+  | {
+      kind: 'input-growth';
+      earlyMedianTokens: number;
+      lateMedianTokens: number;
+      growthRatio: number;
+      absoluteGrowthTokens: number;
+    }
+  | {
+      kind: 'cache-reuse';
+      currentPercentage: number;
+      firstHalfPercentage: number;
+      secondHalfPercentage: number;
+      targetPercentage: number;
+    }
+  | {
+      kind: 'generation-share';
+      subtype: 'output' | 'reasoning' | 'both';
+      outputPercentage: number;
+      reasoningPercentage: number;
+    }
+  | {
+      kind: 'model-cost';
+      modelId: string;
+      costShare: number;
+      unitCostRatio: number;
+      switchedFromModelId?: string;
+      switchedToModelId?: string;
+      switchedCostShare?: number;
+    }
+  | {
+      kind: 'interaction-accumulation';
+      eventCount: number;
+      durationMs?: number;
+      maxSliceShare: number;
+    };
+
+export interface SessionDiagnosisFinding {
+  state: 'finding';
+  cause: SessionDiagnosisCause;
+  severity: SessionDiagnosisSeverity;
+  confidence: SessionDiagnosisConfidence;
+  normalizedScore: number;
+  baseline?: SessionDiagnosisBaseline;
+  evidence: SessionDiagnosisEvidence;
+  range?: { start: string; end: string };
+}
+
+export interface SessionDiagnosisUnavailable {
+  state: Exclude<SessionDetectorState, 'finding'>;
+  cause: SessionDiagnosisCause;
+  reason:
+    | 'within-normal-range'
+    | 'insufficient-history'
+    | 'insufficient-slices'
+    | 'pricing-incomplete'
+    | 'zero-input'
+    | 'zero-total'
+    | 'invalid-time-range';
+}
+
+export type SessionDetectorResult = SessionDiagnosisFinding | SessionDiagnosisUnavailable;
+
+export type SessionDiagnosisFindingSummary = Pick<
+  SessionDiagnosisFinding,
+  'cause' | 'severity' | 'confidence' | 'normalizedScore' | 'baseline'
+>;
+
+export interface SessionDiagnosisSummary extends TokenUsage {
+  diagnosisId: string;
+  sourceFile: string;
+  sessionId: string;
+  threadName?: string;
+  startedAt: string;
+  projectPath: string;
+  projectName: string;
+  eventCount: number;
+  pricedCostUsd: number;
+  coverage: PricingCoverage;
+  tokenPercentile: number;
+  pricedCostPercentile?: number;
+  impactPercentile: number;
+  requiresAttention: boolean;
+  anomalySeverity?: CostAnomalySeverity;
+  primaryFinding?: SessionDiagnosisFindingSummary;
+  additionalFindingCount: number;
+}
+
+export interface SessionDiagnosisTimelinePoint extends TokenUsage {
+  contributionId: string;
+  occurredAt: string;
+  modelId?: string;
+}
+
+export interface SessionDiagnosisDetail {
+  summary: SessionDiagnosisSummary;
+  detectors: SessionDetectorResult[];
+  timeline: SessionDiagnosisTimelinePoint[];
+  invalidTimelinePointCount: number;
+}
+
+export interface SessionDiagnosisRequest {
+  query: CostOptimizationQuery;
+  diagnosisId: string;
+}
+
+export type SessionDiagnosisDetailResult =
+  { kind: 'ready'; detail: SessionDiagnosisDetail } | { kind: 'not-found'; diagnosisId: string };
+
 export interface ModelCostRow extends TokenUsage {
   modelId?: string;
   sessionCount: number;
