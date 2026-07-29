@@ -2000,6 +2000,189 @@ code {
   color: #666666;
 }
 
+.session-diagnosis-list {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.session-diagnosis-list-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.session-diagnosis-list-heading h3,
+.session-diagnosis-list-heading p {
+  margin: 0;
+}
+
+.session-diagnosis-list-heading h3 {
+  font-size: 14px;
+}
+
+.session-diagnosis-list-heading p {
+  margin-top: 4px;
+  color: #777777;
+  font-size: 10px;
+}
+
+.session-diagnosis-filters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 9px;
+}
+
+.session-diagnosis-filters label {
+  display: grid;
+  gap: 5px;
+  color: #777777;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.session-diagnosis-filters select {
+  min-height: 29px;
+  padding: 0 27px 0 8px;
+  color: #333333;
+  background: #ffffff;
+  border: 1px solid #dddddd;
+  border-radius: 6px;
+  font-size: 10px;
+}
+
+.session-diagnosis-table {
+  max-width: 100%;
+  overflow-x: auto;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+}
+
+.session-diagnosis-table-head,
+.session-diagnosis-row {
+  min-width: 1280px;
+  display: grid;
+  grid-template-columns:
+    minmax(150px, 1.3fr) minmax(90px, 0.8fr) 90px 90px 105px 95px
+    minmax(180px, 1.5fr) minmax(150px, 1.3fr) 105px 95px 95px;
+  align-items: center;
+  gap: 10px;
+}
+
+.session-diagnosis-table-head {
+  min-height: 35px;
+  padding: 0 12px;
+  color: #777777;
+  background: #fafafa;
+  border-bottom: 1px solid #e5e5e5;
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.session-diagnosis-row {
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 12px;
+  color: #333333;
+  background: #ffffff;
+  border: 0;
+  border-bottom: 1px solid #eeeeee;
+  border-left: 3px solid #d79b35;
+  font-size: 10px;
+  text-align: left;
+}
+
+.session-diagnosis-row:last-child {
+  border-bottom: 0;
+}
+
+.session-diagnosis-row.critical {
+  border-left-color: #d14b4b;
+}
+
+.session-diagnosis-row:hover {
+  background: #fbfbfb;
+}
+
+.session-diagnosis-row:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid #257556;
+  outline-offset: -2px;
+}
+
+.session-diagnosis-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.session-diagnosis-session,
+.session-diagnosis-cost,
+.session-diagnosis-baseline,
+.session-diagnosis-cause {
+  display: grid;
+  gap: 3px;
+}
+
+.session-diagnosis-row strong {
+  font-weight: 700;
+}
+
+.session-diagnosis-row small {
+  color: #777777;
+  font-size: 8px;
+}
+
+.session-diagnosis-session small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-diagnosis-severity {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 700;
+}
+
+.session-diagnosis-empty {
+  padding: 32px 20px;
+  text-align: center;
+}
+
+.session-diagnosis-empty h4,
+.session-diagnosis-empty p {
+  margin: 0;
+}
+
+.session-diagnosis-empty p {
+  margin-top: 5px;
+  color: #777777;
+  font-size: 10px;
+}
+
+.session-diagnosis-empty button {
+  min-height: 30px;
+  margin-top: 14px;
+  padding: 0 12px;
+  color: #ffffff;
+  background: #257556;
+  border: 0;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.session-diagnosis-empty button:focus-visible {
+  outline: 2px solid #111111;
+  outline-offset: 2px;
+}
+
 .cost-detail-empty {
   padding: 28px;
   color: #777777;
@@ -2264,9 +2447,76 @@ code {
 
   .cost-detail-filter-bar,
   .cost-forecast-header,
-  .cost-savings-summary {
+  .cost-savings-summary,
+  .session-diagnosis-list-heading {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .session-diagnosis-filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .session-diagnosis-filters select {
+    width: 100%;
+  }
+
+  .session-diagnosis-table {
+    overflow: visible;
+    background: transparent;
+    border: 0;
+  }
+
+  .session-diagnosis-table-head {
+    display: none;
+  }
+
+  .session-diagnosis-table-body {
+    display: grid;
+    gap: 8px;
+  }
+
+  .session-diagnosis-row {
+    min-width: 0;
+    min-height: 0;
+    padding: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    border: 1px solid #e5e5e5;
+    border-left: 3px solid #d79b35;
+    border-radius: 7px;
+  }
+
+  .session-diagnosis-row.critical {
+    border-left-color: #d14b4b;
+  }
+
+  .session-diagnosis-row > span {
+    display: grid;
+    gap: 3px;
+  }
+
+  .session-diagnosis-row > span::before {
+    content: attr(data-label);
+    color: #888888;
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .session-diagnosis-session,
+  .session-diagnosis-baseline,
+  .session-diagnosis-cause {
+    grid-column: 1 / -1;
+  }
+
+  .session-diagnosis-cost > small {
+    display: none;
+  }
+
+  .session-diagnosis-severity {
+    display: flex;
   }
 
   .cost-detail-definition-grid {

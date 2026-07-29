@@ -3,6 +3,12 @@ import type {
   CostAnomaly,
   IndexedUsageContribution,
   PricingCoverage,
+  SessionDiagnosisBaseline,
+  SessionDiagnosisCause,
+  SessionDiagnosisConfidence,
+  SessionDiagnosisFindingSummary,
+  SessionDiagnosisSeverity,
+  SessionDiagnosisSummary,
   UsageSourceChange,
 } from '../../src/shared/costOptimizationTypes';
 import type { NumericDiagnosisMetric } from '../../src/shared/sessionDiagnosisBaselines';
@@ -182,3 +188,74 @@ export const makeCoverage = (
     unpricedModelIds: [...unpricedModelIds],
   };
 };
+
+export const makeFindingSummary = (
+  cause: SessionDiagnosisCause,
+  severity: SessionDiagnosisSeverity,
+  confidence: SessionDiagnosisConfidence,
+  baseline?: SessionDiagnosisBaseline
+): SessionDiagnosisFindingSummary => ({
+  cause,
+  severity,
+  confidence,
+  normalizedScore: severity === 'critical' ? 1 : 0.5,
+  ...(baseline ? { baseline } : {}),
+});
+
+export const makeDiagnosisSummary = (
+  sessionId: string,
+  overrides: Partial<SessionDiagnosisSummary> = {}
+): SessionDiagnosisSummary => ({
+  diagnosisId: overrides.diagnosisId ?? `${sessionId}.jsonl\u001f${sessionId}`,
+  sourceFile: overrides.sourceFile ?? `${sessionId}.jsonl`,
+  sessionId,
+  startedAt: overrides.startedAt ?? '2026-07-24T10:00:00.000Z',
+  projectPath: overrides.projectPath ?? 'C:\\repo',
+  projectName: overrides.projectName ?? 'repo',
+  eventCount: overrides.eventCount ?? 3,
+  pricedCostUsd: overrides.pricedCostUsd ?? 1.25,
+  coverage: overrides.coverage ?? COVERAGE,
+  tokenPercentile: overrides.tokenPercentile ?? 1,
+  impactPercentile: overrides.impactPercentile ?? 1,
+  requiresAttention: overrides.requiresAttention ?? true,
+  primaryFinding:
+    'primaryFinding' in overrides
+      ? overrides.primaryFinding
+      : makeFindingSummary('input-growth', 'critical', 'high'),
+  additionalFindingCount: overrides.additionalFindingCount ?? 0,
+  inputTokens: overrides.inputTokens ?? 10_000,
+  cachedInputTokens: overrides.cachedInputTokens ?? 2_000,
+  outputTokens: overrides.outputTokens ?? 1_000,
+  reasoningOutputTokens: overrides.reasoningOutputTokens ?? 200,
+  totalTokens: overrides.totalTokens ?? 11_000,
+  ...(overrides.threadName ? { threadName: overrides.threadName } : {}),
+  ...(overrides.pricedCostPercentile !== undefined
+    ? {
+        pricedCostPercentile: overrides.pricedCostPercentile,
+      }
+    : {}),
+  ...(overrides.anomalySeverity ? { anomalySeverity: overrides.anomalySeverity } : {}),
+});
+
+export const makeDiagnosisSummaries = (): SessionDiagnosisSummary[] => [
+  makeDiagnosisSummary('attention'),
+  makeDiagnosisSummary('normal', {
+    requiresAttention: false,
+    primaryFinding: undefined,
+    additionalFindingCount: 0,
+    impactPercentile: 0.2,
+  }),
+];
+
+export const makePartiallyPricedDiagnosisSummary = (): SessionDiagnosisSummary =>
+  makeDiagnosisSummary('partial', {
+    coverage: {
+      pricedTokens: 8_000,
+      unpricedTokens: 3_000,
+      totalTokens: 11_000,
+      percentage: 72.7272727273,
+      unpricedModelIds: ['unknown-model'],
+    },
+    pricedCostUsd: 0.75,
+    pricedCostPercentile: undefined,
+  });
