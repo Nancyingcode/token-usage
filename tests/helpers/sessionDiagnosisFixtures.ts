@@ -6,9 +6,12 @@ import type {
   SessionDiagnosisBaseline,
   SessionDiagnosisCause,
   SessionDiagnosisConfidence,
+  SessionDiagnosisDetail,
+  SessionDiagnosisDetailResult,
   SessionDiagnosisFindingSummary,
   SessionDiagnosisSeverity,
   SessionDiagnosisSummary,
+  SessionDiagnosisTimelinePoint,
   UsageSourceChange,
 } from '../../src/shared/costOptimizationTypes';
 import type { NumericDiagnosisMetric } from '../../src/shared/sessionDiagnosisBaselines';
@@ -259,3 +262,92 @@ export const makePartiallyPricedDiagnosisSummary = (): SessionDiagnosisSummary =
     pricedCostUsd: 0.75,
     pricedCostPercentile: undefined,
   });
+
+export const makeDiagnosisTimelinePoints = (): SessionDiagnosisTimelinePoint[] => [
+  {
+    contributionId: 'first',
+    occurredAt: '2026-07-24T10:00:00.000Z',
+    modelId: 'gpt-source',
+    inputTokens: 4_000,
+    cachedInputTokens: 2_000,
+    outputTokens: 500,
+    reasoningOutputTokens: 100,
+    totalTokens: 4_500,
+  },
+  {
+    contributionId: 'second',
+    occurredAt: '2026-07-24T10:10:00.000Z',
+    modelId: 'gpt-target',
+    inputTokens: 16_000,
+    cachedInputTokens: 1_000,
+    outputTokens: 2_000,
+    reasoningOutputTokens: 800,
+    totalTokens: 18_000,
+  },
+];
+
+export const makeDiagnosisDetail = (): SessionDiagnosisDetail => ({
+  summary: makeDiagnosisSummary('detail', {
+    additionalFindingCount: 1,
+  }),
+  detectors: [
+    {
+      state: 'finding',
+      cause: 'input-growth',
+      severity: 'critical',
+      confidence: 'high',
+      normalizedScore: 1,
+      evidence: {
+        kind: 'input-growth',
+        earlyMedianTokens: 4_000,
+        lateMedianTokens: 16_000,
+        growthRatio: 4,
+        absoluteGrowthTokens: 12_000,
+      },
+    },
+    {
+      state: 'not-found',
+      cause: 'cache-degradation',
+      reason: 'within-normal-range',
+    },
+    {
+      state: 'insufficient-data',
+      cause: 'generation-concentration',
+      reason: 'insufficient-history',
+    },
+    {
+      state: 'not-applicable',
+      cause: 'model-cost-dominance',
+      reason: 'pricing-incomplete',
+    },
+    {
+      state: 'finding',
+      cause: 'interaction-accumulation',
+      severity: 'warning',
+      confidence: 'medium',
+      normalizedScore: 0.5,
+      evidence: {
+        kind: 'interaction-accumulation',
+        eventCount: 23,
+        durationMs: 5_400_000,
+        maxSliceShare: 0.2,
+      },
+    },
+  ],
+  timeline: makeDiagnosisTimelinePoints(),
+  invalidTimelinePointCount: 0,
+});
+
+export const makeReadyDiagnosisResult = (
+  diagnosisId = 'detail.jsonl\u001fdetail'
+): SessionDiagnosisDetailResult => {
+  const detail = makeDiagnosisDetail();
+
+  return {
+    kind: 'ready',
+    detail: {
+      ...detail,
+      summary: { ...detail.summary, diagnosisId },
+    },
+  };
+};

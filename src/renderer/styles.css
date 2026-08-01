@@ -2183,6 +2183,390 @@ code {
   outline-offset: 2px;
 }
 
+.session-diagnosis-detail {
+  min-width: 0;
+  display: grid;
+  gap: 16px;
+}
+
+.session-diagnosis-detail > section > h3,
+.session-diagnosis-detail-primary > h3,
+.session-diagnosis-detail-other > h3,
+.session-diagnosis-detail-detectors > h3 {
+  margin: 0 0 9px;
+  font-size: 13px;
+}
+
+.session-diagnosis-detail-heading {
+  display: grid;
+  gap: 12px;
+}
+
+.session-diagnosis-detail-heading > button {
+  width: fit-content;
+  min-height: 30px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #356f58;
+  background: #ffffff;
+  border: 1px solid #d9e5df;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.session-diagnosis-detail-heading > button:focus-visible {
+  outline: 2px solid #257556;
+  outline-offset: 2px;
+}
+
+.session-diagnosis-detail-heading > div > span {
+  color: #257556;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.session-diagnosis-detail-heading h2,
+.session-diagnosis-detail-heading p {
+  margin: 0;
+}
+
+.session-diagnosis-detail-heading h2 {
+  margin-top: 3px;
+  font-size: 20px;
+}
+
+.session-diagnosis-detail-heading p {
+  margin-top: 4px;
+  color: #777777;
+  font-size: 10px;
+}
+
+.session-diagnosis-detail-metrics {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(110px, 1fr));
+  gap: 8px;
+}
+
+.session-diagnosis-detail-metrics > div,
+.session-diagnosis-detail-evidence-grid > div,
+.session-diagnosis-detail-baseline > div {
+  min-width: 0;
+  padding: 10px;
+  background: #f7f8f7;
+  border-radius: 6px;
+}
+
+.session-diagnosis-detail-metrics dt,
+.session-diagnosis-detail-evidence-grid dt,
+.session-diagnosis-detail-baseline dt {
+  color: #7a7a7a;
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.session-diagnosis-detail-metrics dd,
+.session-diagnosis-detail-evidence-grid dd,
+.session-diagnosis-detail-baseline dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.session-diagnosis-detail-metrics dd small {
+  margin-top: 3px;
+  display: block;
+  color: #777777;
+  font-size: 8px;
+  font-weight: 400;
+}
+
+.session-diagnosis-detail-primary {
+  padding: 14px;
+  background: #ffffff;
+  border: 1px solid #e3e9e6;
+  border-left: 3px solid #257556;
+  border-radius: 8px;
+}
+
+.session-diagnosis-detail-primary > p,
+.session-diagnosis-detail-other > p {
+  margin: 0;
+  color: #777777;
+  font-size: 10px;
+}
+
+.session-diagnosis-detail-finding-heading {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+}
+
+.session-diagnosis-detail-finding-heading > span {
+  padding: 3px 6px;
+  color: #6f561c;
+  background: #fff7df;
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.session-diagnosis-detail-evidence-grid {
+  margin: 10px 0 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(105px, 1fr));
+  gap: 8px;
+}
+
+.session-diagnosis-detail-other-list,
+.session-diagnosis-detail-detectors > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.session-diagnosis-detail-other-list > article,
+.session-diagnosis-detail-detector {
+  min-width: 0;
+  padding: 13px;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 7px;
+}
+
+.session-diagnosis-detail-detector {
+  border-left: 3px solid #b8b8b8;
+}
+
+.session-diagnosis-detail-detector.finding {
+  border-left-color: #d79b35;
+}
+
+.session-diagnosis-detail-detector > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10px;
+}
+
+.session-diagnosis-detail-detector > header > span {
+  color: #666666;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.session-diagnosis-detail-detector > p {
+  margin: 10px 0 0;
+  color: #666666;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.session-diagnosis-detail-detector .session-diagnosis-detail-finding-heading {
+  margin-top: 10px;
+}
+
+.session-diagnosis-detail-baseline {
+  margin: 10px 0 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.session-diagnosis-detail-disclaimer {
+  padding: 9px 10px;
+  color: #6f561c;
+  background: #fff9e8;
+  border: 1px solid #eed594;
+  border-radius: 6px;
+}
+
+.session-diagnosis-timeline {
+  min-width: 0;
+  display: grid;
+  gap: 9px;
+}
+
+.session-diagnosis-timeline-heading h3,
+.session-diagnosis-timeline-heading p,
+.session-diagnosis-timeline-note {
+  margin: 0;
+}
+
+.session-diagnosis-timeline-heading h3 {
+  font-size: 13px;
+}
+
+.session-diagnosis-timeline-heading p,
+.session-diagnosis-timeline-note {
+  margin-top: 4px;
+  color: #777777;
+  font-size: 9px;
+}
+
+.session-diagnosis-timeline-chart {
+  max-width: 100%;
+  padding: 10px;
+  overflow-x: auto;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+}
+
+.session-diagnosis-timeline-chart svg {
+  width: 100%;
+  min-width: 640px;
+  display: block;
+}
+
+.session-diagnosis-timeline-series polyline,
+.session-diagnosis-timeline-cache-line {
+  fill: none;
+  stroke-width: 2;
+}
+
+.session-diagnosis-timeline-series.input {
+  color: #257556;
+}
+
+.session-diagnosis-timeline-series.output {
+  color: #316aa3;
+}
+
+.session-diagnosis-timeline-series.reasoning {
+  color: #77549a;
+}
+
+.session-diagnosis-timeline-series polyline {
+  stroke: currentColor;
+}
+
+.session-diagnosis-timeline-series.output polyline {
+  stroke-dasharray: 8 4;
+}
+
+.session-diagnosis-timeline-series.reasoning polyline {
+  stroke-dasharray: 2 4;
+}
+
+.session-diagnosis-timeline-point circle {
+  fill: #ffffff;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.session-diagnosis-timeline-point circle:focus {
+  outline: none;
+  stroke: #111111;
+  stroke-width: 4;
+}
+
+.session-diagnosis-timeline-cache-line {
+  stroke: #bf6b2f;
+  stroke-dasharray: 5 4;
+}
+
+.session-diagnosis-timeline-point.cache {
+  color: #bf6b2f;
+}
+
+.session-diagnosis-timeline-divider {
+  stroke: #d6d6d6;
+  stroke-width: 1;
+}
+
+.session-diagnosis-timeline-lane-label {
+  fill: #777777;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.session-diagnosis-timeline-tooltip {
+  opacity: 0;
+  pointer-events: none;
+  fill: #222222;
+  stroke: #ffffff;
+  stroke-width: 4px;
+  paint-order: stroke;
+  font-size: 8px;
+  text-anchor: middle;
+}
+
+.session-diagnosis-timeline-point:hover .session-diagnosis-timeline-tooltip,
+.session-diagnosis-timeline-point:focus-within .session-diagnosis-timeline-tooltip {
+  opacity: 1;
+}
+
+.session-diagnosis-timeline-model-switch line {
+  stroke: #b54c4c;
+  stroke-dasharray: 4 4;
+  stroke-width: 1.5;
+}
+
+.session-diagnosis-timeline-model-switch text {
+  fill: #8c3434;
+  stroke: #ffffff;
+  stroke-width: 3px;
+  paint-order: stroke;
+  font-size: 8px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+.session-diagnosis-timeline-model-switch:focus {
+  outline: none;
+}
+
+.session-diagnosis-timeline-model-switch:focus line {
+  stroke: #111111;
+  stroke-width: 3;
+}
+
+.session-diagnosis-timeline-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #666666;
+  font-size: 9px;
+}
+
+.session-diagnosis-timeline-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.session-diagnosis-timeline-legend span::before {
+  width: 18px;
+  height: 0;
+  content: '';
+  border-top: 2px solid #257556;
+}
+
+.session-diagnosis-timeline-legend .output::before {
+  border-top-color: #316aa3;
+  border-top-style: dashed;
+}
+
+.session-diagnosis-timeline-legend .reasoning::before {
+  border-top-color: #77549a;
+  border-top-style: dotted;
+}
+
+.session-diagnosis-timeline-legend .cache::before {
+  border-top-color: #bf6b2f;
+  border-top-style: dashed;
+}
+
 .cost-detail-empty {
   padding: 28px;
   color: #777777;
@@ -2401,6 +2785,14 @@ code {
   .cost-detail-definition-grid {
     grid-template-columns: repeat(3, minmax(90px, 1fr));
   }
+
+  .session-diagnosis-detail-metrics {
+    grid-template-columns: repeat(3, minmax(110px, 1fr));
+  }
+
+  .session-diagnosis-detail-evidence-grid {
+    grid-template-columns: repeat(2, minmax(105px, 1fr));
+  }
 }
 
 @media (max-width: 760px) {
@@ -2517,6 +2909,29 @@ code {
 
   .session-diagnosis-severity {
     display: flex;
+  }
+
+  .session-diagnosis-detail-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .session-diagnosis-detail-other-list,
+  .session-diagnosis-detail-detectors > div {
+    grid-template-columns: 1fr;
+  }
+
+  .session-diagnosis-detail-finding-heading {
+    grid-template-columns: 18px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .session-diagnosis-detail-finding-heading > span {
+    grid-column: 2;
+    width: fit-content;
+  }
+
+  .session-diagnosis-detail-evidence-grid {
+    grid-template-columns: 1fr;
   }
 
   .cost-detail-definition-grid {
