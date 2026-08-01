@@ -15,6 +15,8 @@ describe('reduceAppNavigationState', () => {
     ).toEqual({
       activeView: 'sessions',
       selectedProjectPath: 'C:\\work\\repo',
+      activeCostOptimizationTab: 'overview',
+      diagnosisId: null,
     });
   });
 
@@ -22,11 +24,15 @@ describe('reduceAppNavigationState', () => {
     const state: AppNavigationState = {
       activeView: 'tools',
       selectedProjectPath: 'C:\\work\\repo',
+      activeCostOptimizationTab: 'overview',
+      diagnosisId: null,
     };
 
     expect(reduceAppNavigationState(state, { type: 'select-view', view: 'sessions' })).toEqual({
       activeView: 'sessions',
       selectedProjectPath: null,
+      activeCostOptimizationTab: 'overview',
+      diagnosisId: null,
     });
   });
 
@@ -34,11 +40,15 @@ describe('reduceAppNavigationState', () => {
     const state: AppNavigationState = {
       activeView: 'sessions',
       selectedProjectPath: 'C:\\work\\repo',
+      activeCostOptimizationTab: 'overview',
+      diagnosisId: null,
     };
 
     expect(reduceAppNavigationState(state, { type: 'select-view', view: 'performance' })).toEqual({
       activeView: 'performance',
       selectedProjectPath: 'C:\\work\\repo',
+      activeCostOptimizationTab: 'overview',
+      diagnosisId: null,
     });
   });
 
@@ -46,6 +56,8 @@ describe('reduceAppNavigationState', () => {
     const state: AppNavigationState = {
       activeView: 'overview',
       selectedProjectPath: null,
+      activeCostOptimizationTab: 'overview',
+      diagnosisId: null,
     };
 
     expect(
@@ -56,6 +68,8 @@ describe('reduceAppNavigationState', () => {
     ).toEqual({
       activeView: 'costOptimization',
       selectedProjectPath: null,
+      activeCostOptimizationTab: 'overview',
+      diagnosisId: null,
     });
   });
 
@@ -63,11 +77,44 @@ describe('reduceAppNavigationState', () => {
     const state: AppNavigationState = {
       activeView: 'sessions',
       selectedProjectPath: 'C:\\work\\repo',
+      activeCostOptimizationTab: 'overview',
+      diagnosisId: null,
     };
 
     expect(reduceAppNavigationState(state, { type: 'clear-project' })).toEqual({
       activeView: 'sessions',
       selectedProjectPath: null,
+      activeCostOptimizationTab: 'overview',
+      diagnosisId: null,
+    });
+  });
+
+  it('opens a diagnosis in the controlled cost optimization tab', () => {
+    expect(
+      reduceAppNavigationState(INITIAL_APP_NAVIGATION_STATE, {
+        type: 'open-diagnosis',
+        diagnosisId: 'source\u001fsession',
+      })
+    ).toEqual({
+      activeView: 'costOptimization',
+      selectedProjectPath: null,
+      activeCostOptimizationTab: 'diagnostics',
+      diagnosisId: 'source\u001fsession',
+    });
+  });
+
+  it('closes detail without leaving the diagnostics tab', () => {
+    const state: AppNavigationState = {
+      activeView: 'costOptimization',
+      selectedProjectPath: null,
+      activeCostOptimizationTab: 'diagnostics',
+      diagnosisId: 'source\u001fsession',
+    };
+
+    expect(reduceAppNavigationState(state, { type: 'close-diagnosis' })).toMatchObject({
+      activeView: 'costOptimization',
+      activeCostOptimizationTab: 'diagnostics',
+      diagnosisId: null,
     });
   });
 });

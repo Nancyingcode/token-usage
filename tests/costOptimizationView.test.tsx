@@ -11,6 +11,12 @@ describe('CostOptimizationView', () => {
         model={{ kind: 'ready', snapshot: SNAPSHOT }}
         projectOptions={['C:\\repo']}
         projectPath={null}
+        activeTab="overview"
+        onActiveTabChange={vi.fn()}
+        diagnosisId={null}
+        diagnosisDetailModel={{ kind: 'idle' }}
+        onDiagnosisOpen={vi.fn()}
+        onDiagnosisClose={vi.fn()}
         onProjectPathChange={vi.fn()}
         onUpdateSettings={vi.fn()}
       />
@@ -28,6 +34,12 @@ describe('CostOptimizationView', () => {
         model={{ kind: 'loading' }}
         projectOptions={[]}
         projectPath={null}
+        activeTab="overview"
+        onActiveTabChange={vi.fn()}
+        diagnosisId={null}
+        diagnosisDetailModel={{ kind: 'idle' }}
+        onDiagnosisOpen={vi.fn()}
+        onDiagnosisClose={vi.fn()}
         onProjectPathChange={vi.fn()}
         onUpdateSettings={vi.fn()}
       />
@@ -37,6 +49,12 @@ describe('CostOptimizationView', () => {
         model={{ kind: 'error', message: 'analysis unavailable' }}
         projectOptions={[]}
         projectPath={null}
+        activeTab="overview"
+        onActiveTabChange={vi.fn()}
+        diagnosisId={null}
+        diagnosisDetailModel={{ kind: 'idle' }}
+        onDiagnosisOpen={vi.fn()}
+        onDiagnosisClose={vi.fn()}
         onProjectPathChange={vi.fn()}
         onUpdateSettings={vi.fn()}
       />
@@ -46,12 +64,18 @@ describe('CostOptimizationView', () => {
     expect(errorMarkup).toContain('analysis unavailable');
   });
 
-  it('renders all five tabs with accessible selection state', () => {
+  it('renders all six tabs with accessible selection state', () => {
     const markup = renderWithI18n(
       <CostOptimizationView
         model={{ kind: 'ready', snapshot: SNAPSHOT }}
         projectOptions={['C:\\repo']}
         projectPath={null}
+        activeTab="overview"
+        onActiveTabChange={vi.fn()}
+        diagnosisId={null}
+        diagnosisDetailModel={{ kind: 'idle' }}
+        onDiagnosisOpen={vi.fn()}
+        onDiagnosisClose={vi.fn()}
         onProjectPathChange={vi.fn()}
         onUpdateSettings={vi.fn()}
       />
@@ -62,6 +86,29 @@ describe('CostOptimizationView', () => {
     expect(markup).toContain('Anomalies');
     expect(markup).toContain('Forecast');
     expect(markup).toContain('Savings');
+    expect(markup).toContain('Session diagnostics');
     expect(markup).toContain('aria-selected="true"');
+  });
+
+  it('renders the controlled diagnostics tab and workspace', () => {
+    const markup = renderWithI18n(
+      <CostOptimizationView
+        model={{ kind: 'ready', snapshot: SNAPSHOT }}
+        projectOptions={['C:\\repo']}
+        projectPath={undefined}
+        activeTab="diagnostics"
+        onActiveTabChange={vi.fn()}
+        diagnosisId={null}
+        diagnosisDetailModel={{ kind: 'idle' }}
+        onDiagnosisOpen={vi.fn()}
+        onDiagnosisClose={vi.fn()}
+        onProjectPathChange={vi.fn()}
+        onUpdateSettings={vi.fn()}
+      />
+    );
+
+    expect(markup).toContain('Session diagnostics');
+    expect(markup).toContain('aria-selected="true"');
+    expect(markup).toContain('Session scope');
   });
 });

@@ -3,6 +3,7 @@
  * @description Coordinates scan state, budget state, navigation, period selection, and view data.
  */
 import React, { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
+import type { CostOptimizationTab, SessionDiagnosisSummary } from '../shared/costOptimizationTypes';
 import { filterUsageSummary } from '../shared/usageMath';
 import type { UsagePeriod, UsageScanResult } from '../shared/usageTypes';
 import AppContent from './components/AppContent';
@@ -10,6 +11,7 @@ import Sidebar, { type ViewKey } from './components/Sidebar';
 import Toolbar from './components/Toolbar';
 import { useBudgetSnapshot } from './hooks/useBudgetSnapshot';
 import { useCostOptimizationSnapshot } from './hooks/useCostOptimizationSnapshot';
+import { useSessionDiagnosisDetail } from './hooks/useSessionDiagnosisDetail';
 import { resolveAppContentModel } from './utils/appContentModel';
 import {
   loadUsagePeriodPreference,
@@ -19,16 +21,23 @@ import {
 export interface AppNavigationState {
   activeView: ViewKey;
   selectedProjectPath: string | null;
+  activeCostOptimizationTab: CostOptimizationTab;
+  diagnosisId: string | null;
 }
 
 export type AppNavigationAction =
   | { type: 'select-view'; view: ViewKey }
   | { type: 'select-project'; projectPath: string }
-  | { type: 'clear-project' };
+  | { type: 'clear-project' }
+  | { type: 'select-cost-tab'; tab: CostOptimizationTab }
+  | { type: 'open-diagnosis'; diagnosisId: string }
+  | { type: 'close-diagnosis' };
 
 export const INITIAL_APP_NAVIGATION_STATE: AppNavigationState = {
   activeView: 'overview',
   selectedProjectPath: null,
+  activeCostOptimizationTab: 'overview',
+  diagnosisId: null,
 };
 
 export const reduceAppNavigationState = (
@@ -38,11 +47,13 @@ export const reduceAppNavigationState = (
   switch (action.type) {
     case 'select-view':
       return {
+        ...state,
         activeView: action.view,
         selectedProjectPath: action.view === 'sessions' ? null : state.selectedProjectPath,
       };
     case 'select-project':
       return {
+        ...state,
         activeView: 'sessions',
         selectedProjectPath: action.projectPath,
       };
@@ -50,6 +61,24 @@ export const reduceAppNavigationState = (
       return {
         ...state,
         selectedProjectPath: null,
+      };
+    case 'select-cost-tab':
+      return {
+        ...state,
+        activeCostOptimizationTab: action.tab,
+      };
+    case 'open-diagnosis':
+      return {
+        ...state,
+        activeView: 'costOptimization',
+        selectedProjectPath: null,
+        activeCostOptimizationTab: 'diagnostics',
+        diagnosisId: action.diagnosisId,
+      };
+    case 'close-diagnosis':
+      return {
+        ...state,
+        diagnosisId: null,
       };
   }
 };
@@ -59,7 +88,7 @@ const App: React.FC = () => {
     reduceAppNavigationState,
     INITIAL_APP_NAVIGATION_STATE
   );
-  const { activeView, selectedProjectPath } = navigation;
+  const { activeView, selectedProjectPath, activeCostOptimizationTab, diagnosisId } = navigation;
   const [period, setPeriod] = useState<UsagePeriod>(() =>
     loadUsagePeriodPreference(window.localStorage)
   );
@@ -69,6 +98,12 @@ const App: React.FC = () => {
   const [focusedPolicyId, setFocusedPolicyId] = useState<string | null>(null);
   const budgetState = useBudgetSnapshot();
   const costOptimizationState = useCostOptimizationSnapshot(period);
+  const setCostOptimizationProjectPath = costOptimizationState.setProjectPath;
+  const diagnosisDetailModel = useSessionDiagnosisDetail(
+    costOptimizationState.query,
+    diagnosisId,
+    costOptimizationState.snapshot ?? undefined
+  );
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -96,6 +131,21 @@ const App: React.FC = () => {
   }, []);
   const clearProjectFilter = useCallback((): void => {
     dispatchNavigation({ type: 'clear-project' });
+  }, []);
+  const handleCostOptimizationTabChange = useCallback((tab: CostOptimizationTab): void => {
+    dispatchNavigation({ type: 'select-cost-tab', tab });
+  }, []);
+  const handleDiagnosisOpen = useCallback(
+    (summary: SessionDiagnosisSummary): void => {
+      if (activeView === 'sessions') {
+        setCostOptimizationProjectPath(summary.projectPath || undefined);
+      }
+      dispatchNavigation({ type: 'open-diagnosis', diagnosisId: summary.diagnosisId });
+    },
+    [activeView, setCostOptimizationProjectPath]
+  );
+  const handleDiagnosisClose = useCallback((): void => {
+    dispatchNavigation({ type: 'close-diagnosis' });
   }, []);
 
   useEffect(() => {
@@ -147,6 +197,7 @@ const App: React.FC = () => {
       : costOptimizationState.snapshot
         ? { kind: 'ready' as const, snapshot: costOptimizationState.snapshot }
         : { kind: 'loading' as const };
+  const globalDiagnostics = costOptimizationState.globalSnapshot?.diagnostics ?? [];
   const contentModel = resolveAppContentModel({
     error,
     loading,
@@ -186,6 +237,13 @@ const App: React.FC = () => {
           costOptimizationModel={costOptimizationModel}
           costProjectOptions={costProjectOptions}
           costProjectPath={costOptimizationState.projectPath}
+          costOptimizationTab={activeCostOptimizationTab}
+          diagnosisId={diagnosisId}
+          diagnosisDetailModel={diagnosisDetailModel}
+          globalDiagnostics={globalDiagnostics}
+          onCostOptimizationTabChange={handleCostOptimizationTabChange}
+          onDiagnosisOpen={handleDiagnosisOpen}
+          onDiagnosisClose={handleDiagnosisClose}
           onCostProjectPathChange={costOptimizationState.setProjectPath}
           onCostSettingsUpdate={costOptimizationState.updateSettings}
         />

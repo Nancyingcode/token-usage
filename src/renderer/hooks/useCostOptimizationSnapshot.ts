@@ -12,11 +12,15 @@ import type { UsagePeriod } from '../../shared/usageTypes';
 import {
   createCostOptimizationSnapshotState,
   reduceCostOptimizationSnapshotState,
+  resolveGlobalDiagnosisQuery,
   shouldApplyCostOptimizationPush,
+  shouldRequestSeparateGlobalSnapshot,
 } from '../utils/costOptimizationSnapshotState';
 
 export interface UseCostOptimizationSnapshotResult {
   snapshot: CostOptimizationSnapshot | null;
+  globalSnapshot: CostOptimizationSnapshot | null;
+  query: CostOptimizationQuery;
   loading: boolean;
   error: string | null;
   projectPath: string | undefined;
@@ -46,7 +50,13 @@ export const useCostOptimizationSnapshot = (
     undefined,
     createCostOptimizationSnapshotState
   );
+  const [globalState, dispatchGlobal] = useReducer(
+    reduceCostOptimizationSnapshotState,
+    undefined,
+    createCostOptimizationSnapshotState
+  );
   const nextRequestId = useRef(0);
+  const nextGlobalRequestId = useRef(0);
   const query = useMemo<CostOptimizationQuery>(
     () => ({
       period,
@@ -54,6 +64,11 @@ export const useCostOptimizationSnapshot = (
     }),
     [period, projectPath]
   );
+  const globalQuery = useMemo<CostOptimizationQuery>(
+    () => resolveGlobalDiagnosisQuery({ period }),
+    [period]
+  );
+  const requestsSeparateGlobalSnapshot = shouldRequestSeparateGlobalSnapshot(query);
 
   const requestSnapshot = useCallback(async (): Promise<CostOptimizationSnapshot> => {
     nextRequestId.current += 1;
@@ -74,9 +89,36 @@ export const useCostOptimizationSnapshot = (
     }
   }, [query]);
 
+  const requestGlobalSnapshot = useCallback(async (): Promise<CostOptimizationSnapshot> => {
+    nextGlobalRequestId.current += 1;
+    const requestId = nextGlobalRequestId.current;
+    dispatchGlobal({ type: 'request-started', requestId });
+
+    try {
+      const snapshot = await window.codexUsage.costOptimization.getSnapshot(globalQuery);
+      dispatchGlobal({ type: 'request-succeeded', requestId, snapshot });
+      return snapshot;
+    } catch (error) {
+      dispatchGlobal({
+        type: 'request-failed',
+        requestId,
+        message: getErrorMessage(error),
+      });
+      throw error;
+    }
+  }, [globalQuery]);
+
   useEffect(() => {
     void requestSnapshot().catch(() => undefined);
   }, [requestSnapshot]);
+
+  useEffect(() => {
+    if (!requestsSeparateGlobalSnapshot) {
+      return;
+    }
+
+    void requestGlobalSnapshot().catch(() => undefined);
+  }, [requestGlobalSnapshot, requestsSeparateGlobalSnapshot]);
 
   useEffect(
     () =>
@@ -84,27 +126,59 @@ export const useCostOptimizationSnapshot = (
         if (shouldApplyCostOptimizationPush(query, snapshot.query)) {
           dispatch({ type: 'snapshot-pushed', snapshot });
         }
+        if (
+          requestsSeparateGlobalSnapshot &&
+          shouldApplyCostOptimizationPush(globalQuery, snapshot.query)
+        ) {
+          dispatchGlobal({ type: 'snapshot-pushed', snapshot });
+        }
       }),
-    [query]
+    [globalQuery, query, requestsSeparateGlobalSnapshot]
   );
 
   const updateSettings = useCallback(
     async (settings: CostOptimizationSettings): Promise<CostOptimizationSnapshot> => {
       const snapshot = await window.codexUsage.costOptimization.updateSettings(settings);
+      const refreshes: Promise<CostOptimizationSnapshot>[] = [];
 
       if (shouldApplyCostOptimizationPush(query, snapshot.query)) {
         dispatch({ type: 'snapshot-pushed', snapshot });
       } else {
-        await requestSnapshot();
+        refreshes.push(requestSnapshot());
       }
+
+      if (requestsSeparateGlobalSnapshot) {
+        if (shouldApplyCostOptimizationPush(globalQuery, snapshot.query)) {
+          dispatchGlobal({ type: 'snapshot-pushed', snapshot });
+        } else {
+          refreshes.push(requestGlobalSnapshot());
+        }
+      }
+
+      await Promise.all(refreshes);
 
       return snapshot;
     },
-    [query, requestSnapshot]
+    [globalQuery, query, requestGlobalSnapshot, requestSnapshot, requestsSeparateGlobalSnapshot]
   );
 
+  const matchingGlobalSnapshot = globalState.snapshot
+    ? shouldApplyCostOptimizationPush(globalQuery, globalState.snapshot.query)
+      ? globalState.snapshot
+      : null
+    : null;
+  const matchingCurrentSnapshot = state.snapshot
+    ? shouldApplyCostOptimizationPush(query, state.snapshot.query)
+      ? state.snapshot
+      : null
+    : null;
+
   return {
-    snapshot: state.snapshot,
+    snapshot: matchingCurrentSnapshot,
+    globalSnapshot: requestsSeparateGlobalSnapshot
+      ? matchingGlobalSnapshot
+      : matchingCurrentSnapshot,
+    query,
     loading: state.loading,
     error: state.error,
     projectPath,

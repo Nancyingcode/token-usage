@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   createCostOptimizationSnapshotState,
   reduceCostOptimizationSnapshotState,
+  resolveGlobalDiagnosisQuery,
   shouldApplyCostOptimizationPush,
+  shouldRequestSeparateGlobalSnapshot,
 } from '../src/renderer/utils/costOptimizationSnapshotState';
 import { SNAPSHOT } from './helpers/costOptimizationFixtures';
 
@@ -79,5 +81,24 @@ describe('cost optimization snapshot state', () => {
         { period: 'month', projectPath: 'C:\\other' }
       )
     ).toBe(false);
+  });
+
+  it('reuses a global snapshot when the active query has no project filter', () => {
+    expect(resolveGlobalDiagnosisQuery({ period: 'month' })).toEqual({
+      period: 'month',
+    });
+    expect(shouldRequestSeparateGlobalSnapshot({ period: 'month' })).toBe(false);
+    expect(
+      shouldRequestSeparateGlobalSnapshot({
+        period: 'month',
+        projectPath: '',
+      })
+    ).toBe(false);
+    expect(
+      shouldRequestSeparateGlobalSnapshot({
+        period: 'month',
+        projectPath: 'C:\\repo',
+      })
+    ).toBe(true);
   });
 });

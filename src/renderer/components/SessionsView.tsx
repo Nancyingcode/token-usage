@@ -3,8 +3,12 @@
  * @description Displays session token details and the transient project drilldown filter.
  */
 import React from 'react';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle, CircleAlert, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import type {
+  SessionDiagnosisCause,
+  SessionDiagnosisSummary,
+} from '../../shared/costOptimizationTypes';
 import { getProjectName } from '../../shared/usageMath';
 import type { UsageSession } from '../../shared/usageTypes';
 import { ICON_SIZE_SMALL } from '../constants/ui';
@@ -16,6 +20,8 @@ interface SessionsViewProps {
   sessions: UsageSession[];
   selectedProjectPath: string | null;
   onClearProjectFilter: () => void;
+  globalDiagnostics?: SessionDiagnosisSummary[];
+  onDiagnosisOpen?: (summary: SessionDiagnosisSummary) => void;
 }
 
 interface ProjectFilterChipProps {
@@ -28,6 +34,21 @@ interface ProjectFilterChipProps {
 const SHORT_ID_MAX_LENGTH = 12;
 const SHORT_ID_PREFIX_LENGTH = 8;
 const SHORT_ID_SUFFIX_LENGTH = 4;
+
+const CAUSE_KEYS: Record<
+  SessionDiagnosisCause,
+  | 'diagnostics.cause.inputGrowth'
+  | 'diagnostics.cause.cacheDegradation'
+  | 'diagnostics.cause.generationConcentration'
+  | 'diagnostics.cause.modelCostDominance'
+  | 'diagnostics.cause.interactionAccumulation'
+> = {
+  'input-growth': 'diagnostics.cause.inputGrowth',
+  'cache-degradation': 'diagnostics.cause.cacheDegradation',
+  'generation-concentration': 'diagnostics.cause.generationConcentration',
+  'model-cost-dominance': 'diagnostics.cause.modelCostDominance',
+  'interaction-accumulation': 'diagnostics.cause.interactionAccumulation',
+};
 
 export const ProjectFilterChip: React.FC<ProjectFilterChipProps> = ({
   projectPath,
@@ -51,13 +72,20 @@ const SessionsView: React.FC<SessionsViewProps> = ({
   sessions,
   selectedProjectPath,
   onClearProjectFilter,
+  globalDiagnostics = [],
+  onDiagnosisOpen = () => undefined,
 }) => {
   const { t, i18n } = useTranslation('analytics');
   const { t: tCommon } = useTranslation('common');
+  const { t: tCostOptimization } = useTranslation('costOptimization');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const filteredSessions = React.useMemo(
     () => selectProjectSessions(sessions, selectedProjectPath),
     [selectedProjectPath, sessions]
+  );
+  const diagnosisBySource = React.useMemo(
+    () => new Map(globalDiagnostics.map((summary) => [summary.sourceFile, summary])),
+    [globalDiagnostics]
   );
   const hasProjectFilter = selectedProjectPath !== null;
   const projectName = hasProjectFilter ? getProjectName(selectedProjectPath) : '';
@@ -103,27 +131,54 @@ const SessionsView: React.FC<SessionsViewProps> = ({
             </button>
           </div>
         ) : (
-          filteredSessions.map((session) => (
-            <div className="table-row" key={session.sourceFile}>
-              <span className="primary-cell" title={session.sessionId}>
-                {session.threadName || shortId(session.sessionId)}
-              </span>
-              <span title={session.projectPath}>{session.projectName}</span>
-              <span>
-                {formatShortDateTime(session.startedAt, locale, tCommon('value.unknownDate'))}
-              </span>
-              <span>{formatNumber(session.inputTokens, locale)}</span>
-              <span>{formatNumber(session.cachedInputTokens, locale)}</span>
-              <span>{formatNumber(session.outputTokens, locale)}</span>
-              <span>{formatNumber(session.totalTokens, locale)}</span>
-              <span className={session.warnings.length ? 'warning-cell' : 'ok-cell'}>
-                {session.warnings.length ? <AlertTriangle size={ICON_SIZE_SMALL} /> : null}
-                {session.warnings.length
-                  ? tCommon('item.warnings', { count: session.warnings.length })
-                  : tCommon('value.ok')}
-              </span>
-            </div>
-          ))
+          filteredSessions.map((session) => {
+            const diagnosis = diagnosisBySource.get(session.sourceFile);
+            const finding = diagnosis?.primaryFinding;
+            const diagnosisAction =
+              diagnosis && finding
+                ? {
+                    diagnosis,
+                    finding,
+                    cause: tCostOptimization(CAUSE_KEYS[finding.cause]),
+                    Icon: finding.severity === 'critical' ? CircleAlert : AlertTriangle,
+                  }
+                : undefined;
+
+            return (
+              <div className="table-row" key={session.sourceFile}>
+                <span className="primary-cell session-primary-cell" title={session.sessionId}>
+                  <span>{session.threadName || shortId(session.sessionId)}</span>
+                  {diagnosisAction ? (
+                    <button
+                      type="button"
+                      className={`session-diagnosis-badge ${diagnosisAction.finding.severity}`}
+                      aria-label={tCostOptimization('diagnostics.sessions.open', {
+                        cause: diagnosisAction.cause,
+                      })}
+                      onClick={() => onDiagnosisOpen(diagnosisAction.diagnosis)}
+                    >
+                      <diagnosisAction.Icon size={ICON_SIZE_SMALL} aria-hidden="true" />
+                      <span>{diagnosisAction.cause}</span>
+                    </button>
+                  ) : null}
+                </span>
+                <span title={session.projectPath}>{session.projectName}</span>
+                <span>
+                  {formatShortDateTime(session.startedAt, locale, tCommon('value.unknownDate'))}
+                </span>
+                <span>{formatNumber(session.inputTokens, locale)}</span>
+                <span>{formatNumber(session.cachedInputTokens, locale)}</span>
+                <span>{formatNumber(session.outputTokens, locale)}</span>
+                <span>{formatNumber(session.totalTokens, locale)}</span>
+                <span className={session.warnings.length ? 'warning-cell' : 'ok-cell'}>
+                  {session.warnings.length ? <AlertTriangle size={ICON_SIZE_SMALL} /> : null}
+                  {session.warnings.length
+                    ? tCommon('item.warnings', { count: session.warnings.length })
+                    : tCommon('value.ok')}
+                </span>
+              </div>
+            );
+          })
         )}
       </div>
     </section>

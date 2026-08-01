@@ -71,3 +71,10 @@ export const shouldApplyCostOptimizationPush = (
   pushedQuery: CostOptimizationQuery
 ): boolean =>
   activeQuery.period === pushedQuery.period && activeQuery.projectPath === pushedQuery.projectPath;
+
+export const resolveGlobalDiagnosisQuery = (
+  query: CostOptimizationQuery
+): CostOptimizationQuery => ({ period: query.period });
+
+export const shouldRequestSeparateGlobalSnapshot = (query: CostOptimizationQuery): boolean =>
+  Boolean(query.projectPath?.trim());

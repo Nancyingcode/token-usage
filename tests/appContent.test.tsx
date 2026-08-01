@@ -4,6 +4,7 @@ import AppContent from '../src/renderer/components/AppContent';
 import type { AppContentModel } from '../src/renderer/utils/appContentModel';
 import { buildUsageSummary } from '../src/shared/usageMath';
 import type { UsageScanResult, UsageSession } from '../src/shared/usageTypes';
+import { makeDiagnosisSummary } from './helpers/sessionDiagnosisFixtures';
 import { renderWithI18n } from './helpers/renderWithI18n';
 
 const SESSION: UsageSession = {
@@ -155,5 +156,25 @@ describe('AppContent', () => {
     );
 
     expect(markup).toContain('Project: repo');
+  });
+
+  it('renders a diagnosis entry for a matching session source', () => {
+    const markup = renderWithI18n(
+      <AppContent
+        activeView="sessions"
+        model={{ kind: 'ready', result: RESULT, summary: SUMMARY }}
+        onProjectSelect={vi.fn()}
+        selectedProjectPath={null}
+        onClearProjectFilter={vi.fn()}
+        globalDiagnostics={[
+          makeDiagnosisSummary('session-1', {
+            sourceFile: 'session-1.jsonl',
+          }),
+        ]}
+        onDiagnosisOpen={vi.fn()}
+      />
+    );
+
+    expect(markup).toContain('Open diagnosis: Input footprint growth');
   });
 });

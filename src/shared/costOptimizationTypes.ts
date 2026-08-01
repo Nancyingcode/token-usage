@@ -5,7 +5,8 @@ export const SHORT_FORECAST_HORIZON_DAYS = 7;
 export const LONG_FORECAST_HORIZON_DAYS = 30;
 
 export type CostOptimizationDataState = 'fresh' | 'stale';
-export type CostOptimizationTab = 'overview' | 'comparison' | 'anomalies' | 'forecast' | 'savings';
+export type CostOptimizationTab =
+  'overview' | 'comparison' | 'anomalies' | 'forecast' | 'savings' | 'diagnostics';
 export type CostAnomalyLevel = 'day' | 'project' | 'model' | 'session';
 export type CostAnomalySeverity = 'warning' | 'critical';
 export type CostAnomalyBaselineScope =

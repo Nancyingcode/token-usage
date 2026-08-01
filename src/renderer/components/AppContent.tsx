@@ -5,11 +5,14 @@ import { useTranslation } from 'react-i18next';
 import type {
   CostOptimizationSettings,
   CostOptimizationSnapshot,
+  CostOptimizationTab,
+  SessionDiagnosisSummary,
 } from '../../shared/costOptimizationTypes';
 import { ICON_SIZE_LARGE } from '../constants/ui';
 import type { BudgetSnapshot } from '../../shared/budgetTypes';
 import type { BudgetActions } from '../hooks/useBudgetSnapshot';
 import type { AppContentModel } from '../utils/appContentModel';
+import type { SessionDiagnosisDetailModel } from '../utils/sessionDiagnosisDetailState';
 import BudgetsView from './BudgetsView';
 import CostOptimizationView, { type CostOptimizationContentModel } from './CostOptimizationView';
 import EmptyState from './EmptyState';
@@ -34,6 +37,13 @@ interface AppContentProps {
   costOptimizationModel?: CostOptimizationContentModel;
   costProjectOptions?: string[];
   costProjectPath?: string | null;
+  costOptimizationTab?: CostOptimizationTab;
+  diagnosisId?: string | null;
+  diagnosisDetailModel?: SessionDiagnosisDetailModel;
+  globalDiagnostics?: SessionDiagnosisSummary[];
+  onCostOptimizationTabChange?: (tab: CostOptimizationTab) => void;
+  onDiagnosisOpen?: (summary: SessionDiagnosisSummary) => void;
+  onDiagnosisClose?: () => void;
   onCostProjectPathChange?: (projectPath: string | undefined) => void;
   onCostSettingsUpdate?: (settings: CostOptimizationSettings) => Promise<CostOptimizationSnapshot>;
 }
@@ -42,6 +52,11 @@ export type BudgetContentModel =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
   | { kind: 'ready'; snapshot: BudgetSnapshot };
+
+const IDLE_DIAGNOSIS_DETAIL_MODEL: SessionDiagnosisDetailModel = { kind: 'idle' };
+const EMPTY_DIAGNOSTICS: SessionDiagnosisSummary[] = [];
+const ignoreCostOptimizationTab = (): void => undefined;
+const ignoreDiagnosis = (): void => undefined;
 
 const renderBudgetContent = (
   model: BudgetContentModel | undefined,
@@ -102,6 +117,13 @@ const AppContent: React.FC<AppContentProps> = ({
   costOptimizationModel,
   costProjectOptions = [],
   costProjectPath,
+  costOptimizationTab = 'overview',
+  diagnosisId = null,
+  diagnosisDetailModel = IDLE_DIAGNOSIS_DETAIL_MODEL,
+  globalDiagnostics = EMPTY_DIAGNOSTICS,
+  onCostOptimizationTabChange = ignoreCostOptimizationTab,
+  onDiagnosisOpen = ignoreDiagnosis,
+  onDiagnosisClose = ignoreDiagnosis,
   onCostProjectPathChange,
   onCostSettingsUpdate,
 }) => {
@@ -123,6 +145,12 @@ const AppContent: React.FC<AppContentProps> = ({
         model={costOptimizationModel ?? { kind: 'loading' }}
         projectOptions={costProjectOptions}
         projectPath={costProjectPath}
+        activeTab={costOptimizationTab}
+        onActiveTabChange={onCostOptimizationTabChange}
+        diagnosisId={diagnosisId}
+        diagnosisDetailModel={diagnosisDetailModel}
+        onDiagnosisOpen={onDiagnosisOpen}
+        onDiagnosisClose={onDiagnosisClose}
         onProjectPathChange={onCostProjectPathChange ?? (() => undefined)}
         onUpdateSettings={onCostSettingsUpdate ?? (async () => undefined)}
       />
@@ -167,6 +195,8 @@ const AppContent: React.FC<AppContentProps> = ({
               sessions={model.summary.sessions}
               selectedProjectPath={selectedProjectPath}
               onClearProjectFilter={onClearProjectFilter}
+              globalDiagnostics={globalDiagnostics}
+              onDiagnosisOpen={onDiagnosisOpen}
             />
           ) : null}
           {activeView === 'tools' ? (
