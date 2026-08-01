@@ -155,11 +155,10 @@ export const detectCacheDegradation = ({
   const historicalGap = baseline ? baseline.median - currentPercentage : 0;
   const historicalFinding =
     Boolean(baseline) && (baseline?.score ?? 0) >= settings.anomalySensitivity;
-  const historicalPointFinding = Boolean(baseline) && historicalGap >= CACHE_DECLINE_POINTS;
   const targetFinding = targetGap >= CACHE_TARGET_GAP_POINTS;
   const declineFinding = withinSessionDecline >= CACHE_DECLINE_POINTS;
 
-  if (!historicalFinding && !historicalPointFinding && !targetFinding && !declineFinding) {
+  if (!historicalFinding && !targetFinding && !declineFinding) {
     return {
       state: 'not-found',
       cause: 'cache-degradation',
@@ -168,8 +167,9 @@ export const detectCacheDegradation = ({
   }
 
   const historicalIsCritical =
-    (baseline?.score ?? 0) >= settings.anomalySensitivity * 2 ||
-    historicalGap >= CACHE_CRITICAL_GAP_POINTS;
+    historicalFinding &&
+    ((baseline?.score ?? 0) >= settings.anomalySensitivity * 2 ||
+      historicalGap >= CACHE_CRITICAL_GAP_POINTS);
   const severity =
     historicalIsCritical ||
     targetGap >= CACHE_CRITICAL_GAP_POINTS ||
@@ -185,11 +185,11 @@ export const detectCacheDegradation = ({
     confidence: capCacheConfidence(candidateConfidence),
     normalizedScore: Math.max(
       normalizeDiagnosisScore(baseline?.score ?? 0, settings.anomalySensitivity * 2),
-      normalizeDiagnosisScore(historicalGap, PERCENTAGE_SCALE),
+      historicalFinding ? normalizeDiagnosisScore(historicalGap, PERCENTAGE_SCALE) : 0,
       normalizeDiagnosisScore(targetGap, PERCENTAGE_SCALE),
       normalizeDiagnosisScore(withinSessionDecline, PERCENTAGE_SCALE)
     ),
-    ...(historicalFinding || historicalPointFinding ? { baseline } : {}),
+    ...(historicalFinding ? { baseline } : {}),
     evidence: {
       kind: 'cache-reuse',
       currentPercentage,

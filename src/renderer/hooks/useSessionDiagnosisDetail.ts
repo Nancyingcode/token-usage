@@ -13,6 +13,7 @@ import {
   reduceSessionDiagnosisDetailState,
   type SessionDiagnosisDetailModel,
 } from '../utils/sessionDiagnosisDetailState';
+import { getErrorMessage } from '../utils/errorMessage';
 
 export const useSessionDiagnosisDetail = (
   query: CostOptimizationQuery,
@@ -51,7 +52,7 @@ export const useSessionDiagnosisDetail = (
           type: 'request-failed',
           requestId,
           diagnosisId,
-          message: error instanceof Error ? error.message : '',
+          message: getErrorMessage(error),
         });
       });
   }, [diagnosisId, query.period, query.projectPath, snapshot]);

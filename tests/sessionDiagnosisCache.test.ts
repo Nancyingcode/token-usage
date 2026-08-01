@@ -105,6 +105,40 @@ describe('cache degradation diagnosis', () => {
     const current = makeDiagnosisObservationWithSlices([
       makeSlice('2026-07-24T10:00:00.000Z', {
         inputTokens: 10_000,
+        cachedInputTokens: 0,
+      }),
+    ]);
+
+    expect(
+      detectCacheDegradation(
+        makeDetectorContext(current, history, {
+          targetCachePercentage: 0,
+        })
+      )
+    ).toMatchObject({ state: 'finding', confidence: 'medium' });
+  });
+
+  it('does not bypass robust sensitivity for a noisy historical cache gap', () => {
+    const historicalCachePercentages = [10, 20, 30, 50, 70, 80, 90];
+    const history = historicalCachePercentages.map((cachePercentage, index) =>
+      makeDiagnosisObservationWithSlices(
+        [
+          makeSlice(`2026-07-${index + 10}T10:00:00.000Z`, {
+            inputTokens: 10_000,
+            cachedInputTokens: cachePercentage * 100,
+          }),
+        ],
+        {
+          diagnosisId: `history-${index}`,
+          sessionId: `history-${index}`,
+          startedAt: `2026-07-${index + 10}T10:00:00.000Z`,
+          endedAt: `2026-07-${index + 10}T10:00:00.000Z`,
+        }
+      )
+    );
+    const current = makeDiagnosisObservationWithSlices([
+      makeSlice('2026-07-24T10:00:00.000Z', {
+        inputTokens: 10_000,
         cachedInputTokens: 2_000,
       }),
     ]);
@@ -115,6 +149,6 @@ describe('cache degradation diagnosis', () => {
           targetCachePercentage: 10,
         })
       )
-    ).toMatchObject({ state: 'finding', confidence: 'medium' });
+    ).toMatchObject({ state: 'not-found' });
   });
 });

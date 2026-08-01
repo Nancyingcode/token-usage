@@ -46,6 +46,22 @@ describe('cost optimization runtime', () => {
     ).toEqual({ kind: 'not-found', diagnosisId });
   });
 
+  it('returns not-found when a filtered project loses its only session', async () => {
+    const runtime = createCostOptimizationRuntime(makeRuntimeDependencies());
+    const query = { period: 'total', projectPath: 'C:\\repo' } as const;
+    await runtime.initialize();
+    await runtime.applyUsageCycle(makeCycleWithOneSource());
+    const diagnosisId = runtime.getSnapshot(query).diagnostics[0].diagnosisId;
+    await runtime.applyUsageCycle(makeEmptyRemovalCycle());
+
+    expect(
+      runtime.getSessionDiagnosis({
+        query,
+        diagnosisId,
+      })
+    ).toEqual({ kind: 'not-found', diagnosisId });
+  });
+
   it('revalues detail after pricing changes without rebuilding the index', async () => {
     const dependencies = makeRuntimeDependencies();
     const runtime = createCostOptimizationRuntime(dependencies);

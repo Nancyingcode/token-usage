@@ -319,7 +319,6 @@ export const createCostOptimizationRuntime = (
     query,
     diagnosisId: requestedDiagnosisId,
   }: SessionDiagnosisRequest): SessionDiagnosisDetailResult => {
-    throwForIssues(getCostOptimizationQueryIssues(query, getProjectPaths(index)));
     const diagnosisId = requestedDiagnosisId.trim();
 
     if (diagnosisId.length === 0) {

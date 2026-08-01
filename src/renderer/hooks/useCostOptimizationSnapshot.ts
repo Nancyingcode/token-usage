@@ -9,6 +9,7 @@ import type {
   CostOptimizationSnapshot,
 } from '../../shared/costOptimizationTypes';
 import type { UsagePeriod } from '../../shared/usageTypes';
+import { getErrorMessage } from '../utils/errorMessage';
 import {
   createCostOptimizationSnapshotState,
   reduceCostOptimizationSnapshotState,
@@ -27,19 +28,6 @@ export interface UseCostOptimizationSnapshotResult {
   setProjectPath: (projectPath: string | undefined) => void;
   updateSettings: (settings: CostOptimizationSettings) => Promise<CostOptimizationSnapshot>;
 }
-
-const getErrorMessage = (error: unknown): string => {
-  if (
-    typeof error === 'object' &&
-    error !== null &&
-    'message' in error &&
-    typeof error.message === 'string'
-  ) {
-    return error.message;
-  }
-
-  return error instanceof Error ? error.message : String(error);
-};
 
 export const useCostOptimizationSnapshot = (
   period: UsagePeriod

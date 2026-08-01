@@ -20,6 +20,7 @@ import {
   filterSessionDiagnosisSummaries,
   type SessionDiagnosisFilters,
 } from '../utils/sessionDiagnosisFilters';
+import { getSessionDiagnosisBaselineDeviationKey } from '../utils/sessionDiagnosisBaseline';
 
 interface SessionDiagnosisListProps {
   summaries: SessionDiagnosisSummary[];
@@ -227,7 +228,7 @@ const SessionDiagnosisList: React.FC<SessionDiagnosisListProps> = ({
                     {finding?.baseline ? (
                       <>
                         <strong>
-                          {t('diagnostics.baseline.deviation', {
+                          {t(getSessionDiagnosisBaselineDeviationKey(finding.cause), {
                             score: finding.baseline.score.toFixed(1),
                           })}
                         </strong>

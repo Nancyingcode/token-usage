@@ -1,14 +1,17 @@
+// @vitest-environment jsdom
 /**
  * @file 会话诊断时间线测试
  * @description 验证分轨语义、键盘可达性与边界数据几何稳定性。
  */
+import { render, screen, within } from '@testing-library/react';
+import { I18nextProvider } from 'react-i18next';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import SessionDiagnosisTimeline, {
   buildSessionDiagnosisTimelineGeometry,
 } from '../src/renderer/components/SessionDiagnosisTimeline';
 import { makeDiagnosisTimelinePoints } from './helpers/sessionDiagnosisFixtures';
-import { renderWithI18n } from './helpers/renderWithI18n';
+import { createTestI18n, renderWithI18n } from './helpers/renderWithI18n';
 
 describe('session diagnosis timeline', () => {
   it('renders separate token and cache lanes on one time axis', () => {
@@ -32,6 +35,25 @@ describe('session diagnosis timeline', () => {
     expect(markup).toContain('data-lane="cache-rate"');
     expect(markup).toContain('tabindex="0"');
     expect(markup).toContain('1 invalid time point omitted');
+  });
+
+  it('exposes the interactive timeline and its focusable points in the accessible role tree', () => {
+    render(
+      <I18nextProvider i18n={createTestI18n('en')}>
+        <SessionDiagnosisTimeline points={makeDiagnosisTimelinePoints()} invalidPointCount={0} />
+      </I18nextProvider>
+    );
+
+    const timeline = screen.getByRole('group', { name: 'Token usage timeline' });
+    const inputPoint = within(timeline).getByRole('img', {
+      name: /^Input tokens, 4,000,/,
+    });
+    const modelSwitch = within(timeline).getByRole('img', {
+      name: 'Model switched from gpt-source to gpt-target',
+    });
+
+    expect(inputPoint.tabIndex).toBe(0);
+    expect(modelSwitch.tabIndex).toBe(0);
   });
 
   it.each([

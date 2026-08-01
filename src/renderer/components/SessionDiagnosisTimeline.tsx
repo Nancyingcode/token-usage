@@ -145,6 +145,7 @@ const renderTokenSeries = (
         >
           <circle
             tabIndex={0}
+            role="img"
             aria-label={label}
             cx={geometryPoint.x}
             cy={getSeriesY(series, geometryPoint)}
@@ -192,7 +193,7 @@ const SessionDiagnosisTimeline: React.FC<SessionDiagnosisTimelineProps> = ({
       <div className="session-diagnosis-timeline-chart">
         <svg
           viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-          role="img"
+          role="group"
           aria-label={t('diagnostics.timeline.ariaLabel')}
         >
           <g transform={`translate(${CHART_PADDING_X} ${CHART_PADDING_Y})`}>
@@ -241,6 +242,7 @@ const SessionDiagnosisTimeline: React.FC<SessionDiagnosisTimelineProps> = ({
                   >
                     <circle
                       tabIndex={0}
+                      role="img"
                       aria-label={label}
                       cx={geometryPoint.x}
                       cy={geometryPoint.cacheY}
@@ -275,6 +277,7 @@ const SessionDiagnosisTimeline: React.FC<SessionDiagnosisTimelineProps> = ({
                   className="session-diagnosis-timeline-model-switch"
                   key={`model-switch:${geometryPoint.point.contributionId}`}
                   tabIndex={0}
+                  role="img"
                   aria-label={label}
                 >
                   <line x1={geometryPoint.x} y1="0" x2={geometryPoint.x} y2={CHART_INNER_HEIGHT} />

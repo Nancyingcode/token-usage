@@ -11,6 +11,7 @@ import type {
 import SessionDiagnosisDetailView from '../src/renderer/components/SessionDiagnosisDetail';
 import {
   makeDiagnosisDetail,
+  makeFindingSummary,
   makePartiallyPricedDiagnosisSummary,
 } from './helpers/sessionDiagnosisFixtures';
 import { renderWithI18n } from './helpers/renderWithI18n';
@@ -93,6 +94,53 @@ describe('session diagnosis detail', () => {
     expect(markup).toContain('7');
     expect(markup).toContain('1');
     expect(markup).toContain('数据不足');
+  });
+
+  it.each([
+    { locale: 'en' as const, expected: '3.0 robust deviations below baseline' },
+    { locale: 'zh-CN' as const, expected: '低于基线 3.0 个稳健偏差' },
+  ])('renders cache baseline direction correctly in $locale', ({ locale, expected }) => {
+    const detail = makeDiagnosisDetail();
+    const baseline = {
+      scope: 'project-model' as const,
+      sampleCount: 7,
+      median: 80,
+      mad: 10,
+      score: 3,
+    };
+    const cacheFinding: SessionDetectorResult = {
+      state: 'finding',
+      cause: 'cache-degradation',
+      severity: 'warning',
+      confidence: 'medium',
+      normalizedScore: 0.5,
+      baseline,
+      evidence: {
+        kind: 'cache-reuse',
+        currentPercentage: 20,
+        firstHalfPercentage: 20,
+        secondHalfPercentage: 20,
+        targetPercentage: 80,
+      },
+    };
+    const markup = renderWithI18n(
+      <SessionDiagnosisDetailView
+        detail={{
+          ...detail,
+          summary: {
+            ...detail.summary,
+            primaryFinding: makeFindingSummary('cache-degradation', 'warning', 'medium', baseline),
+          },
+          detectors: detail.detectors.map((result) =>
+            result.cause === 'cache-degradation' ? cacheFinding : result
+          ),
+        }}
+        onBack={vi.fn()}
+      />,
+      locale
+    );
+
+    expect(markup).toContain(expected);
   });
 
   it('shows the model-cost disclaimer only when a model-cost finding exists', () => {

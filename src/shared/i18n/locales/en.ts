@@ -507,7 +507,8 @@ export const en = {
       },
       baseline: {
         unavailable: 'Historical baseline unavailable',
-        deviation: '{{score}} robust deviations above baseline',
+        deviationAbove: '{{score}} robust deviations above baseline',
+        deviationBelow: '{{score}} robust deviations below baseline',
         scopeSamples: '{{scope}} · {{count}} samples',
         scope: {
           session: 'Session history',

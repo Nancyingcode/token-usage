@@ -297,10 +297,7 @@ export const detectModelCostDominance = ({
     };
   }
 
-  const unitCostRatio = Math.max(
-    dominantSignal?.unitCostRatio ?? 0,
-    switchSignal?.unitCostRatio ?? 0
-  );
+  const unitCostRatio = selectedSignal.unitCostRatio;
 
   return {
     state: 'finding',

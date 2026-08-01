@@ -18,6 +18,7 @@ import type {
 import { ICON_SIZE_SMALL } from '../constants/ui';
 import { resolveRendererLocale } from '../i18n';
 import { formatNumber, formatPercent, formatShortDateTime, formatUsd } from '../utils/formatters';
+import { getSessionDiagnosisBaselineDeviationKey } from '../utils/sessionDiagnosisBaseline';
 import SessionDiagnosisTimeline from './SessionDiagnosisTimeline';
 
 interface SessionDiagnosisDetailProps {
@@ -360,7 +361,7 @@ const SessionDiagnosisDetailView: React.FC<SessionDiagnosisDetailProps> = ({ det
             <dd>
               {primaryFinding?.baseline ? (
                 <>
-                  {t('diagnostics.baseline.deviation', {
+                  {t(getSessionDiagnosisBaselineDeviationKey(primaryFinding.cause), {
                     score: primaryFinding.baseline.score.toFixed(1),
                   })}
                   <small>

@@ -501,7 +501,8 @@ export const zhCN = {
       },
       baseline: {
         unavailable: '历史基线不可用',
-        deviation: '高于基线 {{score}} 个稳健偏差',
+        deviationAbove: '高于基线 {{score}} 个稳健偏差',
+        deviationBelow: '低于基线 {{score}} 个稳健偏差',
         scopeSamples: '{{scope}} · {{count}} 个样本',
         scope: {
           session: '会话历史',

@@ -108,6 +108,74 @@ describe('model cost diagnosis', () => {
     });
   });
 
+  it('keeps switch evidence and severity together when dominant is the stronger signal', () => {
+    const pricing = [
+      {
+        modelId: 'gpt-cheap-a',
+        aliases: [],
+        inputUsdPerMillion: 1,
+        cachedInputUsdPerMillion: 0.25,
+        outputUsdPerMillion: 5,
+        effectiveAt: '2026-07-01',
+        sourceKind: 'built-in',
+      },
+      {
+        modelId: 'gpt-cheap-b',
+        aliases: [],
+        inputUsdPerMillion: 1,
+        cachedInputUsdPerMillion: 0.25,
+        outputUsdPerMillion: 5,
+        effectiveAt: '2026-07-01',
+        sourceKind: 'built-in',
+      },
+      {
+        modelId: 'gpt-previous',
+        aliases: [],
+        inputUsdPerMillion: 4,
+        cachedInputUsdPerMillion: 1,
+        outputUsdPerMillion: 20,
+        effectiveAt: '2026-07-01',
+        sourceKind: 'built-in',
+      },
+      {
+        modelId: 'gpt-switched',
+        aliases: [],
+        inputUsdPerMillion: 8,
+        cachedInputUsdPerMillion: 2,
+        outputUsdPerMillion: 40,
+        effectiveAt: '2026-07-01',
+        sourceKind: 'built-in',
+      },
+    ] satisfies ModelPricingEntry[];
+    const current = makeDiagnosisObservationWithSlices([
+      makeSlice('2026-07-24T10:00:00.000Z', {
+        modelId: 'gpt-previous',
+        inputTokens: 100_000,
+        outputTokens: 10_000,
+      }),
+      makeSlice('2026-07-24T10:10:00.000Z', {
+        modelId: 'gpt-switched',
+        inputTokens: 100_000,
+        outputTokens: 10_000,
+      }),
+    ]);
+
+    const result = detectModelCostDominance(makeDetectorContext(current, [], undefined, pricing));
+
+    expect(result).toMatchObject({
+      state: 'finding',
+      severity: 'warning',
+      normalizedScore: 2 / 3,
+      evidence: {
+        kind: 'model-cost',
+        modelId: 'gpt-switched',
+        unitCostRatio: 2,
+        switchedFromModelId: 'gpt-previous',
+        switchedToModelId: 'gpt-switched',
+      },
+    });
+  });
+
   it('does not mutate pricing while comparing effective unit costs', () => {
     const pricing = structuredClone(DIAGNOSIS_PRICING);
     const current = makeDiagnosisObservationWithSlices([
