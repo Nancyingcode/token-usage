@@ -17,8 +17,15 @@ const getCssRuleBody = (stylesheet: string, selector: string): string => {
 
 describe('project row styles', () => {
   it('preserves the table row typography for interactive project buttons', async () => {
-    const stylesheetPath = resolve(process.cwd(), 'src/renderer/styles.css');
-    const stylesheet = await readFile(stylesheetPath, 'utf8');
+    const stylePaths = [
+      'src/renderer/styles/legacy.css',
+      'src/renderer/styles/shell.css',
+      'src/renderer/styles/components.css',
+      'src/renderer/styles/views.css',
+    ];
+    const stylesheet = (
+      await Promise.all(stylePaths.map((path) => readFile(resolve(process.cwd(), path), 'utf8')))
+    ).join('\n');
     const tableRowRule = getCssRuleBody(stylesheet, '.table-row');
     const projectRowRule = getCssRuleBody(stylesheet, '.project-table-row');
 

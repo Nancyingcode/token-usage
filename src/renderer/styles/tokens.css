@@ -1,0 +1,34 @@
+:root {
+  --color-brand-950: #102b27;
+  --color-brand-700: #24765b;
+  --color-brand-500: #37b786;
+  --color-brand-300: #6ce0b5;
+  --color-canvas: #f3f7f6;
+  --color-surface: #ffffff;
+  --color-text: #17251f;
+  --color-text-muted: #71817b;
+  --color-border: #dbe6e3;
+  --color-success-text: #24765b;
+  --color-warning-text: #76540f;
+  --color-danger-text: #8e3030;
+  --font-size-label: 0.625rem;
+  --font-size-body-small: 0.75rem;
+  --font-size-body: 0.8125rem;
+  --font-size-title: 1.375rem;
+  --font-size-metric: 1.75rem;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --radius-control: 0.5rem;
+  --radius-card: 0.75rem;
+  --radius-overlay: 1rem;
+  --control-height-compact: 2rem;
+  --control-height-default: 2.25rem;
+  --shadow-overlay: 0 1.25rem 3.5rem rgba(16, 43, 39, 0.16);
+  --duration-fast: 140ms;
+  --duration-standard: 180ms;
+  --duration-overlay: 220ms;
+}
