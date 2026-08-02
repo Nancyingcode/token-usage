@@ -15,13 +15,17 @@ export const en = {
     },
     navigation: {
       label: 'Primary navigation',
+      group: {
+        insights: 'Insights',
+        control: 'Control',
+      },
       overview: 'Overview',
-      budgets: 'Budgets',
-      costOptimization: 'Cost Optimization',
       sessions: 'Sessions',
-      tools: 'Tools',
+      tools: 'Projects',
       performance: 'Performance',
-      wrapped: 'Wrapped',
+      costOptimization: 'Cost Optimization',
+      budgets: 'Budgets',
+      wrapped: 'Settings',
     },
     toolbar: {
       dateRange: 'Date range',

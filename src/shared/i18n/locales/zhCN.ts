@@ -12,13 +12,17 @@ export const zhCN = {
       daemon: '守护进程',
     },
     navigation: {
-      costOptimization: '成本优化',
       label: '主导航',
+      group: {
+        insights: '洞察',
+        control: '控制',
+      },
       overview: '概览',
-      budgets: '预算',
       sessions: '会话',
-      tools: '工具',
+      tools: '项目',
       performance: '性能',
+      costOptimization: '成本优化',
+      budgets: '预算',
       wrapped: '设置',
     },
     toolbar: {

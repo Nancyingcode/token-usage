@@ -48,64 +48,6 @@ code {
   border-radius: 6px;
 }
 
-.app-frame {
-  min-height: 100vh;
-  display: grid;
-  grid-template-columns: 164px minmax(0, 1fr);
-  background: #ffffff;
-}
-
-.sidebar {
-  min-height: 100%;
-  padding: 46px 12px 12px;
-  background: #fbfbfb;
-  border-right: 1px solid #e8e8e8;
-}
-
-.nav-list {
-  display: grid;
-  gap: 4px;
-}
-
-.nav-item {
-  position: relative;
-  height: 28px;
-  padding: 0 9px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #3d3d3d;
-  background: transparent;
-  border: 0;
-  border-radius: 5px;
-  font-size: 12px;
-  text-align: left;
-}
-
-.nav-item svg {
-  color: #383838;
-}
-
-.nav-item.active {
-  background: #eeeeee;
-  color: #111111;
-  font-weight: 600;
-}
-
-.nav-badge {
-  margin-left: auto;
-  min-width: 16px;
-  height: 16px;
-  display: grid;
-  place-items: center;
-  color: #666666;
-  background: #ffffff;
-  border: 1px solid #e2e2e2;
-  border-radius: 999px;
-  font-size: 10px;
-  font-style: normal;
-}
-
 .main-panel {
   min-width: 0;
   padding: 22px 22px 18px;
@@ -2871,19 +2813,6 @@ code {
 }
 
 @media (max-width: 1050px) {
-  .app-frame {
-    grid-template-columns: 70px minmax(0, 1fr);
-  }
-
-  .nav-item {
-    justify-content: center;
-  }
-
-  .nav-item span,
-  .nav-badge {
-    display: none;
-  }
-
   .metric-grid,
   .performance-grid,
   .settings-grid,
@@ -2906,22 +2835,6 @@ code {
 }
 
 @media (max-width: 760px) {
-  .app-frame {
-    grid-template-columns: 1fr;
-  }
-
-  .sidebar {
-    min-height: auto;
-    padding: 38px 10px 8px;
-    border-right: 0;
-    border-bottom: 1px solid #e8e8e8;
-  }
-
-  .nav-list {
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(48px, 1fr);
-  }
-
   .main-panel {
     padding: 14px;
   }
