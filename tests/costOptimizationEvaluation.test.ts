@@ -52,6 +52,37 @@ describe('cost optimization evaluation', () => {
     expect(snapshot.forecast.coverage.percentage).toBeLessThan(80);
   });
 
+  it('clones nested budget model targets before exposing them to consumers', () => {
+    const budget: BudgetPolicyStatus = {
+      policy: {
+        id: 'model-budget',
+        scope: 'global',
+        period: 'month',
+        modelTarget: { kind: 'model', modelId: 'gpt-source' },
+        costLimitUsd: 10,
+        createdAt: FIXED_NOW.toISOString(),
+        updatedAt: FIXED_NOW.toISOString(),
+      },
+      periodStart: '2026-07-01T00:00:00.000Z',
+      periodEnd: FIXED_NOW.toISOString(),
+      unpricedTokens: 0,
+      unpricedModelIds: [],
+    };
+
+    const snapshot = evaluateCostOptimization({
+      ...makeEvaluationInput(),
+      budgets: [budget],
+    });
+    const clonedTarget = snapshot.budgets[0].policy.modelTarget;
+
+    if (clonedTarget.kind !== 'model') {
+      throw new TypeError('Expected a concrete model target.');
+    }
+    clonedTarget.modelId = 'changed';
+
+    expect(budget.policy.modelTarget).toEqual({ kind: 'model', modelId: 'gpt-source' });
+  });
+
   it('includes global budget crossings in a project-scoped forecast', () => {
     const globalBudget: BudgetPolicyStatus = {
       policy: {

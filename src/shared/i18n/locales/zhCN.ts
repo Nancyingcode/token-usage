@@ -261,6 +261,7 @@ export const zhCN = {
       emptyTitle: '没有符合筛选条件的预算',
       emptyDescription: '请更改范围或周期筛选条件以查看已配置策略。',
       scope: '范围',
+      model: '模型',
       period: '周期',
       tokens: 'Token',
       estimatedCost: '估算费用',

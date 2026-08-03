@@ -24,6 +24,10 @@ describe('BudgetsView', () => {
     expect(markup).toContain('summary-card');
     expect(markup).toContain('budget-status-label');
     expect(markup).toContain('On track');
+    expect(markup).toContain('>Model<');
+    expect(markup).toContain('All models');
+    expect(markup).toContain('Unknown model');
+    expect(markup).toContain('future-model');
   });
 
   it('renders budget alerts and rows in Chinese', () => {
@@ -34,6 +38,9 @@ describe('BudgetsView', () => {
     expect(markup).toContain('计价不完整');
     expect(markup).toContain('全局预算');
     expect(markup).toContain('项目预算');
+    expect(markup).toContain('模型');
+    expect(markup).toContain('所有模型');
+    expect(markup).toContain('未知模型');
   });
 });
 
@@ -64,7 +71,7 @@ const SNAPSHOT: BudgetSnapshot = {
         id: 'global-day',
         scope: 'global',
         period: 'day',
-        modelTarget: { kind: 'all' },
+        modelTarget: { kind: 'unknown' },
         tokenLimit: 100,
         createdAt: '2026-07-20T00:00:00.000Z',
         updatedAt: '2026-07-20T00:00:00.000Z',
@@ -81,7 +88,7 @@ const SNAPSHOT: BudgetSnapshot = {
         scope: 'project',
         projectPath: 'C:\\repo',
         period: 'week',
-        modelTarget: { kind: 'all' },
+        modelTarget: { kind: 'model', modelId: 'future-model' },
         costLimitUsd: 10,
         createdAt: '2026-07-20T00:00:00.000Z',
         updatedAt: '2026-07-20T00:00:00.000Z',

@@ -3315,13 +3315,13 @@ code {
 }
 
 .budget-table-row {
-  min-width: 53.125rem;
+  min-width: 62.5rem;
   min-height: 4.125rem;
   padding: 0.625rem var(--space-3);
   display: grid;
   grid-template-columns:
-    minmax(9.375rem, 1.1fr) 4.625rem minmax(9.375rem, 1fr) minmax(10.625rem, 1.1fr)
-    5.75rem 4.5rem;
+    minmax(9.375rem, 1.1fr) minmax(8.75rem, 1fr) 4.625rem minmax(9.375rem, 1fr)
+    minmax(10.625rem, 1.1fr) 5.75rem 4.5rem;
   align-items: center;
   gap: var(--space-3);
   color: var(--color-text-muted);
@@ -3354,6 +3354,12 @@ code {
 }
 
 .budget-scope-cell strong {
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.budget-model-cell {
+  min-width: 0;
   color: var(--color-text);
   overflow-wrap: anywhere;
 }

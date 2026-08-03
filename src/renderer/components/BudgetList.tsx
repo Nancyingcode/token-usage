@@ -123,6 +123,16 @@ const BudgetRow: React.FC<{
   const severity = getStatusSeverity(status);
   const scopeLabel =
     status.policy.scope === 'global' ? t('scope.allProjects') : status.policy.projectPath;
+  const modelTarget = status.policy.modelTarget;
+  let modelLabel: string;
+
+  if (modelTarget.kind === 'all') {
+    modelLabel = t('drawer.allModels');
+  } else if (modelTarget.kind === 'unknown') {
+    modelLabel = t('drawer.unknownModel');
+  } else {
+    modelLabel = modelTarget.modelId;
+  }
   const editAction = onEdit ? (
     <button
       type="button"
@@ -152,6 +162,7 @@ const BudgetRow: React.FC<{
         <strong>{scopeLabel}</strong>
         <span>{t(`scope.${status.policy.scope}`)}</span>
       </div>
+      <span className="budget-model-cell">{modelLabel}</span>
       <span className="budget-period-cell">{t(`period.${status.policy.period}`)}</span>
       <TokenCell progress={status.token} />
       <CostCell model={costModel} />
@@ -189,6 +200,7 @@ const BudgetList: React.FC<BudgetListProps> = ({ groups, onEdit, onDelete }) => 
           <div className="budget-table">
             <div className="budget-table-row budget-table-head">
               <span>{t('list.scope')}</span>
+              <span>{t('list.model')}</span>
               <span>{t('list.period')}</span>
               <span>{t('list.tokens')}</span>
               <span>{t('list.estimatedCost')}</span>

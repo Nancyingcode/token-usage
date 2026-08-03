@@ -109,7 +109,7 @@ const clonePricing = (pricing: ModelPricingEntry[]): ModelPricingEntry[] =>
 const cloneBudgets = (budgets: BudgetPolicyStatus[]): BudgetPolicyStatus[] =>
   budgets.map((status) => ({
     ...status,
-    policy: { ...status.policy },
+    policy: { ...status.policy, modelTarget: { ...status.policy.modelTarget } },
     token: status.token ? { ...status.token } : undefined,
     cost: status.cost ? { ...status.cost } : undefined,
     unpricedModelIds: [...status.unpricedModelIds],

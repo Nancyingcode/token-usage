@@ -264,6 +264,7 @@ export const en = {
       emptyTitle: 'No budgets match these filters',
       emptyDescription: 'Change the scope or period filter to see configured policies.',
       scope: 'Scope',
+      model: 'Model',
       period: 'Period',
       tokens: 'Tokens',
       estimatedCost: 'Estimated cost',

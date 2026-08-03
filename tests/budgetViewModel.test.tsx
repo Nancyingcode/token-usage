@@ -15,6 +15,10 @@ describe('budget view model', () => {
 
     expect(model.groups).toHaveLength(1);
     expect(model.groups[0].statuses.map(({ policy }) => policy.id)).toEqual(['project-week']);
+    expect(model.groups[0].statuses[0].policy.modelTarget).toEqual({
+      kind: 'model',
+      modelId: 'future-model',
+    });
   });
 });
 
@@ -45,7 +49,7 @@ const SNAPSHOT: BudgetSnapshot = {
         scope: 'project',
         projectPath: 'C:\\repo',
         period: 'week',
-        modelTarget: { kind: 'all' },
+        modelTarget: { kind: 'model', modelId: 'future-model' },
         costLimitUsd: 10,
         createdAt: '2026-07-20T00:00:00.000Z',
         updatedAt: '2026-07-20T00:00:00.000Z',
