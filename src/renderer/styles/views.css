@@ -1,1 +1,337 @@
 /* View-specific layout and data-visualization rules. */
+
+.overview-grid {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.chart-panel {
+  min-height: 18.875rem;
+}
+
+.trend-chart {
+  height: 13.5rem;
+}
+
+.trend-chart-plot {
+  position: relative;
+  height: 11.875rem;
+}
+
+.trend-chart svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+
+.trend-chart line {
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+
+.trend-area {
+  fill: rgba(55, 183, 134, 0.14);
+}
+
+.trend-line {
+  fill: none;
+  stroke: var(--color-brand-500);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+
+.trend-chart .trend-guide {
+  stroke: var(--color-text-muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.trend-point {
+  fill: var(--color-brand-500);
+  transition:
+    r var(--duration-fast) ease,
+    filter var(--duration-fast) ease;
+}
+
+.trend-point.active {
+  filter: drop-shadow(0 0 0.25rem rgba(55, 183, 134, 0.65));
+}
+
+.trend-hit-target {
+  fill: transparent;
+  stroke: transparent;
+  cursor: crosshair;
+}
+
+.trend-hit-target:focus {
+  outline: none;
+}
+
+.trend-hit-target:focus-visible {
+  stroke: var(--color-brand-700);
+  stroke-width: 2;
+}
+
+.trend-tooltip {
+  --tooltip-shift: -50%;
+  position: absolute;
+  z-index: 2;
+  left: var(--tooltip-x);
+  top: clamp(0.5rem, calc(var(--tooltip-y) - 7.375rem), 3.625rem);
+  width: 10.875rem;
+  padding: 0.625rem var(--space-3);
+  color: var(--color-text);
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-overlay);
+  transform: translateX(var(--tooltip-shift));
+  pointer-events: none;
+}
+
+.trend-tooltip.left {
+  --tooltip-shift: -8%;
+}
+
+.trend-tooltip.right {
+  --tooltip-shift: -92%;
+}
+
+.trend-tooltip strong,
+.trend-tooltip-cost,
+.trend-tooltip dl div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.trend-tooltip strong,
+.trend-tooltip-cost {
+  font-size: var(--font-size-label);
+}
+
+.trend-tooltip-cost {
+  margin: 0.375rem 0;
+  padding-bottom: 0.375rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.pricing-incomplete-label {
+  margin: var(--space-1) 0;
+  color: var(--color-warning-text);
+  font-size: var(--font-size-label);
+  font-weight: 700;
+}
+
+.trend-tooltip dl {
+  margin: 0;
+  display: grid;
+  gap: 0.1875rem;
+}
+
+.trend-tooltip dt,
+.trend-tooltip dd {
+  margin: 0;
+  font-size: var(--font-size-label);
+}
+
+.trend-tooltip dd {
+  font-weight: 700;
+}
+
+.trend-tooltip dl div::before {
+  width: 0.375rem;
+  height: 0.375rem;
+  margin-right: 0.375rem;
+  background: var(--color-text-muted);
+  border-radius: 50%;
+  content: '';
+}
+
+.trend-tooltip dl div dt {
+  margin-right: auto;
+}
+
+.trend-tooltip dl .input::before {
+  background: var(--color-brand-700);
+}
+
+.trend-tooltip dl .output::before {
+  background: var(--color-brand-500);
+}
+
+.trend-tooltip dl .cached::before {
+  background: var(--color-brand-300);
+}
+
+.x-axis {
+  padding: 0 var(--space-6);
+  display: flex;
+  justify-content: space-between;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-label);
+}
+
+.chart-legend {
+  display: flex;
+  justify-content: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-label);
+}
+
+.chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.chart-legend i {
+  width: 0.5rem;
+  height: 0.5rem;
+  background: var(--color-brand-500);
+  border-radius: 50%;
+}
+
+.activity-panel {
+  min-height: 10.5rem;
+}
+
+.activity-wrap {
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.activity-labels {
+  display: grid;
+  gap: 0.5625rem;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-label);
+  text-align: right;
+}
+
+.activity-grid {
+  display: grid;
+  grid-template-columns: repeat(28, 0.625rem);
+  grid-auto-rows: 0.625rem;
+  gap: var(--space-1);
+  align-content: start;
+}
+
+.activity-cell {
+  width: 0.625rem;
+  height: 0.625rem;
+  background: #e7efec;
+  border-radius: 0.125rem;
+}
+
+.activity-cell:focus-visible {
+  outline: 2px solid var(--color-brand-700);
+  outline-offset: 2px;
+}
+
+.activity-cell.outside-period {
+  background-color: #f1f4f3;
+  background-image: linear-gradient(
+    135deg,
+    transparent 42%,
+    var(--color-border) 42%,
+    var(--color-border) 58%,
+    transparent 58%
+  );
+}
+
+.activity-cell.level-1 {
+  background: #cceadd;
+}
+
+.activity-cell.level-2 {
+  background: #8bd4b6;
+}
+
+.activity-cell.level-3 {
+  background: var(--color-brand-500);
+}
+
+.activity-cell.level-4 {
+  background: var(--color-brand-700);
+}
+
+[data-motion='overview-story'] .metric-card {
+  animation: overview-card-in 420ms ease both;
+}
+
+[data-motion='overview-story'] .metric-card:nth-child(2) {
+  animation-delay: 80ms;
+}
+
+[data-motion='overview-story'] .metric-card:nth-child(3) {
+  animation-delay: 160ms;
+}
+
+[data-motion='overview-story'] .metric-card:nth-child(4) {
+  animation-delay: 240ms;
+}
+
+[data-motion='overview-story'] .trend-line {
+  stroke-dashoffset: 1;
+  animation: overview-line-draw 750ms 420ms ease forwards;
+}
+
+[data-motion='overview-story'] .trend-point {
+  animation: overview-point-in 360ms 620ms ease both;
+}
+
+[data-motion='overview-story'] .activity-grid {
+  animation: overview-activity-in 420ms 700ms ease both;
+}
+
+@keyframes overview-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+@keyframes overview-line-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes overview-point-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes overview-activity-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.25rem);
+  }
+}
+
+@media (max-width: 760px) {
+  .activity-grid {
+    grid-template-columns: repeat(14, 0.625rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-motion='overview-story'] .metric-card,
+  [data-motion='overview-story'] .trend-line,
+  [data-motion='overview-story'] .trend-point,
+  [data-motion='overview-story'] .activity-grid {
+    animation: none;
+  }
+
+  [data-motion='overview-story'] .trend-line {
+    stroke-dashoffset: 0;
+  }
+}

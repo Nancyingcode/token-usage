@@ -9,14 +9,17 @@ import { useTranslation } from 'react-i18next';
 import type { CostEstimate, ModelPricingEntry } from '../../shared/budgetTypes';
 import { buildDailyCostEstimates, getSummaryCostEstimate } from '../../shared/pricing';
 import { getCachePercentage } from '../../shared/usageMetrics';
-import type { UsageDay, UsageSummary } from '../../shared/usageTypes';
+import type { UsageDay, UsagePeriod, UsageSummary } from '../../shared/usageTypes';
 import { resolveRendererLocale } from '../i18n';
+import { buildActivityCells } from '../utils/activityGrid';
 import { formatCompactNumber, formatNumber, formatUsd } from '../utils/formatters';
 import MetricCard from './MetricCard';
 
 interface OverviewProps {
   summary: UsageSummary;
   pricing: ModelPricingEntry[];
+  period: UsagePeriod;
+  scannedAt: string;
 }
 
 interface TrendChartProps {
@@ -27,13 +30,12 @@ interface TrendChartProps {
 
 interface ActivityGridProps {
   days: UsageDay[];
+  period: UsagePeriod;
+  anchorDate: string;
 }
 
-const CHART_COLORS = ['#3b82f6', '#a855f7', '#22c7d9'];
 const TREND_HISTORY_DAYS = 24;
-const ACTIVITY_HISTORY_DAYS = 84;
-const ACTIVITY_CELL_COUNT = 84;
-const ACTIVITY_LEVEL_COUNT = 4;
+const ISO_DATE_LENGTH = 10;
 const CHART_VIEWBOX_WIDTH = 584;
 const CHART_VIEWBOX_HEIGHT = 212;
 const CHART_VIEWBOX = `0 0 ${CHART_VIEWBOX_WIDTH} ${CHART_VIEWBOX_HEIGHT}`;
@@ -64,6 +66,9 @@ export interface TrendPoint {
   pricingIncomplete: boolean;
   placement: TooltipPlacement;
 }
+
+export const buildOverviewMotionKey = (summary: UsageSummary, period: UsagePeriod): string =>
+  `${period}:${summary.sessions.length}:${summary.totals.totalTokens}:${summary.byDay.at(-1)?.date ?? 'empty'}`;
 
 export const buildTrendPoints = (
   days: UsageDay[],
@@ -135,7 +140,7 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
             />
           ))}
           {area ? <path className="trend-area" d={area} /> : null}
-          {path ? <path className="trend-line cyan" d={path} /> : null}
+          {path ? <path className="trend-line" d={path} pathLength={1} /> : null}
           {activePoint ? (
             <line
               className="trend-guide"
@@ -228,16 +233,10 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
   );
 };
 
-const ActivityGrid: React.FC<ActivityGridProps> = ({ days }) => {
-  const { t } = useTranslation('analytics');
-  const map = new Map(days.map((day) => [day.date, day.totalTokens]));
-  const max = Math.max(1, ...days.map((day) => day.totalTokens));
-  const cells = Array.from({ length: ACTIVITY_CELL_COUNT }, (_, index) => {
-    const day = days[index];
-    const value = day ? (map.get(day.date) ?? 0) : 0;
-    const level = value === 0 ? 0 : Math.ceil((value / max) * ACTIVITY_LEVEL_COUNT);
-    return { key: day?.date ?? `empty-${index}`, level };
-  });
+const ActivityGrid: React.FC<ActivityGridProps> = ({ days, period, anchorDate }) => {
+  const { t, i18n } = useTranslation('analytics');
+  const locale = resolveRendererLocale(i18n.resolvedLanguage);
+  const cells = buildActivityCells(days, period, anchorDate);
 
   return (
     <div className="activity-wrap">
@@ -247,15 +246,28 @@ const ActivityGrid: React.FC<ActivityGridProps> = ({ days }) => {
         <span>{t('overview.weekday.friday')}</span>
       </div>
       <div className="activity-grid">
-        {cells.map((cell) => (
-          <i key={cell.key} className={`activity-cell level-${cell.level}`} />
-        ))}
+        {cells.map((cell) =>
+          cell.inPeriod ? (
+            <span
+              key={cell.date}
+              className={`activity-cell level-${cell.level}`}
+              role="img"
+              tabIndex={0}
+              aria-label={t('overview.activityDay', {
+                date: cell.date,
+                tokens: formatNumber(cell.tokens, locale),
+              })}
+            />
+          ) : (
+            <span key={cell.date} className="activity-cell outside-period" aria-hidden="true" />
+          )
+        )}
       </div>
     </div>
   );
 };
 
-const Overview: React.FC<OverviewProps> = ({ summary, pricing }) => {
+const Overview: React.FC<OverviewProps> = ({ summary, pricing, period, scannedAt }) => {
   const { t, i18n } = useTranslation('analytics');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const days = summary.byDay.slice(-TREND_HISTORY_DAYS);
@@ -274,9 +286,11 @@ const Overview: React.FC<OverviewProps> = ({ summary, pricing }) => {
     summary.totals.inputTokens,
     summary.totals.cachedInputTokens
   );
+  const motionKey = buildOverviewMotionKey(summary, period);
+  const anchorDate = scannedAt.slice(0, ISO_DATE_LENGTH);
 
   return (
-    <section className="overview-grid">
+    <section key={motionKey} className="overview-grid" data-motion="overview-story">
       <div className="metric-grid">
         <MetricCard
           label={t('overview.totalCost')}
@@ -291,14 +305,14 @@ const Overview: React.FC<OverviewProps> = ({ summary, pricing }) => {
                 })
           }
           icon={Coins}
-          tone="mint"
+          emphasis="featured"
         />
         <MetricCard
           label={t('overview.tokens')}
           value={formatCompactNumber(summary.totals.totalTokens, locale)}
           detail={t('overview.fromCache', { percent: cachePercentage })}
           icon={LockKeyhole}
-          tone="blue"
+          emphasis="default"
         />
         <MetricCard
           label={t('overview.linesChanged')}
@@ -307,7 +321,7 @@ const Overview: React.FC<OverviewProps> = ({ summary, pricing }) => {
             tokens: formatCompactNumber(summary.totals.reasoningOutputTokens, locale),
           })}
           icon={FileCode2}
-          tone="purple"
+          emphasis="default"
         />
         <MetricCard
           label={t('overview.sessions')}
@@ -316,14 +330,14 @@ const Overview: React.FC<OverviewProps> = ({ summary, pricing }) => {
             count: summary.byProject.length,
           })}
           icon={MessageSquareText}
-          tone="orange"
+          emphasis="default"
         />
       </div>
 
       <article className="panel chart-panel">
         <div className="panel-heading compact">
           <div>
-            <h3>{t('overview.costTrends')}</h3>
+            <h3>{t('overview.tokenUsageTrend')}</h3>
             <p>
               {t('overview.total')}: {formatUsd(totalCost.pricedCostUsd, locale)}
               {pricingIncomplete ? ` · ${t('overview.pricingIncomplete')}` : ''}
@@ -333,13 +347,7 @@ const Overview: React.FC<OverviewProps> = ({ summary, pricing }) => {
         <TrendChart days={days} max={maxDay} dailyCosts={dailyCosts} />
         <div className="chart-legend">
           <span>
-            <i style={{ background: CHART_COLORS[0] }} /> {t('overview.input')}
-          </span>
-          <span>
-            <i style={{ background: CHART_COLORS[1] }} /> {t('overview.output')}
-          </span>
-          <span>
-            <i style={{ background: CHART_COLORS[2] }} /> {t('overview.cached')}
+            <i aria-hidden="true" /> {t('overview.totalTokens')}
           </span>
         </div>
       </article>
@@ -351,7 +359,7 @@ const Overview: React.FC<OverviewProps> = ({ summary, pricing }) => {
             <p>{t('overview.sessionsScanned', { count: summary.sessions.length })}</p>
           </div>
         </div>
-        <ActivityGrid days={summary.byDay.slice(-ACTIVITY_HISTORY_DAYS)} />
+        <ActivityGrid days={summary.byDay} period={period} anchorDate={anchorDate} />
       </article>
     </section>
   );

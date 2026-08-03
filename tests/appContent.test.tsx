@@ -50,6 +50,7 @@ const renderAppContent = (model: AppContentModel): string =>
   renderWithI18n(
     <AppContent
       activeView="overview"
+      period="month"
       model={model}
       onRefresh={vi.fn()}
       onProjectSelect={vi.fn()}
@@ -63,6 +64,7 @@ describe('AppContent', () => {
     const markup = renderWithI18n(
       <AppContent
         activeView="overview"
+        period="month"
         model={model}
         onRefresh={vi.fn()}
         onProjectSelect={vi.fn()}
@@ -78,6 +80,7 @@ describe('AppContent', () => {
     const markup = renderWithI18n(
       <AppContent
         activeView="overview"
+        period="month"
         model={{ kind: 'ready', result: RESULT, summary: SUMMARY, freshness: FRESHNESS }}
         onRefresh={vi.fn()}
         onProjectSelect={vi.fn()}
@@ -86,13 +89,14 @@ describe('AppContent', () => {
       />
     );
 
-    expect(markup).toContain('Cost Trends');
+    expect(markup).toContain('Token Usage Trend');
   });
 
   it('renders no markup for idle', () => {
     const markup = renderWithI18n(
       <AppContent
         activeView="overview"
+        period="month"
         model={{ kind: 'idle' }}
         onRefresh={vi.fn()}
         onProjectSelect={vi.fn()}
@@ -108,6 +112,7 @@ describe('AppContent', () => {
     const markup = renderWithI18n(
       <AppContent
         activeView="budgets"
+        period="month"
         model={{ kind: 'error', message: 'Disk unavailable' }}
         onRefresh={vi.fn()}
         onProjectSelect={vi.fn()}
@@ -137,6 +142,7 @@ describe('AppContent', () => {
     const markup = renderWithI18n(
       <AppContent
         activeView="overview"
+        period="month"
         model={{ kind: 'loading' }}
         onRefresh={vi.fn()}
         onProjectSelect={vi.fn()}
@@ -154,6 +160,7 @@ describe('AppContent', () => {
     const markup = renderWithI18n(
       <AppContent
         activeView="tools"
+        period="month"
         model={{ kind: 'ready', result: RESULT, summary: SUMMARY, freshness: FRESHNESS }}
         onRefresh={vi.fn()}
         onProjectSelect={vi.fn()}
@@ -170,6 +177,7 @@ describe('AppContent', () => {
     const markup = renderWithI18n(
       <AppContent
         activeView="sessions"
+        period="month"
         model={{ kind: 'ready', result: RESULT, summary: SUMMARY, freshness: FRESHNESS }}
         onRefresh={vi.fn()}
         onProjectSelect={vi.fn()}
@@ -185,6 +193,7 @@ describe('AppContent', () => {
     const markup = renderWithI18n(
       <AppContent
         activeView="sessions"
+        period="month"
         model={{ kind: 'ready', result: RESULT, summary: SUMMARY, freshness: FRESHNESS }}
         onRefresh={vi.fn()}
         onProjectSelect={vi.fn()}
@@ -217,7 +226,7 @@ describe('AppContent', () => {
       freshness: { refreshing: false, staleReason: 'Disk unavailable' },
     });
 
-    expect(markup).toContain('Cost Trends');
+    expect(markup).toContain('Token Usage Trend');
     expect(markup).toContain('Showing previous data');
     expect(markup).toContain('Disk unavailable');
     expect(markup).toContain('Retry scan');

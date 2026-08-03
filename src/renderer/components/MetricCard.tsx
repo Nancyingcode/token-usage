@@ -7,11 +7,11 @@ interface MetricCardProps {
   value: string;
   detail: string;
   icon: LucideIcon;
-  tone: 'mint' | 'blue' | 'purple' | 'orange';
+  emphasis: 'featured' | 'default';
 }
 
-const MetricCard: React.FC<MetricCardProps> = ({ label, value, detail, icon: Icon, tone }) => (
-  <article className={`metric-card tone-${tone}`}>
+const MetricCard: React.FC<MetricCardProps> = ({ label, value, detail, icon: Icon, emphasis }) => (
+  <article className={`metric-card metric-card--${emphasis}`}>
     <div className="metric-copy">
       <p>{label}</p>
       <strong>{value}</strong>

@@ -1,6 +1,9 @@
 import React from 'react';
 import { describe, expect, it } from 'vitest';
-import Overview, { buildTrendPoints } from '../src/renderer/components/Overview';
+import Overview, {
+  buildOverviewMotionKey,
+  buildTrendPoints,
+} from '../src/renderer/components/Overview';
 import type { CostEstimate, ModelPricingEntry } from '../src/shared/budgetTypes';
 import { buildUsageSummary } from '../src/shared/usageMath';
 import type { UsageDay, UsageSession } from '../src/shared/usageTypes';
@@ -34,22 +37,49 @@ describe('buildTrendPoints', () => {
 
   it('renders model-priced total cost and incomplete pricing state', () => {
     const markup = renderWithI18n(
-      <Overview summary={buildUsageSummary([PRICED_SESSION, UNKNOWN_SESSION])} pricing={PRICING} />
+      <Overview
+        summary={buildUsageSummary([PRICED_SESSION, UNKNOWN_SESSION])}
+        pricing={PRICING}
+        period="month"
+        scannedAt="2026-07-20T12:00:00.000Z"
+      />
     );
 
     expect(markup).toContain('$0.0003');
     expect(markup).toContain('Pricing incomplete');
+    expect(markup).toContain('Token Usage Trend');
+    expect(markup.match(/Total Tokens/g)).toHaveLength(1);
+    expect(markup).not.toContain('Cost Trends');
+    expect(markup).not.toContain('>Input<');
+    expect(markup).toContain('data-motion="overview-story"');
+    expect(markup).toContain('pathLength="1"');
+    expect(markup).toContain('role="img" tabindex="0" aria-label="2026-07-20, 220 tokens"');
+    expect(markup).toContain('class="activity-cell outside-period" aria-hidden="true"');
   });
 
   it('renders Chinese labels and locale-aware currency', () => {
     const markup = renderWithI18n(
-      <Overview summary={buildUsageSummary([PRICED_SESSION])} pricing={PRICING} />,
+      <Overview
+        summary={buildUsageSummary([PRICED_SESSION])}
+        pricing={PRICING}
+        period="month"
+        scannedAt="2026-07-20T12:00:00.000Z"
+      />,
       'zh-CN'
     );
 
-    expect(markup).toContain('费用趋势');
+    expect(markup).toContain('Token 用量趋势');
     expect(markup).toContain('US$0.0003');
     expect(markup).toContain('已在本地扫描 1 个会话');
+  });
+
+  it('builds a stable motion key that changes with the selected period', () => {
+    const summary = buildUsageSummary([PRICED_SESSION]);
+
+    expect(buildOverviewMotionKey(summary, 'week')).toBe(buildOverviewMotionKey(summary, 'week'));
+    expect(buildOverviewMotionKey(summary, 'week')).not.toBe(
+      buildOverviewMotionKey(summary, 'month')
+    );
   });
 });
 

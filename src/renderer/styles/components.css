@@ -132,6 +132,110 @@
   font-weight: 700;
 }
 
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(9.375rem, 1fr));
+  gap: var(--space-3);
+}
+
+.metric-card,
+.panel {
+  min-width: 0;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: 0 0.0625rem 0.125rem rgba(16, 43, 39, 0.04);
+}
+
+.metric-card {
+  min-height: 6rem;
+  padding: var(--space-4);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.metric-copy {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.metric-copy p,
+.panel-heading p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-label);
+}
+
+.metric-copy strong {
+  display: block;
+  color: var(--color-text);
+  font-size: var(--font-size-metric);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.metric-copy span {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-label);
+}
+
+.metric-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: var(--color-brand-700);
+  background: #e8f4ef;
+  border-radius: var(--radius-control);
+}
+
+.metric-card--featured {
+  color: var(--color-surface);
+  background: var(--color-brand-950);
+  border-color: var(--color-brand-950);
+}
+
+.metric-card--featured .metric-copy p,
+.metric-card--featured .metric-copy span {
+  color: #b9d5cc;
+}
+
+.metric-card--featured .metric-copy strong {
+  color: var(--color-surface);
+}
+
+.metric-card--featured .metric-icon {
+  color: var(--color-brand-950);
+  background: var(--color-brand-300);
+}
+
+.panel {
+  padding: var(--space-4);
+}
+
+.panel-heading {
+  margin-bottom: var(--space-3);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.panel-heading.compact {
+  margin-bottom: var(--space-1);
+}
+
+.panel h3 {
+  margin: 0;
+  font-size: var(--font-size-body);
+  letter-spacing: 0;
+}
+
 .loading-skeleton {
   display: grid;
   gap: var(--space-4);
@@ -199,8 +303,15 @@
 }
 
 @media (max-width: 1050px) {
+  .metric-grid,
   .loading-skeleton-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .metric-grid {
+    grid-template-columns: 1fr;
   }
 }
 

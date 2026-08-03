@@ -227,6 +227,7 @@ const App: React.FC = () => {
 
         <AppContent
           activeView={activeView}
+          period={period}
           model={contentModel}
           onRefresh={refresh}
           budgetModel={budgetModel}

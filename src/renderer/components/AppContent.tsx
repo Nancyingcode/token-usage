@@ -3,6 +3,7 @@ import type { TFunction } from 'i18next';
 import { AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { SupportedLocale } from '../../shared/i18n/locale';
+import type { UsagePeriod } from '../../shared/usageTypes';
 import type {
   CostOptimizationSettings,
   CostOptimizationSnapshot,
@@ -31,6 +32,7 @@ import StatusBanner from './StatusBanner';
 
 interface AppContentProps {
   activeView: ViewKey;
+  period: UsagePeriod;
   model: AppContentModel;
   onRefresh: () => void;
   onProjectSelect: (projectPath: string) => void;
@@ -149,6 +151,7 @@ const renderBudgetContent = (
 
 const AppContent: React.FC<AppContentProps> = ({
   activeView,
+  period,
   model,
   onRefresh,
   onProjectSelect,
@@ -236,7 +239,12 @@ const AppContent: React.FC<AppContentProps> = ({
         <>
           {renderFreshnessBanner(model.freshness, model.result.scannedAt, onRefresh, t, locale)}
           {activeView === 'overview' ? (
-            <Overview summary={model.summary} pricing={pricing} />
+            <Overview
+              summary={model.summary}
+              pricing={pricing}
+              period={period}
+              scannedAt={model.result.scannedAt}
+            />
           ) : null}
           {activeView === 'sessions' ? (
             <SessionsView
