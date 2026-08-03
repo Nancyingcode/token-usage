@@ -189,6 +189,16 @@ export const zhCN = {
       sessions: '会话数',
       tokens: 'Token',
       lastActive: '最后活跃',
+      path: '路径',
+      totalTokens: '总 Token',
+      chartLabel: '项目 Token 占比',
+      chartDescription: '交互式环形图。聚焦项目可查看详情，激活项目可查看对应会话。',
+      legendLabel: '项目图例',
+      legendItemLabel: '图例：{{project}}，{{share}}。查看项目会话。',
+      segmentLabel_one:
+        '{{project}}，占总量 {{share}}，{{tokens}} Token，{{sessions}} 个会话，最后活跃于 {{lastActive}}。查看项目会话。',
+      segmentLabel_other:
+        '{{project}}，占总量 {{share}}，{{tokens}} Token，{{sessions}} 个会话，最后活跃于 {{lastActive}}。查看项目会话。',
     },
     performance: {
       title: '性能',

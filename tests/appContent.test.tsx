@@ -236,7 +236,7 @@ describe('AppContent', () => {
     expect(markup).toContain('aria-label="正在扫描本地 Codex 会话"');
   });
 
-  it('renders interactive project rows in the Tools view', () => {
+  it('renders the interactive project donut in the Tools view', () => {
     const markup = renderWithI18n(
       <AppContent
         activeView="tools"
@@ -249,8 +249,10 @@ describe('AppContent', () => {
       />
     );
 
-    expect(markup).toContain('project-table-row');
-    expect(markup).toContain('type="button"');
+    expect(markup).toContain('project-donut-chart');
+    expect(markup).toContain('project-donut-legend');
+    expect(markup).toContain('role="button"');
+    expect(markup).not.toContain('project-table-row');
   });
 
   it('passes the active project filter to Sessions', () => {

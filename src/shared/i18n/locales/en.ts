@@ -192,6 +192,17 @@ export const en = {
       sessions: 'Sessions',
       tokens: 'Tokens',
       lastActive: 'Last Active',
+      path: 'Path',
+      totalTokens: 'Total tokens',
+      chartLabel: 'Project token share',
+      chartDescription:
+        'Interactive donut chart. Focus a project for details or activate it to view its sessions.',
+      legendLabel: 'Project legend',
+      legendItemLabel: 'Legend: {{project}}, {{share}}. Open project sessions.',
+      segmentLabel_one:
+        '{{project}}, {{share}} of total, {{tokens}} tokens, {{sessions}} session, last active {{lastActive}}. Open project sessions.',
+      segmentLabel_other:
+        '{{project}}, {{share}} of total, {{tokens}} tokens, {{sessions}} sessions, last active {{lastActive}}. Open project sessions.',
     },
     performance: {
       title: 'Performance',

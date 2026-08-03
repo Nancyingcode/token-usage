@@ -34,6 +34,14 @@
   --color-info-surface: #f0f8f9;
   --color-chart-purple: #a855f7;
   --color-chart-fill: rgba(55, 183, 134, 0.14);
+  --color-chart-category-1: #24765b;
+  --color-chart-category-2: #3b82f6;
+  --color-chart-category-3: #a855f7;
+  --color-chart-category-4: #d97706;
+  --color-chart-category-5: #dc2626;
+  --color-chart-category-6: #0891b2;
+  --color-chart-category-7: #7c3aed;
+  --color-chart-category-8: #65a30d;
   --color-focus-ring: rgba(55, 183, 134, 0.65);
   --color-shadow-subtle: rgba(16, 43, 39, 0.04);
   --color-shadow-soft: rgba(16, 43, 39, 0.1);

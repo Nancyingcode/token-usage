@@ -1,10 +1,14 @@
+// @vitest-environment jsdom
+
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import React from 'react';
+import { I18nextProvider } from 'react-i18next';
 import { describe, expect, it, vi } from 'vitest';
-import ProjectsView, { ProjectRow } from '../src/renderer/components/ProjectsView';
+import ProjectsView from '../src/renderer/components/ProjectsView';
 import SessionsView, { ProjectFilterChip } from '../src/renderer/components/SessionsView';
 import { UNKNOWN_PROJECT_KEY } from '../src/shared/usageMath';
 import type { UsageProject, UsageSession } from '../src/shared/usageTypes';
-import { renderWithI18n } from './helpers/renderWithI18n';
+import { createTestI18n, renderWithI18n } from './helpers/renderWithI18n';
 
 const SESSION: UsageSession = {
   sessionId: 'session-123456789',
@@ -36,6 +40,12 @@ const PROJECT: UsageProject = {
   shareOfTotal: 1,
 };
 
+const OTHER_PROJECT: UsageProject = {
+  ...PROJECT,
+  projectPath: 'C:\\other',
+  projectName: 'other',
+};
+
 const LOWER_TOKEN_SESSION: UsageSession = {
   ...SESSION,
   sessionId: 'session-low',
@@ -51,11 +61,6 @@ const HIGH_TOKEN_SESSION: UsageSession = {
   ...SESSION,
   threadName: 'High token session',
 };
-
-interface ProjectButtonProps {
-  type: 'button';
-  onClick: () => void;
-}
 
 interface FilterButtonProps {
   type: 'button';
@@ -90,32 +95,90 @@ describe('analytics tables', () => {
 
     expect(markup).toContain('项目汇总');
     expect(markup).toContain('class="page-header"');
-    expect(markup).toContain('table-cell--numeric');
-    expect(markup).toContain('最后活跃');
+    expect(markup).toContain('project-donut-chart');
+    expect(markup).toContain('aria-label=');
     expect(markup).toContain('1,300');
-    expect(markup).toContain('<button type="button" class="table-row project-table-row"');
+    expect(markup).not.toContain('project-table-row');
+    expect(markup).not.toContain('data-table');
   });
 
-  it('uses a native button and reports the full project path', () => {
-    const onSelect = vi.fn();
-    const row = ProjectRow({
-      project: PROJECT,
-      max: PROJECT.totalTokens,
-      locale: 'en',
-      unknownDateLabel: 'Unknown date',
-      onSelect,
+  it('shows project details on hover and focus, then hides them on exit', () => {
+    const i18n = createTestI18n('en');
+    render(
+      <I18nextProvider i18n={i18n}>
+        <ProjectsView projects={[PROJECT]} onProjectSelect={vi.fn()} />
+      </I18nextProvider>
+    );
+
+    const segment = screen.getByRole('button', {
+      name: /repo.*100(?:\.0)?%.*1,300 tokens.*1 session/i,
     });
 
-    expect(React.isValidElement<ProjectButtonProps>(row)).toBe(true);
+    fireEvent.pointerEnter(segment);
+    expect(screen.getByRole('tooltip').textContent).toContain('C:\\repo');
+    expect(screen.getByRole('tooltip').textContent).toContain('100.0%');
+    fireEvent.pointerLeave(segment);
+    expect(screen.queryByRole('tooltip')).toBeNull();
 
-    if (!React.isValidElement<ProjectButtonProps>(row)) {
-      throw new Error('ProjectRow did not return a button element.');
-    }
+    fireEvent.focus(segment);
+    expect(screen.getByRole('tooltip').textContent).toContain('Last Active');
+    fireEvent.blur(segment);
+    expect(screen.queryByRole('tooltip')).toBeNull();
+  });
 
-    expect(row.type).toBe('button');
-    expect(row.props.type).toBe('button');
-    row.props.onClick();
-    expect(onSelect).toHaveBeenCalledWith('C:\\repo');
+  it('maps project colors to a legend with names and percentages', () => {
+    const onSelect = vi.fn();
+    const i18n = createTestI18n('en');
+    render(
+      <I18nextProvider i18n={i18n}>
+        <ProjectsView projects={[PROJECT, OTHER_PROJECT]} onProjectSelect={onSelect} />
+      </I18nextProvider>
+    );
+
+    const legend = screen.getByRole('list', { name: 'Project legend' });
+    const repoLegendItem = within(legend).getByRole('button', {
+      name: 'Legend: repo, 50.0%. Open project sessions.',
+    });
+    const otherLegendItem = within(legend).getByRole('button', {
+      name: 'Legend: other, 50.0%. Open project sessions.',
+    });
+    const repoSegment = screen.getByRole('button', {
+      name: /repo.*50\.0%.*1,300 tokens.*1 session/i,
+    });
+
+    expect(repoLegendItem.className).toContain('project-donut-tone-1');
+    expect(otherLegendItem.className).toContain('project-donut-tone-2');
+    expect(repoLegendItem.textContent).toContain('repo');
+    expect(repoLegendItem.textContent).toContain('50.0%');
+
+    fireEvent.pointerEnter(repoLegendItem);
+    expect(repoSegment.classList.contains('is-active')).toBe(true);
+    expect(screen.getByRole('tooltip').textContent).toContain('C:\\repo');
+    fireEvent.pointerLeave(repoLegendItem);
+
+    fireEvent.click(otherLegendItem);
+    expect(onSelect).toHaveBeenCalledWith('C:\\other');
+  });
+
+  it('reports the full project path for click, Enter, and Space activation', () => {
+    const onSelect = vi.fn();
+    const i18n = createTestI18n('en');
+    render(
+      <I18nextProvider i18n={i18n}>
+        <ProjectsView projects={[PROJECT]} onProjectSelect={onSelect} />
+      </I18nextProvider>
+    );
+
+    const segment = screen.getByRole('button', {
+      name: /repo.*100(?:\.0)?%.*1,300 tokens.*1 session/i,
+    });
+    fireEvent.click(segment);
+    fireEvent.keyDown(segment, { key: 'Enter' });
+    fireEvent.keyDown(segment, { key: ' ' });
+
+    expect(onSelect).toHaveBeenNthCalledWith(1, 'C:\\repo');
+    expect(onSelect).toHaveBeenNthCalledWith(2, 'C:\\repo');
+    expect(onSelect).toHaveBeenNthCalledWith(3, 'C:\\repo');
   });
 
   it('renders a project filter and token-ordered matching sessions', () => {
