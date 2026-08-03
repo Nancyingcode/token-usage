@@ -19,6 +19,7 @@ import ConfirmDialog from './ConfirmDialog';
 import ModelPricingView from './ModelPricingView';
 import PageHeader from './PageHeader';
 import StatusBanner from './StatusBanner';
+import ToastNotice from './ToastNotice';
 
 interface BudgetsViewProps {
   snapshot: BudgetSnapshot;
@@ -46,6 +47,7 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
   const [deletePolicy, setDeletePolicy] = useState<BudgetPolicy | null>(null);
   const [activeTab, setActiveTab] = useState<BudgetTab>('overview');
   const [pricingTarget, setPricingTarget] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const model = useMemo(() => buildBudgetViewModel(snapshot, filters), [filters, snapshot]);
   const visibleAlerts = model.alerts.filter(({ id }) => !dismissedAlertIds.has(id));
   const showStaleWarning = snapshot.dataState === 'stale';
@@ -75,7 +77,9 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
     setDismissedAlertIds((current) => new Set([...current, alertId]));
   };
 
-  const closeEditor = (): void => setEditorModel({ kind: 'closed' });
+  const closeEditor = useCallback((): void => setEditorModel({ kind: 'closed' }), []);
+  const dismissToast = useCallback((): void => setToastMessage(null), []);
+  const handleSaved = useCallback((): void => setToastMessage(t('toast.saved')), [t]);
   const clearPricingTarget = useCallback(() => setPricingTarget(null), []);
 
   const handleAddPrice = (modelId: string): void => {
@@ -99,6 +103,7 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
         thresholds={snapshot.thresholds}
         actions={actions}
         onClose={closeEditor}
+        onSaved={handleSaved}
       />
     );
   const deleteDialog = deletePolicy ? (
@@ -237,6 +242,7 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
       </div>
       {drawer}
       {deleteDialog}
+      {toastMessage ? <ToastNotice message={toastMessage} onDismiss={dismissToast} /> : null}
     </section>
   );
 };

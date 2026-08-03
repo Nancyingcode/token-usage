@@ -200,6 +200,9 @@ export const en = {
     },
   },
   budgets: {
+    toast: {
+      saved: 'Budget settings saved',
+    },
     page: {
       title: 'Budget center',
       description: 'Natural-period controls for tokens and estimated cost.',
@@ -344,6 +347,9 @@ export const en = {
     },
   },
   costOptimization: {
+    toast: {
+      settingsSaved: 'Analysis settings saved',
+    },
     page: {
       eyebrow: 'Cost intelligence',
       title: 'Cost Optimization',

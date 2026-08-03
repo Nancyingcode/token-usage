@@ -2,6 +2,7 @@ import React from 'react';
 import { Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ICON_SIZE_SMALL } from '../constants/ui';
+import { useOverlayFocus } from '../hooks/useOverlayFocus';
 
 interface ConfirmDialogProps {
   title: string;
@@ -19,12 +20,14 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   onCancel,
 }) => {
   const { t } = useTranslation('common');
+  const dialogRef = useOverlayFocus<HTMLElement>(onCancel);
 
   return (
     <div className="dialog-backdrop">
       <section
+        ref={dialogRef}
         className="confirm-dialog"
-        role="dialog"
+        role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirm-title"
       >

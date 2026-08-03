@@ -197,6 +197,9 @@ export const zhCN = {
     },
   },
   budgets: {
+    toast: {
+      saved: '预算设置已保存',
+    },
     page: {
       title: '预算中心',
       description: '按自然周期管理 Token 和估算费用。',
@@ -341,6 +344,9 @@ export const zhCN = {
     },
   },
   costOptimization: {
+    toast: {
+      settingsSaved: '分析设置已保存',
+    },
     page: {
       eyebrow: '成本洞察',
       title: '成本优化',

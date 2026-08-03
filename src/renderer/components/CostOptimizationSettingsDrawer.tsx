@@ -2,7 +2,7 @@
  * @file 成本优化设置抽屉
  * @description 提供可访问的分析参数编辑、客户端校验和结构化 IPC 错误映射。
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import type { TFunction } from 'i18next';
 import { Save, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +11,7 @@ import type {
   CostOptimizationValidationIssue,
 } from '../../shared/costOptimizationTypes';
 import { ICON_SIZE_SMALL } from '../constants/ui';
+import { useOverlayFocus } from '../hooks/useOverlayFocus';
 import {
   createCostOptimizationSettingsForm,
   getCostOptimizationIpcIssues,
@@ -26,6 +27,7 @@ interface CostOptimizationSettingsDrawerProps {
   pricedModelIds: string[];
   onClose: () => void;
   onSave: (settings: CostOptimizationSettings) => Promise<unknown>;
+  onSaved?: () => void;
 }
 
 type NumericFieldTranslationKey =
@@ -46,15 +48,6 @@ interface NumericFieldDefinition {
 }
 
 const PRIMARY_NUMERIC_FIELD_COUNT = 3;
-const FOCUSABLE_ELEMENT_SELECTOR = [
-  'button:not([disabled])',
-  'input:not([disabled])',
-  'select:not([disabled])',
-  'textarea:not([disabled])',
-  '[href]',
-  '[tabindex]:not([tabindex="-1"])',
-].join(',');
-
 const NUMERIC_FIELDS: NumericFieldDefinition[] = [
   {
     field: 'anomalyHistoryWindow',
@@ -132,6 +125,7 @@ const CostOptimizationSettingsDrawer: React.FC<CostOptimizationSettingsDrawerPro
   pricedModelIds,
   onClose,
   onSave,
+  onSaved,
 }) => {
   const { t } = useTranslation('costOptimization');
   const { t: tCommon } = useTranslation('common');
@@ -141,23 +135,12 @@ const CostOptimizationSettingsDrawer: React.FC<CostOptimizationSettingsDrawerPro
   const [issues, setIssues] = useState<CostOptimizationValidationIssue[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const dialogRef = useRef<HTMLElement>(null);
+  const dialogRef = useOverlayFocus<HTMLElement>(onClose);
   const pricedModelIdSet = new Set(pricedModelIds);
   const displayedModelIds = [
     ...pricedModelIds,
     ...settings.candidateModelIds.filter((modelId) => !pricedModelIdSet.has(modelId)),
   ];
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    const previouslyFocused =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    dialog?.querySelector<HTMLElement>(FOCUSABLE_ELEMENT_SELECTOR)?.focus();
-
-    return () => {
-      previouslyFocused?.focus();
-    };
-  }, []);
 
   const updateField = (field: CostOptimizationSettingsFormField, value: string): void => {
     setForm((current) => updateCostOptimizationSettingsForm(current, field, value));
@@ -178,6 +161,7 @@ const CostOptimizationSettingsDrawer: React.FC<CostOptimizationSettingsDrawerPro
     setSaveError(null);
     try {
       await onSave(toCostOptimizationSettings(form));
+      onSaved?.();
       onClose();
     } catch (error) {
       const ipcIssues = getCostOptimizationIpcIssues(error);
@@ -192,36 +176,6 @@ const CostOptimizationSettingsDrawer: React.FC<CostOptimizationSettingsDrawerPro
     }
   };
 
-  const handleDialogKeyDown = (event: React.KeyboardEvent<HTMLElement>): void => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      onClose();
-      return;
-    }
-    if (event.key !== 'Tab') {
-      return;
-    }
-
-    const focusableElements = [
-      ...(dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_ELEMENT_SELECTOR) ?? []),
-    ];
-    const firstElement = focusableElements[0];
-    const lastElement = focusableElements.at(-1);
-    const shouldWrapBackward =
-      event.shiftKey &&
-      (document.activeElement === firstElement ||
-        !dialogRef.current?.contains(document.activeElement));
-    const shouldWrapForward = !event.shiftKey && document.activeElement === lastElement;
-
-    if (shouldWrapBackward) {
-      event.preventDefault();
-      lastElement?.focus();
-    } else if (shouldWrapForward) {
-      event.preventDefault();
-      firstElement?.focus();
-    }
-  };
-
   return (
     <aside
       ref={dialogRef}
@@ -229,7 +183,6 @@ const CostOptimizationSettingsDrawer: React.FC<CostOptimizationSettingsDrawerPro
       role="dialog"
       aria-modal="true"
       aria-labelledby="cost-optimization-settings-title"
-      onKeyDown={handleDialogKeyDown}
     >
       <form className="drawer-form" onSubmit={handleSubmit}>
         <div className="drawer-heading">

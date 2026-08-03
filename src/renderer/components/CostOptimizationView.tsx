@@ -24,6 +24,7 @@ import PageHeader from './PageHeader';
 import SavingsRecommendations from './SavingsRecommendations';
 import SessionDiagnosticsView from './SessionDiagnosticsView';
 import StatusBanner from './StatusBanner';
+import ToastNotice from './ToastNotice';
 
 export type CostOptimizationContentModel =
   | { kind: 'loading' }
@@ -117,6 +118,7 @@ const CostOptimizationView: React.FC<CostOptimizationViewProps> = ({
   const { t } = useTranslation('costOptimization');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [dismissedWarnings, setDismissedWarnings] = useState<string[]>([]);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const visibleWarnings = useMemo(
     () =>
       model.kind === 'ready'
@@ -128,6 +130,12 @@ const CostOptimizationView: React.FC<CostOptimizationViewProps> = ({
     value: tab.key,
     label: t(tab.labelKey),
   }));
+  const closeSettings = React.useCallback((): void => setSettingsOpen(false), []);
+  const dismissToast = React.useCallback((): void => setToastMessage(null), []);
+  const handleSettingsSaved = React.useCallback(
+    (): void => setToastMessage(t('toast.settingsSaved')),
+    [t]
+  );
   const headingActions = (
     <div className="cost-optimization-toolbar">
       <label>
@@ -223,12 +231,14 @@ const CostOptimizationView: React.FC<CostOptimizationViewProps> = ({
             <CostOptimizationSettingsDrawer
               settings={model.snapshot.settings}
               pricedModelIds={model.snapshot.pricing.map(({ modelId }) => modelId)}
-              onClose={() => setSettingsOpen(false)}
+              onClose={closeSettings}
               onSave={onUpdateSettings}
+              onSaved={handleSettingsSaved}
             />
           ) : null}
         </>
       ) : null}
+      {toastMessage ? <ToastNotice message={toastMessage} onDismiss={dismissToast} /> : null}
     </section>
   );
 };

@@ -29,6 +29,8 @@ describe('BudgetDrawer', () => {
     expect(markup).toContain('Estimated cost limit');
     expect(markup).toContain('Monthly');
     expect(markup).toContain('class="drawer-shell budget-drawer"');
+    expect(markup).toContain('role="dialog"');
+    expect(markup).toContain('aria-modal="true"');
   });
 
   it('renders only global threshold fields in threshold mode', () => {
@@ -59,7 +61,7 @@ describe('ConfirmDialog', () => {
       />
     );
 
-    expect(markup).toContain('role="dialog"');
+    expect(markup).toContain('role="alertdialog"');
     expect(markup).toContain('aria-modal="true"');
     expect(markup).toContain('Delete');
   });

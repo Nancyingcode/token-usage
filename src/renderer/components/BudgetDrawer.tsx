@@ -22,6 +22,7 @@ import {
 import { isRecord } from '../../shared/runtimeTypes';
 import { ICON_SIZE_SMALL } from '../constants/ui';
 import type { BudgetActions } from '../hooks/useBudgetSnapshot';
+import { useOverlayFocus } from '../hooks/useOverlayFocus';
 import { budgetFormReducer, createBudgetFormState, toBudgetPolicyInput } from '../utils/budgetForm';
 import { translateValidationIssue } from '../utils/validationIssues';
 
@@ -32,6 +33,7 @@ interface BudgetDrawerProps {
   thresholds: BudgetThresholds;
   actions: BudgetActions;
   onClose: () => void;
+  onSaved?: () => void;
 }
 
 const PERIOD_OPTIONS: BudgetPeriod[] = ['day', 'week', 'month'];
@@ -57,7 +59,7 @@ const getIssueMessage = (
   return issue ? translateValidationIssue(issue, t) : undefined;
 };
 
-const PolicyForm: React.FC<BudgetDrawerProps> = ({ model, actions, onClose }) => {
+const PolicyForm: React.FC<BudgetDrawerProps> = ({ model, actions, onClose, onSaved }) => {
   const { t } = useTranslation('budgets');
   const { t: tCommon } = useTranslation('common');
   const policy = model.kind === 'policy' ? model.policy : undefined;
@@ -83,6 +85,7 @@ const PolicyForm: React.FC<BudgetDrawerProps> = ({ model, actions, onClose }) =>
     setSaving(true);
     try {
       await actions.savePolicy(input);
+      onSaved?.();
       onClose();
     } catch (error) {
       dispatch({ type: 'save-failed', issues: getActionIssues(error) });
@@ -95,7 +98,7 @@ const PolicyForm: React.FC<BudgetDrawerProps> = ({ model, actions, onClose }) =>
     <form className="drawer-form" onSubmit={handleSubmit}>
       <div className="drawer-heading">
         <div>
-          <h2>{title}</h2>
+          <h2 id="budget-drawer-title">{title}</h2>
           <p>{t('drawer.policyDescription')}</p>
         </div>
         <button
@@ -222,7 +225,7 @@ const PolicyForm: React.FC<BudgetDrawerProps> = ({ model, actions, onClose }) =>
   );
 };
 
-const ThresholdForm: React.FC<BudgetDrawerProps> = ({ thresholds, actions, onClose }) => {
+const ThresholdForm: React.FC<BudgetDrawerProps> = ({ thresholds, actions, onClose, onSaved }) => {
   const { t } = useTranslation('budgets');
   const { t: tCommon } = useTranslation('common');
   const [warningPercent, setWarningPercent] = useState(String(thresholds.warningPercent));
@@ -247,6 +250,7 @@ const ThresholdForm: React.FC<BudgetDrawerProps> = ({ thresholds, actions, onClo
     setSaving(true);
     try {
       await actions.updateThresholds(input);
+      onSaved?.();
       onClose();
     } catch (error) {
       setIssues(getActionIssues(error));
@@ -259,7 +263,7 @@ const ThresholdForm: React.FC<BudgetDrawerProps> = ({ thresholds, actions, onClo
     <form className="drawer-form" onSubmit={handleSubmit}>
       <div className="drawer-heading">
         <div>
-          <h2>{t('drawer.thresholdsTitle')}</h2>
+          <h2 id="budget-drawer-title">{t('drawer.thresholdsTitle')}</h2>
           <p>{t('drawer.thresholdsDescription')}</p>
         </div>
         <button
@@ -309,10 +313,21 @@ const ThresholdForm: React.FC<BudgetDrawerProps> = ({ thresholds, actions, onClo
 };
 
 const BudgetDrawer: React.FC<BudgetDrawerProps> = (props) => {
+  const drawerRef = useOverlayFocus<HTMLElement>(props.onClose);
   const content =
     props.model.kind === 'policy' ? <PolicyForm {...props} /> : <ThresholdForm {...props} />;
 
-  return <aside className="drawer-shell budget-drawer">{content}</aside>;
+  return (
+    <aside
+      ref={drawerRef}
+      className="drawer-shell budget-drawer"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="budget-drawer-title"
+    >
+      {content}
+    </aside>
+  );
 };
 
 export default BudgetDrawer;
