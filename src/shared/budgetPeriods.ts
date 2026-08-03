@@ -1,4 +1,5 @@
 import type { BudgetPeriod, BudgetPolicyInput, NaturalPeriodRange } from './budgetTypes';
+import { getBudgetModelTargetKey } from './budgetModelTarget';
 
 const DAYS_FROM_SUNDAY_TO_MONDAY = 6;
 const DAYS_PER_WEEK = 7;
@@ -30,5 +31,7 @@ export const getBudgetBusinessKey = (input: BudgetPolicyInput): string => {
   const scopeKey =
     input.scope === 'global' ? 'global' : normalizeProjectPath(input.projectPath ?? '');
 
-  return `${input.scope}:${scopeKey}:${input.period}`;
+  return [input.scope, scopeKey, input.period, getBudgetModelTargetKey(input.modelTarget)].join(
+    ':'
+  );
 };

@@ -7,7 +7,14 @@ import {
 
 describe('budget validation', () => {
   it('requires a project path and at least one positive limit', () => {
-    expect(getBudgetPolicyIssues({ scope: 'project', period: 'day', tokenLimit: 0 })).toEqual([
+    expect(
+      getBudgetPolicyIssues({
+        scope: 'project',
+        period: 'day',
+        modelTarget: { kind: 'all' },
+        tokenLimit: 0,
+      })
+    ).toEqual([
       { field: 'projectPath', code: 'project-required' },
       { field: 'tokenLimit', code: 'token-limit-positive' },
       { field: 'limits', code: 'budget-limit-required' },
@@ -15,12 +22,42 @@ describe('budget validation', () => {
   });
 
   it('accepts independently enabled token and cost limits', () => {
-    expect(getBudgetPolicyIssues({ scope: 'global', period: 'month', tokenLimit: 1_000 })).toEqual(
-      []
-    );
-    expect(getBudgetPolicyIssues({ scope: 'global', period: 'month', costLimitUsd: 25 })).toEqual(
-      []
-    );
+    expect(
+      getBudgetPolicyIssues({
+        scope: 'global',
+        period: 'month',
+        modelTarget: { kind: 'all' },
+        tokenLimit: 1_000,
+      })
+    ).toEqual([]);
+    expect(
+      getBudgetPolicyIssues({
+        scope: 'global',
+        period: 'month',
+        modelTarget: { kind: 'all' },
+        costLimitUsd: 25,
+      })
+    ).toEqual([]);
+  });
+
+  it('requires a non-empty ID only for concrete model targets', () => {
+    expect(
+      getBudgetPolicyIssues({
+        scope: 'global',
+        period: 'day',
+        modelTarget: { kind: 'model', modelId: '  ' },
+        tokenLimit: 100,
+      })
+    ).toContainEqual({ field: 'modelId', code: 'model-id-required' });
+
+    expect(
+      getBudgetPolicyIssues({
+        scope: 'global',
+        period: 'day',
+        modelTarget: { kind: 'unknown' },
+        tokenLimit: 100,
+      })
+    ).toEqual([]);
   });
 
   it('requires ordered global thresholds at or below 100', () => {

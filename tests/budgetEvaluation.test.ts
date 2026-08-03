@@ -114,6 +114,7 @@ const makePolicy = (overrides: Partial<BudgetPolicy> = {}): BudgetPolicy => ({
   id: 'policy-1',
   scope: 'global',
   period: 'day',
+  modelTarget: { kind: 'all' },
   tokenLimit: 100,
   createdAt: '2026-07-20T00:00:00.000Z',
   updatedAt: '2026-07-20T00:00:00.000Z',

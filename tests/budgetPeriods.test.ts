@@ -30,13 +30,41 @@ describe('budget periods', () => {
       scope: 'project',
       projectPath: 'C:\\Repo\\Token-Usage\\',
       period: 'week',
+      modelTarget: { kind: 'all' },
     });
     const second = getBudgetBusinessKey({
       scope: 'project',
       projectPath: 'c:/repo/token-usage',
       period: 'week',
+      modelTarget: { kind: 'all' },
     });
 
     expect(first).toBe(second);
+  });
+
+  it('includes normalized model targets in budget identity', () => {
+    const base = { scope: 'global' as const, period: 'week' as const };
+
+    expect(
+      getBudgetBusinessKey({
+        ...base,
+        modelTarget: { kind: 'model', modelId: ' GPT-Test ' },
+      })
+    ).toBe(
+      getBudgetBusinessKey({
+        ...base,
+        modelTarget: { kind: 'model', modelId: 'gpt-test' },
+      })
+    );
+    expect(
+      new Set([
+        getBudgetBusinessKey({ ...base, modelTarget: { kind: 'all' } }),
+        getBudgetBusinessKey({ ...base, modelTarget: { kind: 'unknown' } }),
+        getBudgetBusinessKey({
+          ...base,
+          modelTarget: { kind: 'model', modelId: 'gpt-test' },
+        }),
+      ]).size
+    ).toBe(3);
   });
 });

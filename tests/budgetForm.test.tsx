@@ -25,8 +25,13 @@ describe('budget form', () => {
       scope: 'project',
       projectPath: 'C:\\repo',
       period: 'month',
+      modelTarget: { kind: 'all' },
       costLimitUsd: 25.5,
     });
+  });
+
+  it('defaults new budgets to all models', () => {
+    expect(createBudgetFormState().modelTarget).toEqual({ kind: 'all' });
   });
 
   it('hydrates enabled limits when editing an existing policy', () => {
@@ -34,6 +39,7 @@ describe('budget form', () => {
       id: 'policy-1',
       scope: 'global',
       period: 'week',
+      modelTarget: { kind: 'all' },
       tokenLimit: 5_000,
       createdAt: '2026-07-20T00:00:00.000Z',
       updatedAt: '2026-07-20T00:00:00.000Z',

@@ -4,6 +4,8 @@ export type BudgetMetric = 'token' | 'cost';
 export type BudgetSeverity = 'normal' | 'warning' | 'critical' | 'over';
 export type BudgetDataState = 'fresh' | 'stale';
 export type ModelPricingSourceKind = 'built-in' | 'override';
+export type BudgetModelTarget =
+  { kind: 'all' } | { kind: 'unknown' } | { kind: 'model'; modelId: string };
 export type ValidationIssueCode =
   | 'project-required'
   | 'token-limit-positive'
@@ -27,6 +29,7 @@ export interface BudgetPolicyInput {
   scope: BudgetScope;
   projectPath?: string;
   period: BudgetPeriod;
+  modelTarget: BudgetModelTarget;
   tokenLimit?: number;
   costLimitUsd?: number;
 }

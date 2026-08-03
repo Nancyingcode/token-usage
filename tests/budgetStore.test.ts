@@ -36,6 +36,7 @@ describe('budget store', () => {
           id: 'global-day',
           scope: 'global',
           period: 'day',
+          modelTarget: { kind: 'all' },
           tokenLimit: 10_000,
           createdAt: FIXED_TIMESTAMP,
           updatedAt: FIXED_TIMESTAMP,
@@ -47,7 +48,35 @@ describe('budget store', () => {
 
     await expect(store.load()).resolves.toEqual({ config, warnings: [] });
     await expect(readdir(testDirectory)).resolves.toEqual(['budget-config.json']);
-    await expect(readFile(configPath, 'utf8')).resolves.toContain('"schemaVersion": 1');
+    await expect(readFile(configPath, 'utf8')).resolves.toContain('"schemaVersion": 2');
+  });
+
+  it('migrates schema 1 budgets to all-model targets without losing configuration', async () => {
+    const legacyConfig = {
+      schemaVersion: 1,
+      policies: [
+        {
+          id: 'legacy-global-day',
+          scope: 'global',
+          period: 'day',
+          tokenLimit: 10_000,
+          createdAt: FIXED_TIMESTAMP,
+          updatedAt: FIXED_TIMESTAMP,
+        },
+      ],
+      thresholds: { warningPercent: 80, criticalPercent: 100 },
+      pricingOverrides: [],
+      notificationReceipts: [],
+    };
+    await writeFile(configPath, JSON.stringify(legacyConfig), 'utf8');
+
+    const result = await createBudgetStore(configPath, fixedNow).load();
+
+    expect(result.warnings).toEqual([]);
+    expect(result.config.schemaVersion).toBe(2);
+    expect(result.config.policies[0]).toEqual(
+      expect.objectContaining({ modelTarget: { kind: 'all' } })
+    );
   });
 
   it('backs up malformed JSON before returning defaults', async () => {
@@ -75,7 +104,7 @@ describe('budget store', () => {
   });
 
   it('refuses a future schema without overwriting it', async () => {
-    const future = '{"schemaVersion":2}';
+    const future = '{"schemaVersion":3}';
     await writeFile(configPath, future, 'utf8');
 
     await expect(createBudgetStore(configPath, fixedNow).load()).rejects.toThrow('newer schema');

@@ -243,6 +243,7 @@ export const createBudgetRuntime = (dependencies: BudgetRuntimeDependencies): Bu
       scope: input.scope,
       ...(input.scope === 'project' ? { projectPath: input.projectPath?.trim() } : {}),
       period: input.period,
+      modelTarget: { ...input.modelTarget },
       ...(input.tokenLimit === undefined ? {} : { tokenLimit: input.tokenLimit }),
       ...(input.costLimitUsd === undefined ? {} : { costLimitUsd: input.costLimitUsd }),
       createdAt: existingPolicy?.createdAt ?? timestamp,

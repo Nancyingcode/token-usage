@@ -26,7 +26,12 @@ describe('budget runtime', () => {
     const dependencies = makeRuntimeDependencies({ notify });
     const runtime = createBudgetRuntime(dependencies);
     await runtime.initialize();
-    await runtime.savePolicy({ scope: 'global', period: 'day', tokenLimit: 100 });
+    await runtime.savePolicy({
+      scope: 'global',
+      period: 'day',
+      modelTarget: { kind: 'all' },
+      tokenLimit: 100,
+    });
     await runtime.applyUsageResult(makeScanResult(150));
     await runtime.applyUsageResult(makeScanResult(150));
 
@@ -40,7 +45,12 @@ describe('budget runtime', () => {
     const dependencies = makeRuntimeDependencies();
     const runtime = createBudgetRuntime(dependencies);
     await runtime.initialize();
-    await runtime.savePolicy({ scope: 'global', period: 'day', tokenLimit: 100 });
+    await runtime.savePolicy({
+      scope: 'global',
+      period: 'day',
+      modelTarget: { kind: 'all' },
+      tokenLimit: 100,
+    });
     await runtime.applyUsageResult(makeScanResult(150));
 
     runtime.markUsageStale(new Error('disk unavailable'));
@@ -75,6 +85,7 @@ describe('budget runtime', () => {
       scope: 'project',
       projectPath: 'C:\\repo',
       period: 'week',
+      modelTarget: { kind: 'all' },
       tokenLimit: 1_000,
     });
 
@@ -82,6 +93,7 @@ describe('budget runtime', () => {
       scope: 'project',
       projectPath: 'c:/REPO/',
       period: 'week',
+      modelTarget: { kind: 'all' },
       costLimitUsd: 10,
     });
 

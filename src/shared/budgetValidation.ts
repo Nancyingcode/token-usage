@@ -5,6 +5,7 @@
  */
 import type {
   BudgetPeriod,
+  BudgetModelTarget,
   BudgetPolicy,
   BudgetPolicyInput,
   BudgetScope,
@@ -23,7 +24,9 @@ const MINIMUM_PERCENT = 0;
 const MAXIMUM_PERCENT = 100;
 const MINIMUM_PRICE = 0;
 
-export const BUDGET_CONFIG_SCHEMA_VERSION = 1;
+const LEGACY_BUDGET_CONFIG_SCHEMA_VERSION = 1;
+
+export const BUDGET_CONFIG_SCHEMA_VERSION = 2;
 
 const VALIDATION_ISSUE_CODES: ReadonlySet<ValidationIssueCode> = new Set([
   'project-required',
@@ -68,6 +71,13 @@ export const getBudgetPolicyIssues = (input: BudgetPolicyInput): ValidationIssue
     issues.push({
       field: 'projectPath',
       code: 'project-required',
+    });
+  }
+
+  if (input.modelTarget.kind === 'model' && !input.modelTarget.modelId.trim()) {
+    issues.push({
+      field: 'modelId',
+      code: 'model-id-required',
     });
   }
 
@@ -159,13 +169,19 @@ const isBudgetScope = (value: unknown): value is BudgetScope =>
 const isBudgetPeriod = (value: unknown): value is BudgetPeriod =>
   value === 'day' || value === 'week' || value === 'month';
 
+const isBudgetModelTarget = (value: unknown): value is BudgetModelTarget =>
+  isRecord(value) &&
+  (value.kind === 'all' ||
+    value.kind === 'unknown' ||
+    (value.kind === 'model' && typeof value.modelId === 'string'));
+
 const isOptionalNumber = (value: unknown): value is number | undefined =>
   value === undefined || typeof value === 'number';
 
 const isOptionalString = (value: unknown): value is string | undefined =>
   value === undefined || typeof value === 'string';
 
-const isBudgetPolicy = (value: unknown): value is BudgetPolicy => {
+const decodeBudgetPolicy = (value: unknown, schemaVersion: number): BudgetPolicy | undefined => {
   if (
     !isRecord(value) ||
     typeof value.id !== 'string' ||
@@ -177,18 +193,44 @@ const isBudgetPolicy = (value: unknown): value is BudgetPolicy => {
     typeof value.createdAt !== 'string' ||
     typeof value.updatedAt !== 'string'
   ) {
-    return false;
+    return undefined;
+  }
+
+  const modelTarget: BudgetModelTarget | undefined =
+    schemaVersion === LEGACY_BUDGET_CONFIG_SCHEMA_VERSION
+      ? { kind: 'all' }
+      : isBudgetModelTarget(value.modelTarget)
+        ? { ...value.modelTarget }
+        : undefined;
+
+  if (!modelTarget) {
+    return undefined;
   }
 
   const policyInput: BudgetPolicyInput = {
     scope: value.scope,
     period: value.period,
+    modelTarget,
     projectPath: value.projectPath,
     tokenLimit: value.tokenLimit,
     costLimitUsd: value.costLimitUsd,
   };
 
-  return getBudgetPolicyIssues(policyInput).length === 0;
+  if (getBudgetPolicyIssues(policyInput).length > 0) {
+    return undefined;
+  }
+
+  return {
+    id: value.id,
+    scope: value.scope,
+    ...(value.projectPath === undefined ? {} : { projectPath: value.projectPath }),
+    period: value.period,
+    modelTarget,
+    ...(value.tokenLimit === undefined ? {} : { tokenLimit: value.tokenLimit }),
+    ...(value.costLimitUsd === undefined ? {} : { costLimitUsd: value.costLimitUsd }),
+    createdAt: value.createdAt,
+    updatedAt: value.updatedAt,
+  };
 };
 
 const isBudgetThresholds = (value: unknown): value is BudgetThresholds =>
@@ -234,13 +276,27 @@ const isNotificationReceipt = (value: unknown): value is NotificationReceipt =>
 const hasUniqueValues = (values: string[]): boolean => new Set(values).size === values.length;
 
 export const decodePersistedBudgetConfig = (raw: unknown): PersistedBudgetConfig => {
-  if (!isRecord(raw) || raw.schemaVersion !== BUDGET_CONFIG_SCHEMA_VERSION) {
+  if (
+    !isRecord(raw) ||
+    (raw.schemaVersion !== LEGACY_BUDGET_CONFIG_SCHEMA_VERSION &&
+      raw.schemaVersion !== BUDGET_CONFIG_SCHEMA_VERSION)
+  ) {
     throw new TypeError('Budget configuration has an invalid schema.');
   }
 
-  if (!Array.isArray(raw.policies) || !raw.policies.every(isBudgetPolicy)) {
+  if (!Array.isArray(raw.policies)) {
     throw new TypeError('Budget configuration contains invalid policies.');
   }
+
+  const schemaVersion = raw.schemaVersion;
+
+  const decodedPolicies = raw.policies.map((policy) => decodeBudgetPolicy(policy, schemaVersion));
+
+  if (decodedPolicies.some((policy) => policy === undefined)) {
+    throw new TypeError('Budget configuration contains invalid policies.');
+  }
+
+  const policies = decodedPolicies.filter((policy): policy is BudgetPolicy => policy !== undefined);
 
   if (!isBudgetThresholds(raw.thresholds)) {
     throw new TypeError('Budget configuration contains invalid thresholds.');
@@ -257,8 +313,8 @@ export const decodePersistedBudgetConfig = (raw: unknown): PersistedBudgetConfig
     throw new TypeError('Budget configuration contains invalid notification receipts.');
   }
 
-  const policyIdsAreUnique = hasUniqueValues(raw.policies.map(({ id }) => id));
-  const businessKeysAreUnique = hasUniqueValues(raw.policies.map(getBudgetBusinessKey));
+  const policyIdsAreUnique = hasUniqueValues(policies.map(({ id }) => id));
+  const businessKeysAreUnique = hasUniqueValues(policies.map(getBudgetBusinessKey));
   const pricingIdsAreUnique = hasUniqueValues(
     raw.pricingOverrides.map(({ modelId }) => modelId.trim().toLocaleLowerCase('en-US'))
   );
@@ -268,8 +324,8 @@ export const decodePersistedBudgetConfig = (raw: unknown): PersistedBudgetConfig
   }
 
   return {
-    schemaVersion: raw.schemaVersion,
-    policies: raw.policies,
+    schemaVersion: BUDGET_CONFIG_SCHEMA_VERSION,
+    policies,
     thresholds: raw.thresholds,
     pricingOverrides: raw.pricingOverrides,
     notificationReceipts: raw.notificationReceipts,

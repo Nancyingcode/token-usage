@@ -1,5 +1,6 @@
 import type {
   BudgetPeriod,
+  BudgetModelTarget,
   BudgetPolicy,
   BudgetPolicyInput,
   BudgetScope,
@@ -11,6 +12,7 @@ export interface BudgetFormState {
   scope: BudgetScope;
   projectPath: string;
   period: BudgetPeriod;
+  modelTarget: BudgetModelTarget;
   tokenEnabled: boolean;
   tokenLimit: string;
   costEnabled: boolean;
@@ -35,6 +37,7 @@ export const createBudgetFormState = (policy?: BudgetPolicy): BudgetFormState =>
   scope: policy?.scope ?? 'global',
   projectPath: policy?.projectPath ?? '',
   period: policy?.period ?? DEFAULT_BUDGET_PERIOD,
+  modelTarget: policy ? { ...policy.modelTarget } : { kind: 'all' },
   tokenEnabled: policy?.tokenLimit !== undefined,
   tokenLimit: policy?.tokenLimit === undefined ? '' : String(policy.tokenLimit),
   costEnabled: policy?.costLimitUsd !== undefined,
@@ -76,6 +79,7 @@ export const toBudgetPolicyInput = (state: BudgetFormState): BudgetPolicyInput =
   scope: state.scope,
   ...(state.scope === 'project' ? { projectPath: state.projectPath.trim() } : {}),
   period: state.period,
+  modelTarget: { ...state.modelTarget },
   ...(state.tokenEnabled ? { tokenLimit: Number(state.tokenLimit) } : {}),
   ...(state.costEnabled ? { costLimitUsd: Number(state.costLimitUsd) } : {}),
 });
