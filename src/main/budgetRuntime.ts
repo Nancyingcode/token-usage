@@ -5,6 +5,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { evaluateBudgets } from '../shared/budgetEvaluation';
+import { resolveBudgetModelTarget } from '../shared/budgetModelTarget';
 import { getBudgetBusinessKey } from '../shared/budgetPeriods';
 import type {
   BudgetAlert,
@@ -118,6 +119,9 @@ export const createBudgetRuntime = (dependencies: BudgetRuntimeDependencies): Bu
     dataState: 'fresh',
   });
 
+  const getCurrentPricing = (): ModelPricingEntry[] =>
+    mergeModelPricing(dependencies.defaultPricing, config.pricingOverrides);
+
   const publish = (): void => {
     listeners.forEach((listener) => listener(snapshot));
   };
@@ -130,7 +134,7 @@ export const createBudgetRuntime = (dependencies: BudgetRuntimeDependencies): Bu
       sessions: lastUsageResult?.summary.sessions ?? [],
       policies: config.policies,
       thresholds: config.thresholds,
-      pricing: mergeModelPricing(dependencies.defaultPricing, config.pricingOverrides),
+      pricing: getCurrentPricing(),
       now: now(),
       dataState,
       staleReason,
@@ -212,9 +216,16 @@ export const createBudgetRuntime = (dependencies: BudgetRuntimeDependencies): Bu
   const savePolicy = async (input: BudgetPolicyInput): Promise<BudgetSnapshot> => {
     throwForIssues(getBudgetPolicyIssues(input));
 
-    const existingPolicy = input.id ? config.policies.find(({ id }) => id === input.id) : undefined;
+    const normalizedInput: BudgetPolicyInput = {
+      ...input,
+      modelTarget: resolveBudgetModelTarget(input.modelTarget, getCurrentPricing()),
+    };
 
-    if (input.id && !existingPolicy) {
+    const existingPolicy = normalizedInput.id
+      ? config.policies.find(({ id }) => id === normalizedInput.id)
+      : undefined;
+
+    if (normalizedInput.id && !existingPolicy) {
       throw new BudgetRuntimeValidationError([
         {
           field: 'id',
@@ -223,9 +234,9 @@ export const createBudgetRuntime = (dependencies: BudgetRuntimeDependencies): Bu
       ]);
     }
 
-    const businessKey = getBudgetBusinessKey(input);
+    const businessKey = getBudgetBusinessKey(normalizedInput);
     const duplicatePolicy = config.policies.find(
-      (policy) => policy.id !== input.id && getBudgetBusinessKey(policy) === businessKey
+      (policy) => policy.id !== normalizedInput.id && getBudgetBusinessKey(policy) === businessKey
     );
 
     if (duplicatePolicy) {
@@ -240,12 +251,18 @@ export const createBudgetRuntime = (dependencies: BudgetRuntimeDependencies): Bu
     const timestamp = now().toISOString();
     const policy: BudgetPolicy = {
       id: existingPolicy?.id ?? createId(),
-      scope: input.scope,
-      ...(input.scope === 'project' ? { projectPath: input.projectPath?.trim() } : {}),
-      period: input.period,
-      modelTarget: { ...input.modelTarget },
-      ...(input.tokenLimit === undefined ? {} : { tokenLimit: input.tokenLimit }),
-      ...(input.costLimitUsd === undefined ? {} : { costLimitUsd: input.costLimitUsd }),
+      scope: normalizedInput.scope,
+      ...(normalizedInput.scope === 'project'
+        ? { projectPath: normalizedInput.projectPath?.trim() }
+        : {}),
+      period: normalizedInput.period,
+      modelTarget: { ...normalizedInput.modelTarget },
+      ...(normalizedInput.tokenLimit === undefined
+        ? {}
+        : { tokenLimit: normalizedInput.tokenLimit }),
+      ...(normalizedInput.costLimitUsd === undefined
+        ? {}
+        : { costLimitUsd: normalizedInput.costLimitUsd }),
       createdAt: existingPolicy?.createdAt ?? timestamp,
       updatedAt: timestamp,
     };

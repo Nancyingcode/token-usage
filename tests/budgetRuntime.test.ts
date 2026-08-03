@@ -12,7 +12,7 @@ import type { UsageScanResult, UsageSession } from '../src/shared/usageTypes';
 const FIXED_NOW = new Date(2026, 6, 20, 12, 0);
 const TEST_PRICING: ModelPricingEntry = {
   modelId: 'gpt-test',
-  aliases: [],
+  aliases: ['gpt-alias'],
   inputUsdPerMillion: 1,
   cachedInputUsdPerMillion: 0.1,
   outputUsdPerMillion: 5,
@@ -106,6 +106,54 @@ describe('budget runtime', () => {
         },
       ],
     });
+  });
+
+  it('stores canonical model IDs and rejects canonical-alias duplicates', async () => {
+    const runtime = createBudgetRuntime(makeRuntimeDependencies());
+    await runtime.initialize();
+
+    await runtime.savePolicy({
+      scope: 'global',
+      period: 'day',
+      modelTarget: { kind: 'model', modelId: ' GPT-ALIAS ' },
+      tokenLimit: 100,
+    });
+
+    expect(runtime.getSnapshot().statuses[0].policy.modelTarget).toEqual({
+      kind: 'model',
+      modelId: 'gpt-test',
+    });
+
+    await expect(
+      runtime.savePolicy({
+        scope: 'global',
+        period: 'day',
+        modelTarget: { kind: 'model', modelId: 'gpt-test' },
+        costLimitUsd: 10,
+      })
+    ).rejects.toMatchObject({
+      issues: [{ field: 'businessKey', code: 'budget-duplicate' }],
+    });
+  });
+
+  it('allows all, unknown, and concrete budgets in the same scope and period', async () => {
+    const runtime = createBudgetRuntime(makeRuntimeDependencies());
+    await runtime.initialize();
+
+    for (const modelTarget of [
+      { kind: 'all' as const },
+      { kind: 'unknown' as const },
+      { kind: 'model' as const, modelId: 'future-model' },
+    ]) {
+      await runtime.savePolicy({
+        scope: 'global',
+        period: 'day',
+        modelTarget,
+        tokenLimit: 100,
+      });
+    }
+
+    expect(runtime.getSnapshot().statuses).toHaveLength(3);
   });
 });
 
