@@ -4,6 +4,7 @@
  * 根据用量切片、预算策略和模型价格计算预算进度、严重级别、提醒及未定价模型。
  */
 import { getNaturalPeriodRange, normalizeProjectPath } from './budgetPeriods';
+import { matchesBudgetModelTarget } from './budgetModelTarget';
 import type {
   BudgetAlert,
   BudgetMetric,
@@ -61,6 +62,7 @@ const isSliceInPolicy = (
   session: UsageSession,
   slice: UsageSlice,
   policy: BudgetPolicy,
+  pricing: ModelPricingEntry[],
   startTime: number,
   endTime: number
 ): boolean => {
@@ -69,19 +71,21 @@ const isSliceInPolicy = (
   const matchesProject =
     policy.scope === 'global' ||
     normalizeProjectPath(session.projectPath) === normalizeProjectPath(policy.projectPath ?? '');
+  const matchesModel = matchesBudgetModelTarget(slice.modelId, policy.modelTarget, pricing);
 
-  return matchesTime && matchesProject;
+  return matchesTime && matchesProject && matchesModel;
 };
 
 const getPolicySlices = (
   sessions: UsageSession[],
   policy: BudgetPolicy,
+  pricing: ModelPricingEntry[],
   startTime: number,
   endTime: number
 ): UsageSlice[] =>
   sessions.flatMap((session) =>
     getSessionUsageSlices(session).filter((slice) =>
-      isSliceInPolicy(session, slice, policy, startTime, endTime)
+      isSliceInPolicy(session, slice, policy, pricing, startTime, endTime)
     )
   );
 
@@ -93,7 +97,13 @@ const buildPolicyStatus = (
   now: Date
 ): BudgetPolicyStatus => {
   const range = getNaturalPeriodRange(policy.period, now);
-  const slices = getPolicySlices(sessions, policy, range.start.getTime(), range.end.getTime());
+  const slices = getPolicySlices(
+    sessions,
+    policy,
+    pricing,
+    range.start.getTime(),
+    range.end.getTime()
+  );
   const totalTokens = slices.reduce((total, slice) => total + slice.totalTokens, 0);
   const costEstimate = calculateEstimatedCost(slices, pricing);
 

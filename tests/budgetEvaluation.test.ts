@@ -47,6 +47,63 @@ describe('budget evaluation', () => {
     expect(snapshot.unpricedModels).toEqual([{ modelId: undefined, totalTokens: 900 }]);
   });
 
+  it('filters canonical, alias, unpriced, and missing IDs by model target', () => {
+    const sessions = [
+      makeSession('C:\\repo', [
+        sliceAt(2026, 6, 20, 100, 'gpt-test'),
+        sliceAt(2026, 6, 20, 200, 'gpt-alias'),
+        sliceAt(2026, 6, 20, 300, 'future-model'),
+        sliceAt(2026, 6, 20, 400),
+      ]),
+    ];
+    const pricing = [{ ...makePricing('gpt-test'), aliases: ['gpt-alias'] }];
+    const policies = [
+      makePolicy({ id: 'all', modelTarget: { kind: 'all' }, tokenLimit: 2_000 }),
+      makePolicy({
+        id: 'known',
+        modelTarget: { kind: 'model', modelId: 'GPT-TEST' },
+        tokenLimit: 2_000,
+      }),
+      makePolicy({
+        id: 'future',
+        modelTarget: { kind: 'model', modelId: ' future-model ' },
+        tokenLimit: 2_000,
+      }),
+      makePolicy({ id: 'unknown', modelTarget: { kind: 'unknown' }, tokenLimit: 2_000 }),
+    ];
+
+    const snapshot = evaluateBudgets({
+      sessions,
+      policies,
+      thresholds: { warningPercent: 80, criticalPercent: 100 },
+      pricing,
+      now: new Date(2026, 6, 20, 12, 0),
+      dataState: 'fresh',
+    });
+
+    expect(snapshot.statuses.map((status) => status.token?.used)).toEqual([1_000, 300, 300, 400]);
+    expect(snapshot.statuses[1].unpricedTokens).toBe(0);
+    expect(snapshot.statuses[2].unpricedTokens).toBe(300);
+    expect(snapshot.statuses[3].unpricedTokens).toBe(400);
+  });
+
+  it('keeps an unused unknown-model cost budget complete at zero', () => {
+    const snapshot = evaluateBudgets({
+      ...makeEvaluationInputWithTokens(100, { warningPercent: 80, criticalPercent: 100 }),
+      policies: [
+        makePolicy({
+          modelTarget: { kind: 'unknown' },
+          tokenLimit: undefined,
+          costLimitUsd: 10,
+        }),
+      ],
+    });
+
+    expect(snapshot.statuses[0].cost).toEqual(
+      expect.objectContaining({ used: 0, incomplete: false })
+    );
+  });
+
   it('distinguishes warning, critical, and over-budget progress', () => {
     const baseInput = makeEvaluationInputWithTokens(85, {
       warningPercent: 80,
