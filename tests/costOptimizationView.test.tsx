@@ -88,6 +88,10 @@ describe('CostOptimizationView', () => {
     expect(markup).toContain('Savings');
     expect(markup).toContain('Session diagnostics');
     expect(markup).toContain('aria-selected="true"');
+    expect(markup).toContain('id="cost-optimization-tab-overview"');
+    expect(markup).toContain('aria-controls="cost-optimization-panel-overview"');
+    expect(markup).toContain('id="cost-optimization-panel-overview"');
+    expect(markup).toContain('aria-labelledby="cost-optimization-tab-overview"');
   });
 
   it('renders the controlled diagnostics tab and workspace', () => {

@@ -15,6 +15,10 @@ describe('BudgetsView', () => {
     expect(markup).toContain('Token budget reached 100%');
     expect(markup).toContain('Global budgets');
     expect(markup).toContain('Project budgets');
+    expect(markup).toContain('id="budget-tab-overview"');
+    expect(markup).toContain('aria-controls="budget-panel-overview"');
+    expect(markup).toContain('id="budget-panel-overview"');
+    expect(markup).toContain('aria-labelledby="budget-tab-overview"');
   });
 
   it('renders budget alerts and rows in Chinese', () => {

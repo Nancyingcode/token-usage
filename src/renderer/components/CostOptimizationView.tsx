@@ -13,6 +13,7 @@ import type {
 } from '../../shared/costOptimizationTypes';
 import { ICON_SIZE_LARGE, ICON_SIZE_SMALL } from '../constants/ui';
 import type { SessionDiagnosisDetailModel } from '../utils/sessionDiagnosisDetailState';
+import AccessibleTabs, { getTabId, getTabPanelId } from './AccessibleTabs';
 import CostAnomalies from './CostAnomalies';
 import CostForecast from './CostForecast';
 import CostOptimizationOverview from './CostOptimizationOverview';
@@ -120,6 +121,10 @@ const CostOptimizationView: React.FC<CostOptimizationViewProps> = ({
         : [],
     [dismissedWarnings, model]
   );
+  const tabs = COST_OPTIMIZATION_TABS.map((tab) => ({
+    value: tab.key,
+    label: t(tab.labelKey),
+  }));
 
   return (
     <section className="cost-optimization-workspace">
@@ -199,26 +204,17 @@ const CostOptimizationView: React.FC<CostOptimizationViewProps> = ({
               </button>
             </div>
           ))}
-          <div className="cost-optimization-tabs" role="tablist" aria-label={t('tabs.label')}>
-            {COST_OPTIMIZATION_TABS.map((tab) => (
-              <button
-                key={tab.key}
-                id={`cost-tab-${tab.key}`}
-                type="button"
-                role="tab"
-                aria-selected={activeTab === tab.key}
-                aria-controls={`cost-panel-${tab.key}`}
-                className={activeTab === tab.key ? 'active' : undefined}
-                onClick={() => onActiveTabChange(tab.key)}
-              >
-                {t(tab.labelKey)}
-              </button>
-            ))}
-          </div>
+          <AccessibleTabs
+            groupId="cost-optimization"
+            label={t('tabs.label')}
+            value={activeTab}
+            tabs={tabs}
+            onChange={onActiveTabChange}
+          />
           <div
-            id={`cost-panel-${activeTab}`}
+            id={getTabPanelId('cost-optimization', activeTab)}
             role="tabpanel"
-            aria-labelledby={`cost-tab-${activeTab}`}
+            aria-labelledby={getTabId('cost-optimization', activeTab)}
           >
             {renderCostOptimizationTab(
               activeTab,

@@ -957,28 +957,6 @@ code {
   border-bottom: 1px solid #ededed;
 }
 
-.budget-tabs {
-  display: flex;
-  gap: 18px;
-  border-bottom: 1px solid #e5e5e5;
-}
-
-.budget-tabs button {
-  height: 34px;
-  padding: 0 2px;
-  color: #777777;
-  background: transparent;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  font-size: 11px;
-}
-
-.budget-tabs button.active {
-  color: #1f664a;
-  border-bottom-color: #2f9b70;
-  font-weight: 700;
-}
-
 .budget-filter-bar label {
   display: flex;
   align-items: center;
@@ -1644,30 +1622,6 @@ code {
   gap: 7px;
   color: #555555;
   font-size: 11px;
-}
-
-.cost-optimization-tabs {
-  display: flex;
-  gap: 18px;
-  overflow-x: auto;
-  border-bottom: 1px solid #e5e5e5;
-}
-
-.cost-optimization-tabs button {
-  min-width: max-content;
-  height: 34px;
-  padding: 0 2px;
-  color: #777777;
-  background: transparent;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  font-size: 11px;
-}
-
-.cost-optimization-tabs button.active {
-  color: #1f664a;
-  border-bottom-color: #2f9b70;
-  font-weight: 700;
 }
 
 .cost-detail-stack,

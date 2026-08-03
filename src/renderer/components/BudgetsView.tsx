@@ -10,6 +10,7 @@ import type { BudgetPolicy, BudgetSnapshot } from '../../shared/budgetTypes';
 import { ICON_SIZE_SMALL } from '../constants/ui';
 import type { BudgetActions } from '../hooks/useBudgetSnapshot';
 import { buildBudgetViewModel, type BudgetFilters } from '../utils/budgetViewModel';
+import AccessibleTabs, { getTabId, getTabPanelId } from './AccessibleTabs';
 import BudgetAlertBanner from './BudgetAlertBanner';
 import BudgetDrawer, { type BudgetDrawerModel } from './BudgetDrawer';
 import BudgetList from './BudgetList';
@@ -169,6 +170,10 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
       onInitialModelConsumed={clearPricingTarget}
     />
   );
+  const budgetTabs = [
+    { value: 'overview', label: t('page.overview') },
+    { value: 'pricing', label: t('page.pricing') },
+  ] as const;
   const pageContent = activeTab === 'overview' ? overviewContent : pricingContent;
   const showOverviewActions = activeTab === 'overview';
   const headingActions = showOverviewActions ? (
@@ -214,27 +219,20 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
         </div>
       ) : null}
 
-      <div className="budget-tabs" role="tablist" aria-label={t('page.views')}>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'overview'}
-          className={activeTab === 'overview' ? 'active' : undefined}
-          onClick={() => setActiveTab('overview')}
-        >
-          {t('page.overview')}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'pricing'}
-          className={activeTab === 'pricing' ? 'active' : undefined}
-          onClick={() => setActiveTab('pricing')}
-        >
-          {t('page.pricing')}
-        </button>
+      <AccessibleTabs
+        groupId="budget"
+        label={t('page.views')}
+        value={activeTab}
+        tabs={budgetTabs}
+        onChange={setActiveTab}
+      />
+      <div
+        id={getTabPanelId('budget', activeTab)}
+        role="tabpanel"
+        aria-labelledby={getTabId('budget', activeTab)}
+      >
+        {pageContent}
       </div>
-      {pageContent}
       {drawer}
       {deleteDialog}
     </section>
