@@ -64,4 +64,15 @@ describe('UI style policy', () => {
     expect(featuredValueRule).toContain('color: var(--color-brand-300);');
     expect(featuredValueRule).not.toContain('color: var(--color-surface);');
   });
+
+  it('does not show a busy cursor for ordinary disabled action buttons', () => {
+    const views = readRendererStyle('styles/views.css');
+    const disabledActionRule =
+      views.match(
+        /\.primary-button:disabled,\s*\.secondary-button:disabled,\s*\.danger-button:disabled\s*\{([^}]*)\}/
+      )?.[1] ?? '';
+
+    expect(disabledActionRule).toContain('cursor: not-allowed;');
+    expect(disabledActionRule).not.toContain('cursor: wait;');
+  });
 });

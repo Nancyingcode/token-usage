@@ -10,7 +10,7 @@ import { isRecord } from '../shared/runtimeTypes';
 import getSessionId from '../shared/sessionId';
 import { buildUsageSummary } from '../shared/usageMath';
 import type { UsageScanResult, UsageSession, UsageWarning } from '../shared/usageTypes';
-import { getDefaultCodexSessionsDir, getDefaultSessionIndexPath } from './codexPaths';
+import { getDefaultCodexSessionsDir, getSessionIndexPathForSessionsDir } from './codexPaths';
 import parseSessionJsonl from './sessionParser';
 
 export interface ScanOptions {
@@ -72,10 +72,12 @@ export const createUsageScanner = (
     dependencies.stat ??
     (async (path: string): Promise<{ size: number; mtimeMs: number }> => fs.stat(path));
   const cache = new Map<string, CachedSessionFile>();
+  let lastSessionsDir: string | undefined;
 
   const scanCycle = async (options: ScanOptions = {}): Promise<UsageScanCycle> => {
     const sessionsDir = options.sessionsDir ?? getDefaultCodexSessionsDir();
-    const sessionIndexPath = options.sessionIndexPath ?? getDefaultSessionIndexPath();
+    const sessionIndexPath =
+      options.sessionIndexPath ?? getSessionIndexPathForSessionsDir(sessionsDir);
     const previousCachedPaths = new Set(cache.keys());
     const [discovery, threadNameResult] = await Promise.all([
       findJsonlFiles(sessionsDir),
@@ -154,6 +156,9 @@ export const createUsageScanner = (
     );
     const scannedAt = new Date().toISOString();
 
+    const requiresFullRebuild = lastSessionsDir !== undefined && lastSessionsDir !== sessionsDir;
+    lastSessionsDir = sessionsDir;
+
     return {
       result: {
         sessionsDir,
@@ -166,7 +171,7 @@ export const createUsageScanner = (
         removedSourceFiles: [...removedSourceFiles].sort((first, second) =>
           first.localeCompare(second)
         ),
-        requiresFullRebuild: false,
+        requiresFullRebuild,
       },
     };
   };

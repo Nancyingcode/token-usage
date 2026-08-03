@@ -1,5 +1,9 @@
 export const USAGE_SCAN_CHANNEL = 'usage:scan';
 export const USAGE_UPDATED_CHANNEL = 'usage:updated';
+export const USAGE_DATA_PATH_GET_CHANNEL = 'usage-data-path:get';
+export const USAGE_DATA_PATH_SELECT_CHANNEL = 'usage-data-path:select';
+export const USAGE_DATA_PATH_UPDATE_CHANNEL = 'usage-data-path:update';
+export const USAGE_DATA_PATH_RESET_CHANNEL = 'usage-data-path:reset';
 export const BUDGET_GET_SNAPSHOT_CHANNEL = 'budget:get-snapshot';
 export const BUDGET_SAVE_POLICY_CHANNEL = 'budget:save-policy';
 export const BUDGET_DELETE_POLICY_CHANNEL = 'budget:delete-policy';

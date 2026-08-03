@@ -30,9 +30,14 @@ import {
   LOCALE_SET_CHANNEL,
   LOCALE_UPDATED_CHANNEL,
   OPEN_EXTERNAL_CHANNEL,
+  USAGE_DATA_PATH_GET_CHANNEL,
+  USAGE_DATA_PATH_RESET_CHANNEL,
+  USAGE_DATA_PATH_SELECT_CHANNEL,
+  USAGE_DATA_PATH_UPDATE_CHANNEL,
   USAGE_SCAN_CHANNEL,
   USAGE_UPDATED_CHANNEL,
 } from '../shared/ipcChannels';
+import type { UsageDataPathIpcResponse } from '../shared/usageDataPathTypes';
 import type { ApplicationRuntime } from './applicationRuntime';
 import type { BudgetRuntime } from './budgetRuntime';
 import {
@@ -42,6 +47,7 @@ import {
 import { isAllowedExternalUrl } from './externalUrlPolicy';
 import type { LocaleService } from './localeService';
 import type { UsageRuntime } from './usageRuntime';
+import { UsageDataPathServiceError, type UsageDataPathService } from './usageDataPathService';
 
 export interface UsageIpcDependencies {
   applicationRuntime: ApplicationRuntime;
@@ -52,11 +58,17 @@ export interface UsageIpcDependencies {
     'getSnapshot' | 'getSessionDiagnosis' | 'updateSettings' | 'subscribe'
   >;
   localeService: LocaleService;
+  usageDataPathService: UsageDataPathService;
+  selectUsageDataDirectory: (defaultPath: string) => Promise<string | null>;
   getWindow: () => BrowserWindow | null;
 }
 
 const HANDLED_CHANNELS = [
   USAGE_SCAN_CHANNEL,
+  USAGE_DATA_PATH_GET_CHANNEL,
+  USAGE_DATA_PATH_SELECT_CHANNEL,
+  USAGE_DATA_PATH_UPDATE_CHANNEL,
+  USAGE_DATA_PATH_RESET_CHANNEL,
   BUDGET_GET_SNAPSHOT_CHANNEL,
   BUDGET_SAVE_POLICY_CHANNEL,
   BUDGET_DELETE_POLICY_CHANNEL,
@@ -116,15 +128,42 @@ const runCostOptimizationOperation = async <Result>(
   }
 };
 
+const runUsageDataPathOperation = async <Result>(
+  operation: () => Result | Promise<Result>
+): Promise<UsageDataPathIpcResponse<Result>> => {
+  try {
+    return { ok: true, value: await operation() };
+  } catch (error) {
+    return {
+      ok: false,
+      error: {
+        code: error instanceof UsageDataPathServiceError ? error.code : 'unexpected',
+      },
+    };
+  }
+};
+
 const registerUsageIpc = ({
   applicationRuntime,
   usageRuntime,
   budgetRuntime,
   costRuntime,
   localeService,
+  usageDataPathService,
+  selectUsageDataDirectory,
   getWindow,
 }: UsageIpcDependencies): (() => void) => {
   ipcMain.handle(USAGE_SCAN_CHANNEL, () => applicationRuntime.refresh());
+  ipcMain.handle(USAGE_DATA_PATH_GET_CHANNEL, () => usageDataPathService.getSettings());
+  ipcMain.handle(USAGE_DATA_PATH_SELECT_CHANNEL, () =>
+    selectUsageDataDirectory(usageDataPathService.getSettings().sessionsDir)
+  );
+  ipcMain.handle(USAGE_DATA_PATH_UPDATE_CHANNEL, (_event, sessionsDir: unknown) =>
+    runUsageDataPathOperation(() => usageDataPathService.update(sessionsDir))
+  );
+  ipcMain.handle(USAGE_DATA_PATH_RESET_CHANNEL, () =>
+    runUsageDataPathOperation(() => usageDataPathService.reset())
+  );
   ipcMain.handle(BUDGET_GET_SNAPSHOT_CHANNEL, () => budgetRuntime.getSnapshot());
   ipcMain.handle(BUDGET_SAVE_POLICY_CHANNEL, (_event, input: BudgetPolicyInput) =>
     budgetRuntime.savePolicy(input)

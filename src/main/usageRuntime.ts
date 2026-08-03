@@ -12,7 +12,8 @@ type CycleListener = (cycle: UsageScanCycle) => void | Promise<void>;
 type ErrorListener = (error: unknown) => void;
 
 export interface UsageRuntimeDependencies<IntervalId> {
-  scanCycle: () => Promise<UsageScanCycle>;
+  scanCycle: (sessionsDir: string) => Promise<UsageScanCycle>;
+  initialSessionsDir: string;
   now: () => number;
   setIntervalFn: (callback: () => void, delay: number) => IntervalId;
   clearIntervalFn: (intervalId: IntervalId) => void;
@@ -21,6 +22,7 @@ export interface UsageRuntimeDependencies<IntervalId> {
 export interface UsageRuntime {
   refresh: () => Promise<UsageScanResult>;
   refreshOnFocus: () => Promise<UsageScanResult | undefined>;
+  updateSessionsDir: (sessionsDir: string) => Promise<UsageScanResult>;
   getResult: () => UsageScanResult | undefined;
   subscribe: (listener: ResultListener) => () => void;
   subscribeCycle: (listener: CycleListener) => () => void;
@@ -50,9 +52,10 @@ export const createUsageRuntime = <IntervalId>(
   const cycleListeners = new Set<CycleListener>();
   const errorListeners = new Set<ErrorListener>();
   let lastResult: UsageScanResult | undefined;
+  let sessionsDir = dependencies.initialSessionsDir;
 
   const scan = async (): Promise<UsageScanResult> => {
-    const cycle = await dependencies.scanCycle();
+    const cycle = await dependencies.scanCycle(sessionsDir);
     lastResult = cycle.result;
 
     for (const listener of cycleListeners) {
@@ -78,6 +81,10 @@ export const createUsageRuntime = <IntervalId>(
   return {
     refresh: monitor.refresh,
     refreshOnFocus: monitor.refreshOnFocus,
+    updateSessionsDir: (nextSessionsDir) => {
+      sessionsDir = nextSessionsDir;
+      return monitor.refreshAfterCurrent();
+    },
     getResult: () => lastResult,
     subscribe: (listener) => subscribeTo(resultListeners, listener),
     subscribeCycle: (listener) => subscribeTo(cycleListeners, listener),

@@ -63,6 +63,16 @@ describe('locale IPC', () => {
       costRuntime: createCostRuntimeStub(),
       usageRuntime: createUsageRuntimeStub(),
       localeService,
+      usageDataPathService: {
+        getSettings: () => ({
+          sessionsDir: 'C:\\sessions',
+          defaultSessionsDir: 'C:\\sessions',
+          usingDefault: true,
+        }),
+        update: vi.fn(),
+        reset: vi.fn(),
+      },
+      selectUsageDataDirectory: vi.fn(async () => null),
       getWindow: () =>
         ({
           isDestroyed: () => false,

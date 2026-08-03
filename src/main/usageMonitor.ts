@@ -16,6 +16,7 @@ export interface UsageMonitor {
   start: () => void;
   stop: () => void;
   refresh: () => Promise<UsageScanResult>;
+  refreshAfterCurrent: () => Promise<UsageScanResult>;
   refreshOnFocus: () => Promise<UsageScanResult | undefined>;
 }
 
@@ -54,6 +55,18 @@ export const createUsageMonitor = <IntervalId>(
       ? refresh()
       : Promise.resolve(undefined);
 
+  const refreshAfterCurrent = async (): Promise<UsageScanResult> => {
+    if (activeRefresh) {
+      try {
+        await activeRefresh;
+      } catch {
+        // A path switch still needs its own attempt after an older refresh fails.
+      }
+    }
+
+    return refresh();
+  };
+
   const refreshInBackground = (): void => {
     void refresh().catch(() => undefined);
   };
@@ -76,5 +89,5 @@ export const createUsageMonitor = <IntervalId>(
     intervalId = undefined;
   };
 
-  return { start, stop, refresh, refreshOnFocus };
+  return { start, stop, refresh, refreshAfterCurrent, refreshOnFocus };
 };

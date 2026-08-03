@@ -18,6 +18,10 @@ import {
   LOCALE_SET_CHANNEL,
   LOCALE_UPDATED_CHANNEL,
   OPEN_EXTERNAL_CHANNEL,
+  USAGE_DATA_PATH_GET_CHANNEL,
+  USAGE_DATA_PATH_RESET_CHANNEL,
+  USAGE_DATA_PATH_SELECT_CHANNEL,
+  USAGE_DATA_PATH_UPDATE_CHANNEL,
   USAGE_SCAN_CHANNEL,
   USAGE_UPDATED_CHANNEL,
 } from '../shared/ipcChannels';
@@ -38,6 +42,11 @@ import type {
 } from '../shared/budgetTypes';
 import type { SupportedLocale } from '../shared/i18n/locale';
 import type { UsageScanResult } from '../shared/usageTypes';
+import type {
+  UsageDataPathIpcResponse,
+  UsageDataPathSettings,
+  UsageDataPathUpdateResult,
+} from '../shared/usageDataPathTypes';
 
 const subscribe = <Payload>(
   channel: string,
@@ -64,10 +73,28 @@ const invokeCostOptimization = async <Result>(
   return response.value;
 };
 
+const invokeUsageDataPath = async <Result>(channel: string, input?: string): Promise<Result> => {
+  const response = (await ipcRenderer.invoke(channel, input)) as UsageDataPathIpcResponse<Result>;
+
+  if (!response.ok) {
+    throw response.error;
+  }
+
+  return response.value;
+};
+
 contextBridge.exposeInMainWorld('codexUsage', {
   scan: (): Promise<UsageScanResult> => ipcRenderer.invoke(USAGE_SCAN_CHANNEL),
   onUsageUpdated: (listener: (result: UsageScanResult) => void): (() => void) =>
     subscribe(USAGE_UPDATED_CHANNEL, listener),
+  dataPath: {
+    get: (): Promise<UsageDataPathSettings> => ipcRenderer.invoke(USAGE_DATA_PATH_GET_CHANNEL),
+    select: (): Promise<string | null> => ipcRenderer.invoke(USAGE_DATA_PATH_SELECT_CHANNEL),
+    update: (sessionsDir: string): Promise<UsageDataPathUpdateResult> =>
+      invokeUsageDataPath(USAGE_DATA_PATH_UPDATE_CHANNEL, sessionsDir),
+    reset: (): Promise<UsageDataPathUpdateResult> =>
+      invokeUsageDataPath(USAGE_DATA_PATH_RESET_CHANNEL),
+  },
   openExternal: (url: string): Promise<void> => ipcRenderer.invoke(OPEN_EXTERNAL_CHANNEL, url),
   locale: {
     get: (): Promise<SupportedLocale> => ipcRenderer.invoke(LOCALE_GET_CHANNEL),

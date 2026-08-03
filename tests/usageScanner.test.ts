@@ -1,4 +1,4 @@
-import { appendFile, mkdtemp, readFile, rm, unlink, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, mkdtemp, readFile, rm, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -80,6 +80,23 @@ describe('usageScanner', () => {
     );
   });
 
+  it('derives the session index from the parent of a custom sessions directory', async () => {
+    const sessionsDirectory = join(testDirectory, 'sessions');
+    await mkdir(sessionsDirectory);
+    await writeFile(
+      join(sessionsDirectory, 'indexed.jsonl'),
+      validSession('indexed', '2026-07-16T00:00:00.000Z')
+    );
+    await writeFile(
+      join(testDirectory, 'session_index.jsonl'),
+      JSON.stringify({ id: 'indexed', thread_name: 'Custom path thread' })
+    );
+
+    const result = await createUsageScanner().scan({ sessionsDir: sessionsDirectory });
+
+    expect(result.summary.sessions[0]?.threadName).toBe('Custom path thread');
+  });
+
   it('reuses unchanged parsed sessions and removes deleted files', async () => {
     const sessionFile = join(testDirectory, 'cached.jsonl');
     const missingIndexPath = join(testDirectory, 'missing-index.jsonl');
@@ -144,6 +161,26 @@ describe('usageScanner', () => {
       sessionIndexPath: missingIndexPath,
     });
     expect(removed.changes.removedSourceFiles).toEqual([sessionFile]);
+  });
+
+  it('forces a full rebuild and drops old cached sources when the directory changes', async () => {
+    const firstDirectory = join(testDirectory, 'first');
+    const secondDirectory = join(testDirectory, 'second');
+    await Promise.all([mkdir(firstDirectory), mkdir(secondDirectory)]);
+    const firstFile = join(firstDirectory, 'first.jsonl');
+    const secondFile = join(secondDirectory, 'second.jsonl');
+    await writeFile(firstFile, validSession('first', '2026-07-16T00:00:00.000Z'));
+    await writeFile(secondFile, validSession('second', '2026-07-16T00:00:00.000Z'));
+    const scanner = createUsageScanner();
+
+    const initial = await scanner.scanCycle({ sessionsDir: firstDirectory });
+    const switched = await scanner.scanCycle({ sessionsDir: secondDirectory });
+
+    expect(initial.changes.requiresFullRebuild).toBe(false);
+    expect(switched.changes.requiresFullRebuild).toBe(true);
+    expect(switched.changes.removedSourceFiles).toEqual([firstFile]);
+    expect(switched.changes.upserted.map(({ sourceFile }) => sourceFile)).toEqual([secondFile]);
+    expect(switched.result.summary.sessions.map(({ sessionId }) => sessionId)).toEqual(['second']);
   });
 
   it('rejects a transient cached-file read failure without converting it to removal', async () => {

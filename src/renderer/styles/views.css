@@ -776,7 +776,7 @@ code {
 .primary-button:disabled,
 .secondary-button:disabled,
 .danger-button:disabled {
-  cursor: wait;
+  cursor: not-allowed;
   opacity: 0.6;
 }
 
@@ -3408,6 +3408,51 @@ code {
   color: var(--color-text-muted);
   font-size: var(--font-size-body-small);
   line-height: 1.55;
+}
+
+.settings-data-path-panel {
+  grid-column: 1 / -1;
+}
+
+.settings-data-path-form {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.settings-data-path-form > label {
+  font-weight: 700;
+}
+
+.settings-data-path-form input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.6875rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.settings-data-path-form input[readonly] {
+  cursor: default;
+}
+
+.settings-data-path-form code {
+  overflow-wrap: anywhere;
+  color: var(--color-text-muted);
+}
+
+.settings-data-path-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.settings-path-success {
+  color: var(--color-success-text) !important;
+  font-weight: 700;
 }
 
 .warning-list {

@@ -81,6 +81,31 @@ describe('usage monitor', () => {
     await expect(monitor.refresh()).rejects.toBe(error);
     expect(onError).toHaveBeenCalledWith(error);
   });
+
+  it('runs a new refresh after the active refresh completes', async () => {
+    const pending = deferred<UsageScanResult>();
+    const scan = vi
+      .fn<() => Promise<UsageScanResult>>()
+      .mockReturnValueOnce(pending.promise)
+      .mockResolvedValueOnce({ ...EMPTY_SCAN_RESULT, sessionsDir: 'D:\\Codex\\sessions' });
+    const monitor = createUsageMonitor({
+      scan,
+      onUpdate: vi.fn(),
+      onError: vi.fn(),
+      now: () => 1_000,
+      setIntervalFn: vi.fn(() => 1),
+      clearIntervalFn: vi.fn(),
+    });
+
+    const first = monitor.refresh();
+    const next = monitor.refreshAfterCurrent();
+    expect(scan).toHaveBeenCalledTimes(1);
+
+    pending.resolve(EMPTY_SCAN_RESULT);
+    await expect(first).resolves.toBe(EMPTY_SCAN_RESULT);
+    await expect(next).resolves.toMatchObject({ sessionsDir: 'D:\\Codex\\sessions' });
+    expect(scan).toHaveBeenCalledTimes(2);
+  });
 });
 
 const deferred = <Value>(): {

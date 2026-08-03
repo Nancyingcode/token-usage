@@ -14,6 +14,10 @@ import type {
 } from '../shared/costOptimizationTypes';
 import type { SupportedLocale } from '../shared/i18n/locale';
 import type { UsageScanResult } from '../shared/usageTypes';
+import type {
+  UsageDataPathSettings,
+  UsageDataPathUpdateResult,
+} from '../shared/usageDataPathTypes';
 
 interface BudgetApi {
   getSnapshot: () => Promise<BudgetSnapshot>;
@@ -44,6 +48,12 @@ interface CostOptimizationApi {
 interface CodexUsageApi {
   scan: () => Promise<UsageScanResult>;
   onUsageUpdated: (listener: (result: UsageScanResult) => void) => () => void;
+  dataPath: {
+    get: () => Promise<UsageDataPathSettings>;
+    select: () => Promise<string | null>;
+    update: (sessionsDir: string) => Promise<UsageDataPathUpdateResult>;
+    reset: () => Promise<UsageDataPathUpdateResult>;
+  };
   openExternal: (url: string) => Promise<void>;
   locale: LocaleApi;
   budgets: BudgetApi;

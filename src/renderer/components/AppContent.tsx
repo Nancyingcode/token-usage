@@ -4,6 +4,7 @@ import { AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { SupportedLocale } from '../../shared/i18n/locale';
 import type { UsagePeriod } from '../../shared/usageTypes';
+import type { UsageDataPathSettings } from '../../shared/usageDataPathTypes';
 import type {
   CostOptimizationSettings,
   CostOptimizationSnapshot,
@@ -54,6 +55,10 @@ interface AppContentProps {
   onDiagnosisClose?: () => void;
   onCostProjectPathChange?: (projectPath: string | undefined) => void;
   onCostSettingsUpdate?: (settings: CostOptimizationSettings) => Promise<CostOptimizationSnapshot>;
+  dataPathSettings?: UsageDataPathSettings;
+  onSelectDataPath?: () => Promise<string | null>;
+  onUpdateDataPath?: (sessionsDir: string) => Promise<unknown>;
+  onResetDataPath?: () => Promise<unknown>;
 }
 
 export type BudgetContentModel =
@@ -65,6 +70,8 @@ const IDLE_DIAGNOSIS_DETAIL_MODEL: SessionDiagnosisDetailModel = { kind: 'idle' 
 const EMPTY_DIAGNOSTICS: SessionDiagnosisSummary[] = [];
 const ignoreCostOptimizationTab = (): void => undefined;
 const ignoreDiagnosis = (): void => undefined;
+const ignoreDataPathUpdate = async (): Promise<void> => undefined;
+const ignoreDataPathSelect = async (): Promise<null> => null;
 
 const renderFreshnessBanner = (
   freshness: AppFreshness,
@@ -173,6 +180,10 @@ const AppContent: React.FC<AppContentProps> = ({
   onDiagnosisClose = ignoreDiagnosis,
   onCostProjectPathChange,
   onCostSettingsUpdate,
+  dataPathSettings,
+  onSelectDataPath = ignoreDataPathSelect,
+  onUpdateDataPath = ignoreDataPathUpdate,
+  onResetDataPath = ignoreDataPathUpdate,
 }) => {
   const { t, i18n } = useTranslation('common');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
@@ -201,6 +212,41 @@ const AppContent: React.FC<AppContentProps> = ({
         onDiagnosisClose={onDiagnosisClose}
         onProjectPathChange={onCostProjectPathChange ?? (() => undefined)}
         onUpdateSettings={onCostSettingsUpdate ?? (async () => undefined)}
+      />
+    );
+  }
+
+  if (activeView === 'wrapped') {
+    const result = 'result' in model ? model.result : undefined;
+    const effectiveDataPathSettings =
+      dataPathSettings ??
+      (result
+        ? {
+            sessionsDir: result.sessionsDir,
+            defaultSessionsDir: result.sessionsDir,
+            usingDefault: true,
+          }
+        : undefined);
+
+    if (!effectiveDataPathSettings) {
+      return <LoadingSkeleton label={t('state.scanningTitle')} />;
+    }
+
+    const scanError =
+      model.kind === 'error'
+        ? model.message
+        : 'freshness' in model
+          ? (model.freshness.staleReason ?? undefined)
+          : undefined;
+
+    return (
+      <SettingsView
+        result={result}
+        dataPathSettings={effectiveDataPathSettings}
+        scanError={scanError}
+        onSelectDataPath={onSelectDataPath}
+        onUpdateDataPath={onUpdateDataPath}
+        onResetDataPath={onResetDataPath}
       />
     );
   }
@@ -268,7 +314,6 @@ const AppContent: React.FC<AppContentProps> = ({
               unknownModelPricing={unknownModelPricing}
             />
           ) : null}
-          {activeView === 'wrapped' ? <SettingsView result={model.result} /> : null}
         </>
       );
     case 'idle':

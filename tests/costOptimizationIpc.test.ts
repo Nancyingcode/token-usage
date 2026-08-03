@@ -7,6 +7,7 @@ import {
 } from '../src/main/costOptimizationRuntime';
 import type { LocaleService } from '../src/main/localeService';
 import type { UsageRuntime } from '../src/main/usageRuntime';
+import type { UsageDataPathService } from '../src/main/usageDataPathService';
 import {
   BUDGET_DELETE_UNKNOWN_MODEL_PRICING_CHANNEL,
   BUDGET_SAVE_UNKNOWN_MODEL_PRICING_CHANNEL,
@@ -14,6 +15,10 @@ import {
   COST_OPTIMIZATION_GET_SNAPSHOT_CHANNEL,
   COST_OPTIMIZATION_UPDATED_CHANNEL,
   COST_OPTIMIZATION_UPDATE_SETTINGS_CHANNEL,
+  USAGE_DATA_PATH_GET_CHANNEL,
+  USAGE_DATA_PATH_RESET_CHANNEL,
+  USAGE_DATA_PATH_SELECT_CHANNEL,
+  USAGE_DATA_PATH_UPDATE_CHANNEL,
 } from '../src/shared/ipcChannels';
 import type { SessionDiagnosisRequest } from '../src/shared/costOptimizationTypes';
 import { DEFAULT_COST_OPTIMIZATION_SETTINGS } from '../src/shared/costOptimizationValidation';
@@ -155,6 +160,26 @@ describe('cost optimization IPC', () => {
     expect(harness.budgetRuntime.saveUnknownModelPricing).toHaveBeenCalledWith(input);
     expect(harness.budgetRuntime.deleteUnknownModelPricing).toHaveBeenCalledOnce();
   });
+
+  it('routes data path reads, updates and resets through the main-process service', async () => {
+    const harness = makeIpcHarness();
+    registerUsageIpc(harness.dependencies);
+
+    await expect(invokeHandler(USAGE_DATA_PATH_GET_CHANNEL, undefined)).resolves.toEqual({
+      sessionsDir: 'C:\\sessions',
+      defaultSessionsDir: 'C:\\sessions',
+      usingDefault: true,
+    });
+    await invokeHandler(USAGE_DATA_PATH_UPDATE_CHANNEL, 'D:\\sessions');
+    await invokeHandler(USAGE_DATA_PATH_RESET_CHANNEL, undefined);
+    await expect(invokeHandler(USAGE_DATA_PATH_SELECT_CHANNEL, undefined)).resolves.toBe(
+      'E:\\selected'
+    );
+
+    expect(harness.usageDataPathService.update).toHaveBeenCalledWith('D:\\sessions');
+    expect(harness.usageDataPathService.reset).toHaveBeenCalledOnce();
+    expect(harness.selectUsageDataDirectory).toHaveBeenCalledWith('C:\\sessions');
+  });
 });
 
 interface CostRuntimeMock extends Pick<
@@ -175,6 +200,10 @@ interface IpcHarness {
   };
   send: ReturnType<typeof vi.fn>;
   emitSnapshot: Parameters<CostOptimizationRuntime['subscribe']>[0];
+  usageDataPathService: UsageDataPathService;
+  selectUsageDataDirectory: ReturnType<
+    typeof vi.fn<(defaultPath: string) => Promise<string | null>>
+  >;
 }
 
 const makeIpcHarness = (): IpcHarness => {
@@ -198,6 +227,17 @@ const makeIpcHarness = (): IpcHarness => {
     saveUnknownModelPricing: vi.fn(async () => undefined),
     deleteUnknownModelPricing: vi.fn(async () => undefined),
   };
+  const dataPathSettings = {
+    sessionsDir: 'C:\\sessions',
+    defaultSessionsDir: 'C:\\sessions',
+    usingDefault: true,
+  };
+  const usageDataPathService: UsageDataPathService = {
+    getSettings: vi.fn(() => dataPathSettings),
+    update: vi.fn(async () => ({ settings: dataPathSettings, result: SNAPSHOT_USAGE_RESULT })),
+    reset: vi.fn(async () => ({ settings: dataPathSettings, result: SNAPSHOT_USAGE_RESULT })),
+  };
+  const selectUsageDataDirectory = vi.fn(async (_defaultPath: string) => 'E:\\selected');
   const dependencies: Parameters<typeof registerUsageIpc>[0] = {
     applicationRuntime: {
       refresh: vi.fn(),
@@ -210,6 +250,8 @@ const makeIpcHarness = (): IpcHarness => {
     localeService: {
       subscribe: () => () => undefined,
     } as unknown as LocaleService,
+    usageDataPathService,
+    selectUsageDataDirectory,
     getWindow: () =>
       ({
         isDestroyed: () => false,
@@ -223,7 +265,27 @@ const makeIpcHarness = (): IpcHarness => {
     budgetRuntime,
     send,
     emitSnapshot: (snapshot) => snapshotListener?.(snapshot),
+    usageDataPathService,
+    selectUsageDataDirectory,
   };
+};
+
+const SNAPSHOT_USAGE_RESULT = {
+  sessionsDir: 'C:\\sessions',
+  scannedAt: '2026-08-04T00:00:00.000Z',
+  summary: {
+    totals: {
+      inputTokens: 0,
+      cachedInputTokens: 0,
+      outputTokens: 0,
+      reasoningOutputTokens: 0,
+      totalTokens: 0,
+    },
+    byDay: [],
+    byProject: [],
+    sessions: [],
+  },
+  warnings: [],
 };
 
 const invokeHandler = async (channel: string, input: unknown): Promise<unknown> => {

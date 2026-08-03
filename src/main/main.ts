@@ -3,13 +3,13 @@
  * @description
  * 初始化主窗口、用量扫描、预算运行时、通知和 IPC，并协调应用生命周期。
  */
-import { app, BrowserWindow, Menu, Notification } from 'electron';
+import { app, BrowserWindow, dialog, Menu, Notification, type OpenDialogOptions } from 'electron';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createApplicationRuntime, type ApplicationRuntime } from './applicationRuntime';
 import { createBudgetRuntime, type BudgetRuntime } from './budgetRuntime';
 import { createBudgetStore } from './budgetStore';
-import { getDefaultCodexSessionsDir } from './codexPaths';
+import { getDefaultCodexSessionsDir, getSessionIndexPathForSessionsDir } from './codexPaths';
 import { createCostOptimizationCacheStore } from './costOptimizationCacheStore';
 import { createCostOptimizationConfigStore } from './costOptimizationConfigStore';
 import { createCostOptimizationRuntime } from './costOptimizationRuntime';
@@ -25,6 +25,8 @@ import {
 } from './notificationService';
 import { createUsageScanner } from './usageScanner';
 import { createUsageRuntime } from './usageRuntime';
+import { createUsageDataPathService } from './usageDataPathService';
+import { createUsageDataPathStore } from './usageDataPathStore';
 
 const CURRENT_DIRECTORY = fileURLToPath(new URL('.', import.meta.url));
 const DEFAULT_WINDOW_WIDTH = 1280;
@@ -36,6 +38,7 @@ const BUDGET_CONFIG_FILENAME = 'budget-config.json';
 const COST_OPTIMIZATION_CONFIG_FILENAME = 'cost-optimization-config.json';
 const COST_OPTIMIZATION_CACHE_FILENAME = 'cost-optimization-cache.json';
 const LOCALE_PREFERENCES_FILENAME = 'locale-preferences.json';
+const USAGE_DATA_PATH_FILENAME = 'usage-data-path.json';
 
 let mainWindow: BrowserWindow | null = null;
 let budgetRuntime: BudgetRuntime | undefined;
@@ -53,6 +56,19 @@ const focusMainWindow = (): void => {
 
   mainWindow.show();
   mainWindow.focus();
+};
+
+const selectUsageDataDirectory = async (defaultPath: string): Promise<string | null> => {
+  const options: OpenDialogOptions = {
+    defaultPath,
+    properties: ['openDirectory'],
+  };
+  const result =
+    mainWindow && !mainWindow.isDestroyed()
+      ? await dialog.showOpenDialog(mainWindow, options)
+      : await dialog.showOpenDialog(options);
+
+  return result.canceled ? null : (result.filePaths[0] ?? null);
 };
 
 const createWindow = (runtime: ApplicationRuntime): BrowserWindow => {
@@ -102,6 +118,9 @@ const initializeApplication = async (): Promise<void> => {
     store: localeStore,
   });
   const scanner = createUsageScanner();
+  const defaultSessionsDir = getDefaultCodexSessionsDir();
+  const usageDataPathStore = createUsageDataPathStore(join(userDataPath, USAGE_DATA_PATH_FILENAME));
+  const initialSessionsDir = (await usageDataPathStore.load()) ?? defaultSessionsDir;
   const budgetStore = createBudgetStore(join(userDataPath, BUDGET_CONFIG_FILENAME));
   const costConfigStore = createCostOptimizationConfigStore(
     join(userDataPath, COST_OPTIMIZATION_CONFIG_FILENAME)
@@ -118,7 +137,12 @@ const initializeApplication = async (): Promise<void> => {
     mainI18n
   );
   const usageRuntime = createUsageRuntime({
-    scanCycle: () => scanner.scanCycle(),
+    scanCycle: (sessionsDir) =>
+      scanner.scanCycle({
+        sessionsDir,
+        sessionIndexPath: getSessionIndexPathForSessionsDir(sessionsDir),
+      }),
+    initialSessionsDir,
     now: Date.now,
     setIntervalFn: (callback, delay) => setInterval(callback, delay),
     clearIntervalFn: (intervalId) => clearInterval(intervalId),
@@ -131,13 +155,19 @@ const initializeApplication = async (): Promise<void> => {
   const costRuntime = createCostOptimizationRuntime({
     configStore: costConfigStore,
     cacheStore: costCacheStore,
-    sessionsDir: getDefaultCodexSessionsDir(),
+    sessionsDir: initialSessionsDir,
     defaultPricing: DEFAULT_MODEL_PRICING,
   });
   const currentApplicationRuntime = createApplicationRuntime({
     usageRuntime,
     budgetRuntime: currentBudgetRuntime,
     costRuntime,
+  });
+  const usageDataPathService = createUsageDataPathService({
+    defaultSessionsDir,
+    initialSessionsDir,
+    store: usageDataPathStore,
+    updateSessionsDir: usageRuntime.updateSessionsDir,
   });
   budgetRuntime = currentBudgetRuntime;
   applicationRuntime = currentApplicationRuntime;
@@ -149,6 +179,8 @@ const initializeApplication = async (): Promise<void> => {
     budgetRuntime: currentBudgetRuntime,
     costRuntime,
     localeService,
+    usageDataPathService,
+    selectUsageDataDirectory,
     getWindow: () => mainWindow,
   });
 

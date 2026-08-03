@@ -6,6 +6,10 @@ import React, { useCallback, useEffect, useMemo, useReducer, useState } from 're
 import type { CostOptimizationTab, SessionDiagnosisSummary } from '../shared/costOptimizationTypes';
 import { filterUsageSummary } from '../shared/usageMath';
 import type { UsagePeriod, UsageScanResult } from '../shared/usageTypes';
+import type {
+  UsageDataPathSettings,
+  UsageDataPathUpdateResult,
+} from '../shared/usageDataPathTypes';
 import AppContent from './components/AppContent';
 import Sidebar, { type ViewKey } from './components/Sidebar';
 import Toolbar from './components/Toolbar';
@@ -95,6 +99,7 @@ const App: React.FC = () => {
   const [result, setResult] = useState<UsageScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [dataPathSettings, setDataPathSettings] = useState<UsageDataPathSettings | null>(null);
   const [focusedPolicyId, setFocusedPolicyId] = useState<string | null>(null);
   const budgetState = useBudgetSnapshot();
   const costOptimizationState = useCostOptimizationSnapshot(period);
@@ -119,6 +124,25 @@ const App: React.FC = () => {
     }
   }, []);
   const clearFocusedPolicy = useCallback(() => setFocusedPolicyId(null), []);
+  const applyDataPathUpdate = useCallback((update: UsageDataPathUpdateResult): void => {
+    setDataPathSettings(update.settings);
+    setResult(update.result);
+    setError(null);
+    setLoading(false);
+  }, []);
+  const handleDataPathUpdate = useCallback(
+    async (sessionsDir: string): Promise<void> => {
+      applyDataPathUpdate(await window.codexUsage.dataPath.update(sessionsDir));
+    },
+    [applyDataPathUpdate]
+  );
+  const handleDataPathSelect = useCallback(
+    async (): Promise<string | null> => window.codexUsage.dataPath.select(),
+    []
+  );
+  const handleDataPathReset = useCallback(async (): Promise<void> => {
+    applyDataPathUpdate(await window.codexUsage.dataPath.reset());
+  }, [applyDataPathUpdate]);
   const handlePeriodChange = useCallback((nextPeriod: UsagePeriod): void => {
     setPeriod(nextPeriod);
     saveUsagePeriodPreference(nextPeriod, window.localStorage);
@@ -151,6 +175,13 @@ const App: React.FC = () => {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    void window.codexUsage.dataPath
+      .get()
+      .then(setDataPathSettings)
+      .catch(() => undefined);
+  }, []);
 
   useEffect(
     () =>
@@ -249,6 +280,10 @@ const App: React.FC = () => {
           onDiagnosisClose={handleDiagnosisClose}
           onCostProjectPathChange={costOptimizationState.setProjectPath}
           onCostSettingsUpdate={costOptimizationState.updateSettings}
+          dataPathSettings={dataPathSettings ?? undefined}
+          onSelectDataPath={handleDataPathSelect}
+          onUpdateDataPath={handleDataPathUpdate}
+          onResetDataPath={handleDataPathReset}
         />
       </main>
     </div>

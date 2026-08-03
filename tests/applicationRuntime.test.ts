@@ -147,6 +147,7 @@ const makeRuntimeHarness = (callOrder: string[] = []): RuntimeHarness => {
       return USAGE_RESULT;
     }),
     refreshOnFocus: vi.fn(async () => undefined),
+    updateSessionsDir: vi.fn(async () => USAGE_RESULT),
     getResult: vi.fn(() => USAGE_RESULT),
     subscribe: vi.fn(() => () => undefined),
     subscribeCycle: vi.fn((listener) => {

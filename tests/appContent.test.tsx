@@ -218,6 +218,32 @@ describe('AppContent', () => {
     expect(markup).not.toContain('Scan failed');
   });
 
+  it('keeps the Settings page available when the usage scan fails', () => {
+    const markup = renderWithI18n(
+      <AppContent
+        activeView="wrapped"
+        period="month"
+        model={{ kind: 'error', message: 'Disk unavailable' }}
+        onRefresh={vi.fn()}
+        onProjectSelect={vi.fn()}
+        selectedProjectPath={null}
+        onClearProjectFilter={vi.fn()}
+        dataPathSettings={{
+          sessionsDir: 'D:\\Codex\\sessions',
+          defaultSessionsDir: 'C:\\Users\\tester\\.codex\\sessions',
+          usingDefault: false,
+        }}
+        onUpdateDataPath={vi.fn()}
+        onResetDataPath={vi.fn()}
+      />
+    );
+
+    expect(markup).toContain('Sessions directory');
+    expect(markup).toContain('D:\\Codex\\sessions');
+    expect(markup).toContain('Disk unavailable');
+    expect(markup).not.toContain('<h2>Scan failed</h2>');
+  });
+
   it('renders state copy in Chinese', () => {
     const markup = renderWithI18n(
       <AppContent
