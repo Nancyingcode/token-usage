@@ -9,7 +9,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const readRendererStyle = (relativePath: string): string =>
-  readFileSync(resolve(process.cwd(), 'src/renderer', relativePath), 'utf8');
+  readFileSync(resolve(process.cwd(), 'src/renderer', relativePath), 'utf8').replace(/\r\n/g, '\n');
 
 describe('UI style policy', () => {
   it('loads layered styles in deterministic order', () => {
