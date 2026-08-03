@@ -249,7 +249,7 @@ export const zhCN = {
       month: '每月',
     },
     severity: {
-      normal: '正常',
+      normal: '状态良好',
       warning: '警告',
       critical: '严重',
       over: '超出预算',

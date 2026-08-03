@@ -312,7 +312,7 @@ const BudgetDrawer: React.FC<BudgetDrawerProps> = (props) => {
   const content =
     props.model.kind === 'policy' ? <PolicyForm {...props} /> : <ThresholdForm {...props} />;
 
-  return <aside className="budget-drawer">{content}</aside>;
+  return <aside className="drawer-shell budget-drawer">{content}</aside>;
 };
 
 export default BudgetDrawer;

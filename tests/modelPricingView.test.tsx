@@ -51,6 +51,7 @@ describe('ModelPricingView', () => {
 
     expect(markup).toContain('future-model');
     expect(markup).toContain('Add price');
+    expect(markup).toContain('pricing-status-label');
   });
 
   it('renders model pricing in Chinese with locale-aware currency', () => {

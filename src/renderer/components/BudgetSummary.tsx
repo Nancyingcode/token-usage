@@ -13,21 +13,21 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({ summary }) => {
 
   return (
     <section className="budget-summary-grid" aria-label={t('summary.label')}>
-      <article className="budget-summary-item tone-warning">
+      <article className="summary-card budget-summary-item tone-warning">
         <TriangleAlert size={ICON_SIZE_MEDIUM} />
         <div>
           <span>{t('summary.approaching')}</span>
           <strong>{summary.warningCount}</strong>
         </div>
       </article>
-      <article className="budget-summary-item tone-danger">
+      <article className="summary-card budget-summary-item tone-danger">
         <BadgeAlert size={ICON_SIZE_MEDIUM} />
         <div>
           <span>{t('summary.over')}</span>
           <strong>{summary.overCount}</strong>
         </div>
       </article>
-      <article className="budget-summary-item tone-neutral">
+      <article className="summary-card budget-summary-item tone-neutral">
         <CircleDollarSign size={ICON_SIZE_MEDIUM} />
         <div>
           <span>{t('summary.unpriced')}</span>

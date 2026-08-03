@@ -251,7 +251,7 @@ const ModelPricingView: React.FC<ModelPricingViewProps> = ({
       </div>
 
       {showUnpricedModels ? (
-        <div className="unpriced-model-list">
+        <div className="unpriced-model-list pricing-status-label">
           <strong>{t('pricing.unpricedModels')}</strong>
           {unpricedModels.map((model) => {
             const canAddPrice = Boolean(model.modelId);

@@ -252,7 +252,7 @@ export const en = {
       month: 'Monthly',
     },
     severity: {
-      normal: 'Normal',
+      normal: 'On track',
       warning: 'Warning',
       critical: 'Critical',
       over: 'Over budget',

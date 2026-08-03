@@ -19,6 +19,11 @@ describe('BudgetsView', () => {
     expect(markup).toContain('aria-controls="budget-panel-overview"');
     expect(markup).toContain('id="budget-panel-overview"');
     expect(markup).toContain('aria-labelledby="budget-tab-overview"');
+    expect(markup).toContain('class="page-header"');
+    expect(markup).toContain('class="accessible-tabs"');
+    expect(markup).toContain('summary-card');
+    expect(markup).toContain('budget-status-label');
+    expect(markup).toContain('On track');
   });
 
   it('renders budget alerts and rows in Chinese', () => {
@@ -38,6 +43,21 @@ const SNAPSHOT: BudgetSnapshot = {
   staleReason: 'disk unavailable',
   thresholds: { warningPercent: 80, criticalPercent: 100 },
   statuses: [
+    {
+      policy: {
+        id: 'global-month',
+        scope: 'global',
+        period: 'month',
+        tokenLimit: 1_000,
+        createdAt: '2026-07-20T00:00:00.000Z',
+        updatedAt: '2026-07-20T00:00:00.000Z',
+      },
+      periodStart: '2026-07-01T00:00:00.000Z',
+      periodEnd: '2026-07-20T12:00:00.000Z',
+      token: { used: 100, limit: 1_000, percent: 10, severity: 'normal' },
+      unpricedTokens: 0,
+      unpricedModelIds: [],
+    },
     {
       policy: {
         id: 'global-day',

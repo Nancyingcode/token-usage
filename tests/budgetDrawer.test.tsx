@@ -28,6 +28,7 @@ describe('BudgetDrawer', () => {
     expect(markup).toContain('Token limit');
     expect(markup).toContain('Estimated cost limit');
     expect(markup).toContain('Monthly');
+    expect(markup).toContain('class="drawer-shell budget-drawer"');
   });
 
   it('renders only global threshold fields in threshold mode', () => {

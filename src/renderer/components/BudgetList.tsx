@@ -56,7 +56,7 @@ const getStatusSeverity = (status: BudgetPolicyStatus): BudgetSeverity => {
 };
 
 const ProgressBar: React.FC<{ progress: BudgetProgress }> = ({ progress }) => (
-  <div className={`budget-progress ${progress.severity}`}>
+  <div className={`progress-track budget-progress ${progress.severity}`}>
     <i style={{ width: getProgressWidth(progress.percent) }} />
   </div>
 );
@@ -155,7 +155,9 @@ const BudgetRow: React.FC<{
       <span className="budget-period-cell">{t(`period.${status.policy.period}`)}</span>
       <TokenCell progress={status.token} />
       <CostCell model={costModel} />
-      <span className={`budget-status ${severity}`}>{t(`severity.${severity}`)}</span>
+      <span className={`status-label budget-status budget-status-label ${severity}`}>
+        {t(`severity.${severity}`)}
+      </span>
       <div className="budget-row-actions">
         {editAction}
         {deleteAction}

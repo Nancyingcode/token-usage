@@ -17,6 +17,8 @@ import BudgetList from './BudgetList';
 import BudgetSummary from './BudgetSummary';
 import ConfirmDialog from './ConfirmDialog';
 import ModelPricingView from './ModelPricingView';
+import PageHeader from './PageHeader';
+import StatusBanner from './StatusBanner';
 
 interface BudgetsViewProps {
   snapshot: BudgetSnapshot;
@@ -118,7 +120,7 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
         onAddPrice={handleAddPrice}
       />
 
-      <div className="budget-filter-bar">
+      <div className="filter-bar budget-filter-bar">
         <label>
           <span>{t('filter.scope')}</span>
           <select
@@ -203,20 +205,20 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
 
   return (
     <section className="budgets-page">
-      <header className="budget-page-heading">
-        <div>
-          <h2>{t('page.title')}</h2>
-          <p>{t('page.description')}</p>
-        </div>
-        <div className="budget-heading-actions">{headingActions}</div>
-      </header>
+      <PageHeader
+        title={t('page.title')}
+        description={t('page.description')}
+        actions={headingActions}
+      />
 
       {showStaleWarning ? (
-        <div className="budget-stale-banner">
-          {t('page.stale', {
+        <StatusBanner
+          tone="warning"
+          title={tCommon('state.showingPreviousData')}
+          description={t('page.stale', {
             reason: snapshot.staleReason ?? t('page.staleDefault'),
           })}
-        </div>
+        />
       ) : null}
 
       <AccessibleTabs
