@@ -56,10 +56,7 @@ describe('PeriodToggle', () => {
     expect(onPeriodChange).toHaveBeenCalledWith('total');
   });
 
-  it.each([
-    ['budgets', 'Budgets'],
-    ['wrapped', 'Settings'],
-  ] as const)('hides rolling period controls on %s', (activeView, expectedTitle) => {
+  it.each(['budgets', 'wrapped'] as const)('hides rolling period controls on %s', (activeView) => {
     const markup = renderToStaticMarkup(
       <I18nextProvider i18n={testI18n}>
         <Toolbar
@@ -73,9 +70,28 @@ describe('PeriodToggle', () => {
     );
 
     expect(markup).not.toContain('Date range');
-    expect(markup).toContain(expectedTitle);
+    expect(markup).not.toContain('<strong>');
     expect(markup).toContain('English');
     expect(markup).toContain('中文');
+  });
+
+  it('keeps the global toolbar focused on status and controls', () => {
+    const markup = renderToStaticMarkup(
+      <I18nextProvider i18n={testI18n}>
+        <Toolbar
+          activeView="overview"
+          loading={false}
+          error={null}
+          scannedAt="2026-08-03T08:00:00.000Z"
+          onRefresh={vi.fn()}
+          period="week"
+          onPeriodChange={vi.fn()}
+        />
+      </I18nextProvider>
+    );
+
+    expect(markup).toContain('Local data synced');
+    expect(markup).not.toContain('<strong>Overview</strong>');
   });
 
   it('shows stale state text when a refresh fails after a successful scan', () => {

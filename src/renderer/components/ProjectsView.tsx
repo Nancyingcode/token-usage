@@ -8,6 +8,7 @@ import type { SupportedLocale } from '../../shared/i18n/locale';
 import type { UsageProject } from '../../shared/usageTypes';
 import { resolveRendererLocale } from '../i18n';
 import { formatNumber, formatShortDateTime } from '../utils/formatters';
+import PageHeader from './PageHeader';
 import TokenBar from './TokenBar';
 
 interface ProjectsViewProps {
@@ -41,8 +42,8 @@ export const ProjectRow: React.FC<ProjectRowProps> = ({
     <span>
       <TokenBar value={project.totalTokens} max={max} tone="green" />
     </span>
-    <span>{formatNumber(project.sessionCount, locale)}</span>
-    <span>{formatNumber(project.totalTokens, locale)}</span>
+    <span className="table-cell--numeric">{formatNumber(project.sessionCount, locale)}</span>
+    <span className="table-cell--numeric">{formatNumber(project.totalTokens, locale)}</span>
     <span>{formatShortDateTime(project.lastActivityAt, locale, unknownDateLabel)}</span>
   </button>
 );
@@ -55,20 +56,19 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onProjectSelect }
   const unknownDateLabel = tCommon('value.unknownDate');
 
   return (
-    <section className="panel table-panel">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">{t('projects.eyebrow')}</p>
-          <h3>{t('projects.title')}</h3>
-        </div>
-        <span>{t('projects.count', { count: projects.length })}</span>
-      </div>
-      <div className="data-table project-table">
+    <section className="page-stack">
+      <PageHeader
+        eyebrow={t('projects.eyebrow')}
+        title={t('projects.title')}
+        description={t('projects.description')}
+        actions={<span>{t('projects.count', { count: projects.length })}</span>}
+      />
+      <div className="panel table-panel data-table project-table">
         <div className="table-row table-head">
           <span>{t('projects.project')}</span>
           <span>{t('projects.share')}</span>
-          <span>{t('projects.sessions')}</span>
-          <span>{t('projects.tokens')}</span>
+          <span className="table-cell--numeric">{t('projects.sessions')}</span>
+          <span className="table-cell--numeric">{t('projects.tokens')}</span>
           <span>{t('projects.lastActive')}</span>
         </div>
         {projects.map((project) => (

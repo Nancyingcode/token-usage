@@ -38,7 +38,7 @@ export const en = {
       languageChangeFailed: 'Unable to save the language preference.',
       scanState: {
         scanning: 'Scanning',
-        synced: 'Synced',
+        synced: 'Local data synced',
         stale: 'Previous data',
         failed: 'Scan failed',
         waiting: 'Waiting for scan',
@@ -99,6 +99,8 @@ export const en = {
     reached: '{{metric}} budget reached {{thresholdPercent}}%.',
   },
   settings: {
+    title: 'Settings',
+    description: 'Review local data access, privacy, pricing assumptions, and scan warnings.',
     dataPath: 'Data path',
     codexSessions: 'Codex Sessions',
     privacy: 'Privacy',
@@ -124,6 +126,7 @@ export const en = {
   },
   analytics: {
     overview: {
+      description: 'Track local cost, tokens, cache efficiency, and activity.',
       totalCost: 'Total Cost',
       tokens: 'Tokens',
       linesChanged: 'Lines Changed',
@@ -156,6 +159,7 @@ export const en = {
     sessions: {
       eyebrow: 'Session details',
       title: 'Sessions',
+      description: 'Inspect token usage and diagnostics for each local session.',
       count: '{{count}} sessions',
       projectFilter: 'Project: {{project}}',
       clearProjectFilter: 'Clear project filter for {{project}}',
@@ -175,7 +179,8 @@ export const en = {
     },
     projects: {
       eyebrow: 'Project totals',
-      title: 'Tool Usage',
+      title: 'Projects',
+      description: 'Compare local Codex usage by project.',
       count: '{{count}} projects',
       project: 'Project',
       share: 'Share',
@@ -184,6 +189,8 @@ export const en = {
       lastActive: 'Last Active',
     },
     performance: {
+      title: 'Performance',
+      description: 'Review cache efficiency, cost, activity, and application errors.',
       cacheHitRate: 'Cache Hit Rate',
       costEfficiency: 'Cost Efficiency',
       pricingIncomplete: 'Pricing incomplete',

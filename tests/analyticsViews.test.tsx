@@ -75,6 +75,9 @@ describe('analytics tables', () => {
     );
 
     expect(markup).toContain('会话详情');
+    expect(markup).toContain('class="page-header"');
+    expect(markup).toContain('class="page-stack"');
+    expect(markup).toContain('table-cell--numeric');
     expect(markup).toContain('状态');
     expect(markup).toContain('1 个警告');
   });
@@ -86,6 +89,8 @@ describe('analytics tables', () => {
     );
 
     expect(markup).toContain('项目汇总');
+    expect(markup).toContain('class="page-header"');
+    expect(markup).toContain('table-cell--numeric');
     expect(markup).toContain('最后活跃');
     expect(markup).toContain('1,300');
     expect(markup).toContain('<button type="button" class="table-row project-table-row"');

@@ -48,6 +48,8 @@ describe('buildTrendPoints', () => {
     expect(markup).toContain('$0.0003');
     expect(markup).toContain('Pricing incomplete');
     expect(markup).toContain('Token Usage Trend');
+    expect(markup).toContain('class="page-header"');
+    expect(markup).toContain('class="page-stack"');
     expect(markup.match(/Total Tokens/g)).toHaveLength(1);
     expect(markup).not.toContain('Cost Trends');
     expect(markup).not.toContain('>Input<');

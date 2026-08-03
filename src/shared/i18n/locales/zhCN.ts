@@ -36,7 +36,7 @@ export const zhCN = {
       languageChangeFailed: '无法保存语言偏好。',
       scanState: {
         scanning: '正在扫描',
-        synced: '已同步',
+        synced: '本地数据已同步',
         stale: '显示旧数据',
         failed: '扫描失败',
         waiting: '等待扫描',
@@ -97,6 +97,8 @@ export const zhCN = {
     reached: '{{metric}} 预算已达到 {{thresholdPercent}}%。',
   },
   settings: {
+    title: '设置',
+    description: '查看本地数据访问、隐私、计价假设和扫描警告。',
     dataPath: '数据路径',
     codexSessions: 'Codex 会话',
     privacy: '隐私',
@@ -121,6 +123,7 @@ export const zhCN = {
   },
   analytics: {
     overview: {
+      description: '查看本地费用、Token、缓存效率和活动。',
       totalCost: '总费用',
       tokens: 'Token',
       linesChanged: '输出 Token',
@@ -153,6 +156,7 @@ export const zhCN = {
     sessions: {
       eyebrow: '会话详情',
       title: '会话',
+      description: '查看每个本地会话的 Token 用量和诊断。',
       count: '{{count}} 个会话',
       projectFilter: '项目：{{project}}',
       clearProjectFilter: '清除 {{project}} 的项目筛选',
@@ -172,7 +176,8 @@ export const zhCN = {
     },
     projects: {
       eyebrow: '项目汇总',
-      title: '工具用量',
+      title: '项目',
+      description: '按项目比较本地 Codex 用量。',
       count: '{{count}} 个项目',
       project: '项目',
       share: '占比',
@@ -181,6 +186,8 @@ export const zhCN = {
       lastActive: '最后活跃',
     },
     performance: {
+      title: '性能',
+      description: '查看缓存效率、费用、活跃时段和应用错误。',
       cacheHitRate: '缓存命中率',
       costEfficiency: '费用效率',
       pricingIncomplete: '计价不完整',

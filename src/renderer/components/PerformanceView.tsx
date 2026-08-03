@@ -11,6 +11,7 @@ import { getCachePercentage } from '../../shared/usageMetrics';
 import type { UsageSummary } from '../../shared/usageTypes';
 import { resolveRendererLocale } from '../i18n';
 import { formatPercent, formatUsd } from '../utils/formatters';
+import PageHeader from './PageHeader';
 import TokenBar from './TokenBar';
 
 interface PerformanceViewProps {
@@ -115,48 +116,51 @@ const PerformanceView: React.FC<PerformanceViewProps> = ({ summary, pricing }) =
   const pricingIncomplete = totalCost.unpricedTokens > 0;
 
   return (
-    <section className="performance-grid">
-      <article className="panel perf-card">
-        <h3>{t('performance.cacheHitRate')}</h3>
-        <p>{formatPercent(cacheRate, locale)}</p>
-        <MiniLine days={days} max={maxDay} tone="cyan" />
-      </article>
+    <section className="page-stack">
+      <PageHeader title={t('performance.title')} description={t('performance.description')} />
+      <div className="performance-grid performance-card-grid">
+        <article className="panel perf-card">
+          <h3>{t('performance.cacheHitRate')}</h3>
+          <p>{formatPercent(cacheRate, locale)}</p>
+          <MiniLine days={days} max={maxDay} tone="cyan" />
+        </article>
 
-      <article className="panel perf-card">
-        <h3>{t('performance.costEfficiency')}</h3>
-        <p>{formatUsd(totalCost.pricedCostUsd, locale)}</p>
-        {pricingIncomplete ? (
-          <p className="pricing-incomplete-label">{t('performance.pricingIncomplete')}</p>
-        ) : null}
-        <MiniLine days={days} max={maxDay} tone="blue" />
-      </article>
+        <article className="panel perf-card">
+          <h3>{t('performance.costEfficiency')}</h3>
+          <p>{formatUsd(totalCost.pricedCostUsd, locale)}</p>
+          {pricingIncomplete ? (
+            <p className="pricing-incomplete-label">{t('performance.pricingIncomplete')}</p>
+          ) : null}
+          <MiniLine days={days} max={maxDay} tone="blue" />
+        </article>
 
-      <article className="panel perf-card">
-        <h3>{t('performance.peakHours')}</h3>
-        <p>{t('performance.mostActiveAt', { time: peakHour(summary) })}</p>
-        <div className="peak-bars">
-          {summary.sessions
-            .slice(0, PEAK_SESSION_COUNT)
-            .reverse()
-            .map((session, index) => (
-              <TokenBar
-                key={session.sourceFile}
-                value={session.totalTokens}
-                max={maxSession}
-                tone={index % HIGHLIGHT_BAR_INTERVAL === 0 ? 'purple' : 'blue'}
-              />
-            ))}
-        </div>
-      </article>
+        <article className="panel perf-card">
+          <h3>{t('performance.peakHours')}</h3>
+          <p>{t('performance.mostActiveAt', { time: peakHour(summary) })}</p>
+          <div className="peak-bars">
+            {summary.sessions
+              .slice(0, PEAK_SESSION_COUNT)
+              .reverse()
+              .map((session, index) => (
+                <TokenBar
+                  key={session.sourceFile}
+                  value={session.totalTokens}
+                  max={maxSession}
+                  tone={index % HIGHLIGHT_BAR_INTERVAL === 0 ? 'purple' : 'blue'}
+                />
+              ))}
+          </div>
+        </article>
 
-      <article className="panel perf-card">
-        <h3>{t('performance.errorRate')}</h3>
-        <p>
-          {formatPercent(APPLICATION_ERROR_RATE, locale, ERROR_RATE_FRACTION_DIGITS)} (
-          {APPLICATION_ERROR_COUNT}/{summary.sessions.length})
-        </p>
-        <Donut value={PERCENT_SCALE - APPLICATION_ERROR_RATE} />
-      </article>
+        <article className="panel perf-card">
+          <h3>{t('performance.errorRate')}</h3>
+          <p>
+            {formatPercent(APPLICATION_ERROR_RATE, locale, ERROR_RATE_FRACTION_DIGITS)} (
+            {APPLICATION_ERROR_COUNT}/{summary.sessions.length})
+          </p>
+          <Donut value={PERCENT_SCALE - APPLICATION_ERROR_RATE} />
+        </article>
+      </div>
     </section>
   );
 };

@@ -15,6 +15,7 @@ import { ICON_SIZE_SMALL } from '../constants/ui';
 import { resolveRendererLocale } from '../i18n';
 import { formatNumber, formatShortDateTime } from '../utils/formatters';
 import { selectProjectSessions } from '../utils/projectSessions';
+import PageHeader from './PageHeader';
 
 interface SessionsViewProps {
   sessions: UsageSession[];
@@ -95,31 +96,34 @@ const SessionsView: React.FC<SessionsViewProps> = ({
     : t('sessions.count', { count: filteredSessions.length });
 
   return (
-    <section className="panel table-panel">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">{t('sessions.eyebrow')}</p>
-          <h3>{t('sessions.title')}</h3>
-          {hasProjectFilter ? (
-            <ProjectFilterChip
-              projectPath={selectedProjectPath}
-              label={t('sessions.projectFilter', { project: projectName })}
-              clearLabel={t('sessions.clearProjectFilter', { project: projectName })}
-              onClear={onClearProjectFilter}
-            />
-          ) : null}
-        </div>
-        <span>{sessionCountLabel}</span>
-      </div>
-      <div className="data-table session-table">
+    <section className="page-stack">
+      <PageHeader
+        eyebrow={t('sessions.eyebrow')}
+        title={t('sessions.title')}
+        description={t('sessions.description')}
+        actions={
+          <>
+            <span>{sessionCountLabel}</span>
+            {hasProjectFilter ? (
+              <ProjectFilterChip
+                projectPath={selectedProjectPath}
+                label={t('sessions.projectFilter', { project: projectName })}
+                clearLabel={t('sessions.clearProjectFilter', { project: projectName })}
+                onClear={onClearProjectFilter}
+              />
+            ) : null}
+          </>
+        }
+      />
+      <div className="panel table-panel data-table session-table">
         <div className="table-row table-head">
           <span>{t('sessions.session')}</span>
           <span>{t('sessions.project')}</span>
           <span>{t('sessions.date')}</span>
-          <span>{t('sessions.input')}</span>
-          <span>{t('sessions.cached')}</span>
-          <span>{t('sessions.output')}</span>
-          <span>{t('sessions.total')}</span>
+          <span className="table-cell--numeric">{t('sessions.input')}</span>
+          <span className="table-cell--numeric">{t('sessions.cached')}</span>
+          <span className="table-cell--numeric">{t('sessions.output')}</span>
+          <span className="table-cell--numeric">{t('sessions.total')}</span>
           <span>{t('sessions.status')}</span>
         </div>
         {showFilteredEmpty ? (
@@ -166,10 +170,18 @@ const SessionsView: React.FC<SessionsViewProps> = ({
                 <span>
                   {formatShortDateTime(session.startedAt, locale, tCommon('value.unknownDate'))}
                 </span>
-                <span>{formatNumber(session.inputTokens, locale)}</span>
-                <span>{formatNumber(session.cachedInputTokens, locale)}</span>
-                <span>{formatNumber(session.outputTokens, locale)}</span>
-                <span>{formatNumber(session.totalTokens, locale)}</span>
+                <span className="table-cell--numeric">
+                  {formatNumber(session.inputTokens, locale)}
+                </span>
+                <span className="table-cell--numeric">
+                  {formatNumber(session.cachedInputTokens, locale)}
+                </span>
+                <span className="table-cell--numeric">
+                  {formatNumber(session.outputTokens, locale)}
+                </span>
+                <span className="table-cell--numeric">
+                  {formatNumber(session.totalTokens, locale)}
+                </span>
                 <span className={session.warnings.length ? 'warning-cell' : 'ok-cell'}>
                   {session.warnings.length ? <AlertTriangle size={ICON_SIZE_SMALL} /> : null}
                   {session.warnings.length

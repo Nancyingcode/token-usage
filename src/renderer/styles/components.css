@@ -236,6 +236,126 @@
   letter-spacing: 0;
 }
 
+.page-stack {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.page-header {
+  min-height: 4.5rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-6);
+}
+
+.page-header-copy {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.page-header-copy > span {
+  color: var(--color-brand-700);
+  font-size: var(--font-size-label);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.page-header h1,
+.page-header p {
+  margin: 0;
+}
+
+.page-header h1 {
+  color: var(--color-brand-950);
+  font-size: var(--font-size-title);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.page-header p {
+  max-width: 42rem;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-body-small);
+  line-height: 1.55;
+}
+
+.page-header-actions {
+  min-height: var(--control-height-default);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-body-small);
+}
+
+.table-panel {
+  overflow: hidden;
+}
+
+.data-table {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.table-row {
+  min-width: 47.5rem;
+  min-height: 3rem;
+  display: grid;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-body-small);
+}
+
+.table-head {
+  min-height: 2.25rem;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-label);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.primary-cell,
+.table-row > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.primary-cell {
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.table-cell--numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.ok-cell,
+.warning-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.ok-cell {
+  color: var(--color-success-text);
+}
+
+.warning-cell {
+  color: var(--color-warning-text);
+}
+
 .loading-skeleton {
   display: grid;
   gap: var(--space-4);
@@ -310,6 +430,16 @@
 }
 
 @media (max-width: 760px) {
+  .page-header {
+    min-height: 0;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .page-header-actions {
+    justify-content: flex-start;
+  }
+
   .metric-grid {
     grid-template-columns: 1fr;
   }

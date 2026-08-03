@@ -14,6 +14,7 @@ import { resolveRendererLocale } from '../i18n';
 import { buildActivityCells } from '../utils/activityGrid';
 import { formatCompactNumber, formatNumber, formatUsd } from '../utils/formatters';
 import MetricCard from './MetricCard';
+import PageHeader from './PageHeader';
 
 interface OverviewProps {
   summary: UsageSummary;
@@ -269,6 +270,7 @@ const ActivityGrid: React.FC<ActivityGridProps> = ({ days, period, anchorDate })
 
 const Overview: React.FC<OverviewProps> = ({ summary, pricing, period, scannedAt }) => {
   const { t, i18n } = useTranslation('analytics');
+  const { t: tCommon } = useTranslation('common');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const days = summary.byDay.slice(-TREND_HISTORY_DAYS);
   const maxDay = Math.max(1, ...days.map((day) => day.totalTokens));
@@ -290,77 +292,80 @@ const Overview: React.FC<OverviewProps> = ({ summary, pricing, period, scannedAt
   const anchorDate = scannedAt.slice(0, ISO_DATE_LENGTH);
 
   return (
-    <section key={motionKey} className="overview-grid" data-motion="overview-story">
-      <div className="metric-grid">
-        <MetricCard
-          label={t('overview.totalCost')}
-          value={formatUsd(totalCost.pricedCostUsd, locale)}
-          detail={
-            pricingIncomplete
-              ? `${t('overview.pricingIncomplete')} · ${t('overview.unpricedTokens', {
-                  tokens: formatCompactNumber(totalCost.unpricedTokens, locale),
-                })}`
-              : t('overview.tokensPriced', {
-                  tokens: formatCompactNumber(summary.totals.totalTokens, locale),
-                })
-          }
-          icon={Coins}
-          emphasis="featured"
-        />
-        <MetricCard
-          label={t('overview.tokens')}
-          value={formatCompactNumber(summary.totals.totalTokens, locale)}
-          detail={t('overview.fromCache', { percent: cachePercentage })}
-          icon={LockKeyhole}
-          emphasis="default"
-        />
-        <MetricCard
-          label={t('overview.linesChanged')}
-          value={formatCompactNumber(summary.totals.outputTokens, locale)}
-          detail={t('overview.reasoning', {
-            tokens: formatCompactNumber(summary.totals.reasoningOutputTokens, locale),
-          })}
-          icon={FileCode2}
-          emphasis="default"
-        />
-        <MetricCard
-          label={t('overview.sessions')}
-          value={formatNumber(summary.sessions.length, locale)}
-          detail={t('overview.projects', {
-            count: summary.byProject.length,
-          })}
-          icon={MessageSquareText}
-          emphasis="default"
-        />
+    <section className="page-stack">
+      <PageHeader title={tCommon('navigation.overview')} description={t('overview.description')} />
+      <div key={motionKey} className="overview-grid" data-motion="overview-story">
+        <div className="metric-grid">
+          <MetricCard
+            label={t('overview.totalCost')}
+            value={formatUsd(totalCost.pricedCostUsd, locale)}
+            detail={
+              pricingIncomplete
+                ? `${t('overview.pricingIncomplete')} · ${t('overview.unpricedTokens', {
+                    tokens: formatCompactNumber(totalCost.unpricedTokens, locale),
+                  })}`
+                : t('overview.tokensPriced', {
+                    tokens: formatCompactNumber(summary.totals.totalTokens, locale),
+                  })
+            }
+            icon={Coins}
+            emphasis="featured"
+          />
+          <MetricCard
+            label={t('overview.tokens')}
+            value={formatCompactNumber(summary.totals.totalTokens, locale)}
+            detail={t('overview.fromCache', { percent: cachePercentage })}
+            icon={LockKeyhole}
+            emphasis="default"
+          />
+          <MetricCard
+            label={t('overview.linesChanged')}
+            value={formatCompactNumber(summary.totals.outputTokens, locale)}
+            detail={t('overview.reasoning', {
+              tokens: formatCompactNumber(summary.totals.reasoningOutputTokens, locale),
+            })}
+            icon={FileCode2}
+            emphasis="default"
+          />
+          <MetricCard
+            label={t('overview.sessions')}
+            value={formatNumber(summary.sessions.length, locale)}
+            detail={t('overview.projects', {
+              count: summary.byProject.length,
+            })}
+            icon={MessageSquareText}
+            emphasis="default"
+          />
+        </div>
+
+        <article className="panel chart-panel">
+          <div className="panel-heading compact">
+            <div>
+              <h3>{t('overview.tokenUsageTrend')}</h3>
+              <p>
+                {t('overview.total')}: {formatUsd(totalCost.pricedCostUsd, locale)}
+                {pricingIncomplete ? ` · ${t('overview.pricingIncomplete')}` : ''}
+              </p>
+            </div>
+          </div>
+          <TrendChart days={days} max={maxDay} dailyCosts={dailyCosts} />
+          <div className="chart-legend">
+            <span>
+              <i aria-hidden="true" /> {t('overview.totalTokens')}
+            </span>
+          </div>
+        </article>
+
+        <article className="panel activity-panel">
+          <div className="panel-heading compact">
+            <div>
+              <h3>{t('overview.activity')}</h3>
+              <p>{t('overview.sessionsScanned', { count: summary.sessions.length })}</p>
+            </div>
+          </div>
+          <ActivityGrid days={summary.byDay} period={period} anchorDate={anchorDate} />
+        </article>
       </div>
-
-      <article className="panel chart-panel">
-        <div className="panel-heading compact">
-          <div>
-            <h3>{t('overview.tokenUsageTrend')}</h3>
-            <p>
-              {t('overview.total')}: {formatUsd(totalCost.pricedCostUsd, locale)}
-              {pricingIncomplete ? ` · ${t('overview.pricingIncomplete')}` : ''}
-            </p>
-          </div>
-        </div>
-        <TrendChart days={days} max={maxDay} dailyCosts={dailyCosts} />
-        <div className="chart-legend">
-          <span>
-            <i aria-hidden="true" /> {t('overview.totalTokens')}
-          </span>
-        </div>
-      </article>
-
-      <article className="panel activity-panel">
-        <div className="panel-heading compact">
-          <div>
-            <h3>{t('overview.activity')}</h3>
-            <p>{t('overview.sessionsScanned', { count: summary.sessions.length })}</p>
-          </div>
-        </div>
-        <ActivityGrid days={summary.byDay} period={period} anchorDate={anchorDate} />
-      </article>
     </section>
   );
 };

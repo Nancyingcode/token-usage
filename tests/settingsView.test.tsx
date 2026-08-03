@@ -36,6 +36,8 @@ describe('SettingsView', () => {
     const markup = renderWithI18n(<SettingsView result={RESULT} />, locale);
 
     expect(markup).toContain(heading);
+    expect(markup).toContain('class="page-header"');
+    expect(markup).toContain('class="page-stack"');
     expect(markup).toContain(warning);
     expect(markup).toContain('broken.jsonl');
   });

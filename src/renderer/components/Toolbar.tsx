@@ -32,16 +32,6 @@ interface ToolbarProps extends PeriodToggleProps {
   onRefresh: () => void;
 }
 
-const VIEW_TRANSLATION_KEYS = {
-  overview: 'navigation.overview',
-  budgets: 'navigation.budgets',
-  costOptimization: 'navigation.costOptimization',
-  sessions: 'navigation.sessions',
-  tools: 'navigation.tools',
-  performance: 'navigation.performance',
-  wrapped: 'navigation.wrapped',
-} as const satisfies Record<ViewKey, string>;
-
 const DEFAULT_PERIOD_LABELS: PeriodLabels = {
   ariaLabel: 'Date range',
   today: 'Today',
@@ -116,7 +106,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
   return (
     <header className="toolbar">
       <div className="toolbar-title">
-        <strong>{t(VIEW_TRANSLATION_KEYS[activeView])}</strong>
         <span className={`scan-status scan-status--${scanState}`}>
           <i aria-hidden="true" />
           {t(`toolbar.scanState.${scanState}`)}

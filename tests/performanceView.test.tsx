@@ -33,6 +33,9 @@ describe('PerformanceView', () => {
     expect(markup).toContain('0.00% (0/2)');
     expect(markup).not.toContain('stroke-dasharray="-');
     expect(markup).toContain('Pricing incomplete');
+    expect(markup).toContain('class="page-header"');
+    expect(markup).toContain('class="page-stack"');
+    expect(markup).toContain('performance-card-grid');
   });
 
   it('renders performance metrics in Chinese', () => {
