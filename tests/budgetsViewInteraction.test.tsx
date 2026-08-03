@@ -15,6 +15,8 @@ const ACTIONS: BudgetActions = {
   updateThresholds: vi.fn(),
   savePricingOverride: vi.fn(),
   resetPricingOverride: vi.fn(),
+  saveUnknownModelPricing: vi.fn(),
+  deleteUnknownModelPricing: vi.fn(),
 };
 
 const SNAPSHOT: BudgetSnapshot = {

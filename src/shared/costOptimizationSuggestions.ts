@@ -315,7 +315,15 @@ export const buildSavingsRecommendations = (
     ...buildCacheImprovementRecommendations(input, pricingById),
   ];
 
-  return recommendations.sort(
+  const confidenceAdjustedRecommendations =
+    input.coverage.assumedTokens > 0
+      ? recommendations.map((recommendation) => ({
+          ...recommendation,
+          confidence: 'medium' as const,
+        }))
+      : recommendations;
+
+  return confidenceAdjustedRecommendations.sort(
     (first, second) =>
       second.savingsUsd - first.savingsUsd ||
       RECOMMENDATION_TYPE_ORDER[first.type] - RECOMMENDATION_TYPE_ORDER[second.type] ||

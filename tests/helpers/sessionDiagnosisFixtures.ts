@@ -185,9 +185,13 @@ export const makeCoverage = (
 
   return {
     pricedTokens,
+    exactPricedTokens: pricedTokens,
+    assumedTokens: 0,
     unpricedTokens: totalTokens - pricedTokens,
     totalTokens,
     percentage,
+    exactPercentage: percentage,
+    assumedPercentage: 0,
     unpricedModelIds: [...unpricedModelIds],
   };
 };
@@ -254,9 +258,13 @@ export const makePartiallyPricedDiagnosisSummary = (): SessionDiagnosisSummary =
   makeDiagnosisSummary('partial', {
     coverage: {
       pricedTokens: 8_000,
+      exactPricedTokens: 8_000,
+      assumedTokens: 0,
       unpricedTokens: 3_000,
       totalTokens: 11_000,
       percentage: 72.7272727273,
+      exactPercentage: 72.7272727273,
+      assumedPercentage: 0,
       unpricedModelIds: ['unknown-model'],
     },
     pricedCostUsd: 0.75,

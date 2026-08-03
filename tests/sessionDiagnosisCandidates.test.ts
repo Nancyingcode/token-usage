@@ -58,9 +58,13 @@ describe('session diagnosis candidates', () => {
         pricedCostUsd: 1_000,
         coverage: {
           pricedTokens: 25,
+          exactPricedTokens: 25,
+          assumedTokens: 0,
           unpricedTokens: 25,
           totalTokens: 50,
           percentage: 50,
+          exactPercentage: 50,
+          assumedPercentage: 0,
           unpricedModelIds: ['unknown-model'],
         },
       }),

@@ -119,6 +119,28 @@ describe('cost optimization runtime', () => {
     expect(runtime.getSnapshot({ period: 'total' }).currentCostUsd).toBe(UPDATED_COST_USD);
   });
 
+  it('reevaluates active snapshots when unknown-model fallback pricing changes', async () => {
+    const evaluate = vi.fn(evaluateCostOptimization);
+    const runtime = createCostOptimizationRuntime(makeRuntimeDependencies({ evaluate }));
+    await runtime.initialize();
+    const evaluationCount = evaluate.mock.calls.length;
+
+    await runtime.applyBudgetSnapshot({
+      ...makeBudgetSnapshotWithUpdatedPricing(),
+      unknownModelPricing: {
+        inputUsdPerMillion: 2,
+        cachedInputUsdPerMillion: 0.5,
+        outputUsdPerMillion: 10,
+        updatedAt: '2026-08-03T00:00:00.000Z',
+      },
+    });
+
+    expect(evaluate.mock.calls.length).toBeGreaterThan(evaluationCount);
+    expect(evaluate.mock.calls.at(-1)?.[0].unknownModelPricing).toEqual(
+      expect.objectContaining({ inputUsdPerMillion: 2 })
+    );
+  });
+
   it('keeps the last snapshot when usage refresh becomes stale', async () => {
     const runtime = createCostOptimizationRuntime(makeRuntimeDependencies());
     await runtime.initialize();

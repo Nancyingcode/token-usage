@@ -3,6 +3,7 @@ import type {
   BudgetPolicyInput,
   BudgetThresholds,
   ModelPricingOverrideInput,
+  UnknownModelPricingInput,
 } from '../shared/budgetTypes';
 import type {
   CostOptimizationIpcResponse,
@@ -12,11 +13,13 @@ import type {
 } from '../shared/costOptimizationTypes';
 import {
   BUDGET_DELETE_POLICY_CHANNEL,
+  BUDGET_DELETE_UNKNOWN_MODEL_PRICING_CHANNEL,
   BUDGET_GET_SNAPSHOT_CHANNEL,
   BUDGET_NAVIGATE_CHANNEL,
   BUDGET_RESET_PRICING_CHANNEL,
   BUDGET_SAVE_POLICY_CHANNEL,
   BUDGET_SAVE_PRICING_CHANNEL,
+  BUDGET_SAVE_UNKNOWN_MODEL_PRICING_CHANNEL,
   BUDGET_UPDATED_CHANNEL,
   BUDGET_UPDATE_THRESHOLDS_CHANNEL,
   COST_OPTIMIZATION_GET_SNAPSHOT_CHANNEL,
@@ -60,6 +63,8 @@ const HANDLED_CHANNELS = [
   BUDGET_UPDATE_THRESHOLDS_CHANNEL,
   BUDGET_SAVE_PRICING_CHANNEL,
   BUDGET_RESET_PRICING_CHANNEL,
+  BUDGET_SAVE_UNKNOWN_MODEL_PRICING_CHANNEL,
+  BUDGET_DELETE_UNKNOWN_MODEL_PRICING_CHANNEL,
   COST_OPTIMIZATION_GET_SNAPSHOT_CHANNEL,
   COST_OPTIMIZATION_GET_SESSION_DIAGNOSIS_CHANNEL,
   COST_OPTIMIZATION_UPDATE_SETTINGS_CHANNEL,
@@ -135,6 +140,13 @@ const registerUsageIpc = ({
   );
   ipcMain.handle(BUDGET_RESET_PRICING_CHANNEL, (_event, modelId: string) =>
     budgetRuntime.resetPricingOverride(modelId)
+  );
+  ipcMain.handle(
+    BUDGET_SAVE_UNKNOWN_MODEL_PRICING_CHANNEL,
+    (_event, input: UnknownModelPricingInput) => budgetRuntime.saveUnknownModelPricing(input)
+  );
+  ipcMain.handle(BUDGET_DELETE_UNKNOWN_MODEL_PRICING_CHANNEL, () =>
+    budgetRuntime.deleteUnknownModelPricing()
   );
   ipcMain.handle(COST_OPTIMIZATION_GET_SNAPSHOT_CHANNEL, (_event, query: CostOptimizationQuery) =>
     runCostOptimizationOperation(() => costRuntime.getSnapshot(query))

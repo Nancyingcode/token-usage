@@ -8,6 +8,8 @@ import {
 import type { LocaleService } from '../src/main/localeService';
 import type { UsageRuntime } from '../src/main/usageRuntime';
 import {
+  BUDGET_DELETE_UNKNOWN_MODEL_PRICING_CHANNEL,
+  BUDGET_SAVE_UNKNOWN_MODEL_PRICING_CHANNEL,
   COST_OPTIMIZATION_GET_SESSION_DIAGNOSIS_CHANNEL,
   COST_OPTIMIZATION_GET_SNAPSHOT_CHANNEL,
   COST_OPTIMIZATION_UPDATED_CHANNEL,
@@ -137,6 +139,22 @@ describe('cost optimization IPC', () => {
       },
     });
   });
+
+  it('routes unknown-model fallback pricing through dedicated budget handlers', async () => {
+    const harness = makeIpcHarness();
+    registerUsageIpc(harness.dependencies);
+    const input = {
+      inputUsdPerMillion: 2,
+      cachedInputUsdPerMillion: 0.5,
+      outputUsdPerMillion: 10,
+    };
+
+    await invokeHandler(BUDGET_SAVE_UNKNOWN_MODEL_PRICING_CHANNEL, input);
+    await invokeHandler(BUDGET_DELETE_UNKNOWN_MODEL_PRICING_CHANNEL, undefined);
+
+    expect(harness.budgetRuntime.saveUnknownModelPricing).toHaveBeenCalledWith(input);
+    expect(harness.budgetRuntime.deleteUnknownModelPricing).toHaveBeenCalledOnce();
+  });
 });
 
 interface CostRuntimeMock extends Pick<
@@ -151,6 +169,10 @@ interface CostRuntimeMock extends Pick<
 interface IpcHarness {
   dependencies: Parameters<typeof registerUsageIpc>[0];
   costRuntime: CostRuntimeMock;
+  budgetRuntime: {
+    saveUnknownModelPricing: ReturnType<typeof vi.fn>;
+    deleteUnknownModelPricing: ReturnType<typeof vi.fn>;
+  };
   send: ReturnType<typeof vi.fn>;
   emitSnapshot: Parameters<CostOptimizationRuntime['subscribe']>[0];
 }
@@ -170,14 +192,17 @@ const makeIpcHarness = (): IpcHarness => {
     }),
   };
   const send = vi.fn();
+  const budgetRuntime = {
+    subscribe: () => () => undefined,
+    subscribeNavigation: () => () => undefined,
+    saveUnknownModelPricing: vi.fn(async () => undefined),
+    deleteUnknownModelPricing: vi.fn(async () => undefined),
+  };
   const dependencies: Parameters<typeof registerUsageIpc>[0] = {
     applicationRuntime: {
       refresh: vi.fn(),
     } as unknown as ApplicationRuntime,
-    budgetRuntime: {
-      subscribe: () => () => undefined,
-      subscribeNavigation: () => () => undefined,
-    } as unknown as BudgetRuntime,
+    budgetRuntime: budgetRuntime as unknown as BudgetRuntime,
     usageRuntime: {
       subscribe: () => () => undefined,
     } as unknown as UsageRuntime,
@@ -195,6 +220,7 @@ const makeIpcHarness = (): IpcHarness => {
   return {
     dependencies,
     costRuntime,
+    budgetRuntime,
     send,
     emitSnapshot: (snapshot) => snapshotListener?.(snapshot),
   };

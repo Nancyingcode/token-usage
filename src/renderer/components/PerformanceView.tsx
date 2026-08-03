@@ -5,7 +5,7 @@
  */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ModelPricingEntry } from '../../shared/budgetTypes';
+import type { ModelPricingEntry, UnknownModelPricing } from '../../shared/budgetTypes';
 import { getSummaryCostEstimate } from '../../shared/pricing';
 import { getCachePercentage } from '../../shared/usageMetrics';
 import type { UsageSummary } from '../../shared/usageTypes';
@@ -17,6 +17,7 @@ import TokenBar from './TokenBar';
 interface PerformanceViewProps {
   summary: UsageSummary;
   pricing: ModelPricingEntry[];
+  unknownModelPricing?: UnknownModelPricing;
 }
 
 interface MiniLineProps {
@@ -99,7 +100,11 @@ const Donut: React.FC<DonutProps> = ({ value }) => {
   );
 };
 
-const PerformanceView: React.FC<PerformanceViewProps> = ({ summary, pricing }) => {
+const PerformanceView: React.FC<PerformanceViewProps> = ({
+  summary,
+  pricing,
+  unknownModelPricing,
+}) => {
   const { t, i18n } = useTranslation('analytics');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const days = summary.byDay.slice(-PERFORMANCE_HISTORY_DAYS);
@@ -112,7 +117,7 @@ const PerformanceView: React.FC<PerformanceViewProps> = ({ summary, pricing }) =
     summary.totals.inputTokens,
     summary.totals.cachedInputTokens
   );
-  const totalCost = getSummaryCostEstimate(summary, pricing);
+  const totalCost = getSummaryCostEstimate(summary, pricing, unknownModelPricing);
   const pricingIncomplete = totalCost.unpricedTokens > 0;
 
   return (
@@ -130,6 +135,8 @@ const PerformanceView: React.FC<PerformanceViewProps> = ({ summary, pricing }) =
           <p>{formatUsd(totalCost.pricedCostUsd, locale)}</p>
           {pricingIncomplete ? (
             <p className="pricing-incomplete-label">{t('performance.pricingIncomplete')}</p>
+          ) : totalCost.assumedTokens > 0 ? (
+            <p className="pricing-assumed-label">{t('performance.assumedPricing')}</p>
           ) : null}
           <MiniLine days={days} max={maxDay} tone="blue" />
         </article>

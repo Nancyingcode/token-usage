@@ -45,6 +45,14 @@ const CostOptimizationOverview: React.FC<CostOptimizationOverviewProps> = ({ sna
             <strong>{formatUsd(snapshot.currentCostUsd, locale)}</strong>
             <small>{t('overview.pricingCoverage')}</small>
             <em className="status-label">{formatPercent(snapshot.coverage.percentage, locale)}</em>
+            {snapshot.coverage.assumedTokens > 0 ? (
+              <small>
+                {t('overview.assumedPricingCoverage', {
+                  exact: formatPercent(snapshot.coverage.exactPercentage, locale),
+                  assumed: formatPercent(snapshot.coverage.assumedPercentage, locale),
+                })}
+              </small>
+            ) : null}
           </div>
           <CircleDollarSign size={ICON_SIZE_LARGE} />
         </article>

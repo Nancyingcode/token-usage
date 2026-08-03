@@ -7,7 +7,7 @@
  * - 未知模型不猜测价格
  * - 替代场景只重算相同 Token 构成，不表达能力、速度或质量等价
  */
-import type { ModelPricingEntry } from './budgetTypes';
+import type { ModelPricingEntry, UnknownModelPricing } from './budgetTypes';
 import type {
   CostOptimizationIndex,
   CostOptimizationQuery,
@@ -17,8 +17,13 @@ import type {
   PricingCoverage,
 } from './costOptimizationTypes';
 import type { RollingUsagePeriod, TokenUsage } from './usageTypes';
+import {
+  calculateUsageCost,
+  createPricingContext,
+  priceTokenUsage,
+  type PricingContext,
+} from './pricing';
 
-const TOKENS_PER_MILLION = 1_000_000;
 const COMPLETE_PRICING_PERCENTAGE = 100;
 const UNKNOWN_MODEL_ID = 'Unknown model';
 const UNKNOWN_MODEL_KEY = 'unknown-model';
@@ -31,7 +36,8 @@ const PERIOD_DAY_COUNTS: Record<RollingUsagePeriod, number> = {
 
 interface PricedBucket {
   pricedCostUsd: number;
-  pricedTokens: number;
+  exactPricedTokens: number;
+  assumedTokens: number;
   unpricedTokens: number;
   unpricedModelIds: string[];
 }
@@ -55,57 +61,23 @@ const normalizeModelId = (modelId: string): string => modelId.trim().toLocaleLow
 const getModelGroupKey = (modelId: string | undefined): string =>
   modelId ? normalizeModelId(modelId) : UNKNOWN_MODEL_KEY;
 
-const buildPricingIndex = (pricingEntries: ModelPricingEntry[]): Map<string, ModelPricingEntry> => {
-  const pricingById = new Map<string, ModelPricingEntry>();
+const priceBucket = (bucket: IndexedUsageBucket, context: PricingContext): PricedBucket => {
+  const result = priceTokenUsage(bucket, bucket.modelId, context);
 
-  pricingEntries.forEach((entry) => {
-    [entry.modelId, ...entry.aliases].forEach((modelId) => {
-      const normalizedModelId = normalizeModelId(modelId);
-
-      if (normalizedModelId) {
-        pricingById.set(normalizedModelId, entry);
-      }
-    });
-  });
-
-  return pricingById;
-};
-
-const getBucketPricing = (
-  bucket: IndexedUsageBucket,
-  pricingById: Map<string, ModelPricingEntry>
-): ModelPricingEntry | undefined =>
-  bucket.modelId ? pricingById.get(normalizeModelId(bucket.modelId)) : undefined;
-
-const getCostForPricing = (usage: TokenUsage, pricing: ModelPricingEntry): number => {
-  const regularInputTokens = Math.max(usage.inputTokens - usage.cachedInputTokens, 0);
-
-  return (
-    (regularInputTokens * pricing.inputUsdPerMillion +
-      usage.cachedInputTokens * pricing.cachedInputUsdPerMillion +
-      usage.outputTokens * pricing.outputUsdPerMillion) /
-    TOKENS_PER_MILLION
-  );
-};
-
-const priceBucket = (
-  bucket: IndexedUsageBucket,
-  pricingById: Map<string, ModelPricingEntry>
-): PricedBucket => {
-  const pricing = getBucketPricing(bucket, pricingById);
-
-  if (!pricing) {
+  if (result.kind === 'unpriced') {
     return {
       pricedCostUsd: 0,
-      pricedTokens: 0,
+      exactPricedTokens: 0,
+      assumedTokens: 0,
       unpricedTokens: bucket.totalTokens,
       unpricedModelIds: [bucket.modelId?.trim() || UNKNOWN_MODEL_ID],
     };
   }
 
   return {
-    pricedCostUsd: getCostForPricing(bucket, pricing),
-    pricedTokens: bucket.totalTokens,
+    pricedCostUsd: result.costUsd,
+    exactPricedTokens: result.kind === 'exact' ? bucket.totalTokens : 0,
+    assumedTokens: result.kind === 'assumed' ? bucket.totalTokens : 0,
     unpricedTokens: 0,
     unpricedModelIds: [],
   };
@@ -161,31 +133,46 @@ export const selectQueryBuckets = (
 
 export const getPricingCoverage = (
   buckets: IndexedUsageBucket[],
-  pricingEntries: ModelPricingEntry[]
+  pricingEntries: ModelPricingEntry[],
+  unknownModelPricing?: UnknownModelPricing
 ): PricingCoverage => {
-  const pricingById = buildPricingIndex(pricingEntries);
+  const context = createPricingContext(pricingEntries, unknownModelPricing);
   const unpricedModelIds = new Map<string, string>();
-  let pricedTokens = 0;
+  let exactPricedTokens = 0;
+  let assumedTokens = 0;
   let unpricedTokens = 0;
 
   buckets.forEach((bucket) => {
-    const priced = priceBucket(bucket, pricingById);
-    pricedTokens += priced.pricedTokens;
+    const priced = priceBucket(bucket, context);
+    exactPricedTokens += priced.exactPricedTokens;
+    assumedTokens += priced.assumedTokens;
     unpricedTokens += priced.unpricedTokens;
     priced.unpricedModelIds.forEach((modelId) => {
       unpricedModelIds.set(normalizeModelId(modelId), modelId);
     });
   });
 
+  const pricedTokens = exactPricedTokens + assumedTokens;
   const totalTokens = pricedTokens + unpricedTokens;
+  const toPercentage = (tokens: number): number =>
+    totalTokens > 0
+      ? (tokens / totalTokens) * COMPLETE_PRICING_PERCENTAGE
+      : tokens === 0
+        ? 0
+        : COMPLETE_PRICING_PERCENTAGE;
   return {
     pricedTokens,
+    exactPricedTokens,
+    assumedTokens,
     unpricedTokens,
     totalTokens,
     percentage:
       totalTokens > 0
         ? (pricedTokens / totalTokens) * COMPLETE_PRICING_PERCENTAGE
         : COMPLETE_PRICING_PERCENTAGE,
+    exactPercentage:
+      totalTokens > 0 ? toPercentage(exactPricedTokens) : COMPLETE_PRICING_PERCENTAGE,
+    assumedPercentage: toPercentage(assumedTokens),
     unpricedModelIds: [...unpricedModelIds.values()].sort((first, second) =>
       first.localeCompare(second)
     ),
@@ -222,27 +209,34 @@ const getModelUsageGroups = (buckets: IndexedUsageBucket[]): ModelUsageGroup[] =
 
 const toCoverage = (
   group: ModelUsageGroup,
-  pricing: ModelPricingEntry | undefined
+  pricingKind: 'exact' | 'assumed' | 'unpriced'
 ): PricingCoverage => ({
-  pricedTokens: pricing ? group.totalTokens : 0,
-  unpricedTokens: pricing ? 0 : group.totalTokens,
+  pricedTokens: pricingKind === 'unpriced' ? 0 : group.totalTokens,
+  exactPricedTokens: pricingKind === 'exact' ? group.totalTokens : 0,
+  assumedTokens: pricingKind === 'assumed' ? group.totalTokens : 0,
+  unpricedTokens: pricingKind === 'unpriced' ? group.totalTokens : 0,
   totalTokens: group.totalTokens,
-  percentage: pricing || group.totalTokens === 0 ? COMPLETE_PRICING_PERCENTAGE : 0,
-  unpricedModelIds: pricing ? [] : [group.modelId?.trim() || UNKNOWN_MODEL_ID],
+  percentage:
+    pricingKind !== 'unpriced' || group.totalTokens === 0 ? COMPLETE_PRICING_PERCENTAGE : 0,
+  exactPercentage:
+    pricingKind === 'exact' || group.totalTokens === 0 ? COMPLETE_PRICING_PERCENTAGE : 0,
+  assumedPercentage: pricingKind === 'assumed' ? COMPLETE_PRICING_PERCENTAGE : 0,
+  unpricedModelIds: pricingKind === 'unpriced' ? [group.modelId?.trim() || UNKNOWN_MODEL_ID] : [],
 });
 
 export const evaluateModelCosts = (
   index: CostOptimizationIndex,
   query: CostOptimizationQuery,
   pricingEntries: ModelPricingEntry[],
-  now: Date = new Date()
+  now: Date = new Date(),
+  unknownModelPricing?: UnknownModelPricing
 ): ModelCostRow[] => {
   const groups = getModelUsageGroups(selectQueryBuckets(index, query, now));
-  const pricingById = buildPricingIndex(pricingEntries);
+  const context = createPricingContext(pricingEntries, unknownModelPricing);
   const evaluated = groups.map((group) => {
-    const pricing = group.modelId ? pricingById.get(normalizeModelId(group.modelId)) : undefined;
-    const pricedCostUsd = pricing ? getCostForPricing(group, pricing) : 0;
-    return { group, pricing, pricedCostUsd };
+    const result = priceTokenUsage(group, group.modelId, context);
+    const pricedCostUsd = result.costUsd;
+    return { group, pricingKind: result.kind, pricedCostUsd };
   });
   const totalPricedCostUsd = evaluated.reduce(
     (total, { pricedCostUsd }) => total + pricedCostUsd,
@@ -250,7 +244,7 @@ export const evaluateModelCosts = (
   );
 
   return evaluated
-    .map(({ group, pricing, pricedCostUsd }): ModelCostRow => {
+    .map(({ group, pricingKind, pricedCostUsd }): ModelCostRow => {
       const sessionCount = group.sessionIds.size;
       return {
         modelId: group.modelId,
@@ -263,7 +257,7 @@ export const evaluateModelCosts = (
         pricedCostUsd,
         costShare: totalPricedCostUsd > 0 ? pricedCostUsd / totalPricedCostUsd : 0,
         averageSessionCostUsd: sessionCount > 0 ? pricedCostUsd / sessionCount : 0,
-        coverage: toCoverage(group, pricing),
+        coverage: toCoverage(group, pricingKind),
       };
     })
     .sort((first, second) => {
@@ -290,7 +284,7 @@ export const evaluateSubstitutionScenarios = (
   now: Date = new Date()
 ): ModelSubstitutionScenario[] => {
   const groups = getModelUsageGroups(selectQueryBuckets(index, query, now));
-  const pricingById = buildPricingIndex(pricingEntries);
+  const pricingById = createPricingContext(pricingEntries).pricingById;
 
   return groups
     .flatMap((group): ModelSubstitutionScenario[] => {
@@ -302,7 +296,7 @@ export const evaluateSubstitutionScenarios = (
         return [];
       }
 
-      const actualCostUsd = getCostForPricing(group, sourcePricing);
+      const actualCostUsd = calculateUsageCost(group, sourcePricing);
       return candidateModelIds.flatMap((candidateModelId) => {
         const targetPricing = pricingById.get(normalizeModelId(candidateModelId));
         const targetMatchesSource =
@@ -313,7 +307,7 @@ export const evaluateSubstitutionScenarios = (
           return [];
         }
 
-        const scenarioCostUsd = getCostForPricing(group, targetPricing);
+        const scenarioCostUsd = calculateUsageCost(group, targetPricing);
         const savingsUsd = actualCostUsd - scenarioCostUsd;
 
         return savingsUsd >= minimumSavingsUsd

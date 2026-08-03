@@ -3,7 +3,7 @@
  * @description
  * 将增量用量索引、价格、预算、设置和查询组合为只读展示所需的完整成本优化快照。
  */
-import type { BudgetPolicyStatus, ModelPricingEntry } from './budgetTypes';
+import type { BudgetPolicyStatus, ModelPricingEntry, UnknownModelPricing } from './budgetTypes';
 import { detectCostAnomalies } from './costOptimizationAnomalies';
 import {
   evaluateModelCosts,
@@ -35,6 +35,7 @@ export interface EvaluateCostOptimizationInput {
   query: CostOptimizationQuery;
   settings: CostOptimizationSettings;
   pricing: ModelPricingEntry[];
+  unknownModelPricing?: UnknownModelPricing;
   budgets: BudgetPolicyStatus[];
   now: Date;
   dataState: CostOptimizationDataState;
@@ -81,7 +82,8 @@ const getHistoryBuckets = (
 
 const buildDailyCosts = (
   buckets: IndexedUsageBucket[],
-  pricing: ModelPricingEntry[]
+  pricing: ModelPricingEntry[],
+  unknownModelPricing?: UnknownModelPricing
 ): DailyCostObservation[] => {
   const bucketsByDate = new Map<string, IndexedUsageBucket[]>();
 
@@ -99,7 +101,8 @@ const buildDailyCosts = (
     .sort(([firstDate], [secondDate]) => firstDate.localeCompare(secondDate))
     .map(([date, dateBuckets]) => ({
       date,
-      costUsd: calculateEstimatedCost(dateBuckets.map(toUsageSlice), pricing).pricedCostUsd,
+      costUsd: calculateEstimatedCost(dateBuckets.map(toUsageSlice), pricing, unknownModelPricing)
+        .pricedCostUsd,
     }));
 };
 
@@ -112,6 +115,7 @@ const cloneBudgets = (budgets: BudgetPolicyStatus[]): BudgetPolicyStatus[] =>
     policy: { ...status.policy, modelTarget: { ...status.policy.modelTarget } },
     token: status.token ? { ...status.token } : undefined,
     cost: status.cost ? { ...status.cost } : undefined,
+    assumedTokens: status.assumedTokens,
     unpricedModelIds: [...status.unpricedModelIds],
   }));
 
@@ -119,8 +123,14 @@ export const evaluateCostOptimization = (
   input: EvaluateCostOptimizationInput
 ): CostOptimizationSnapshot => {
   const selectedBuckets = selectQueryBuckets(input.index, input.query, input.now);
-  const coverage = getPricingCoverage(selectedBuckets, input.pricing);
-  const modelRows = evaluateModelCosts(input.index, input.query, input.pricing, input.now);
+  const coverage = getPricingCoverage(selectedBuckets, input.pricing, input.unknownModelPricing);
+  const modelRows = evaluateModelCosts(
+    input.index,
+    input.query,
+    input.pricing,
+    input.now,
+    input.unknownModelPricing
+  );
   const currentCostUsd = modelRows.reduce((total, row) => total + row.pricedCostUsd, 0);
   const substitutionScenarios = evaluateSubstitutionScenarios(
     input.index,
@@ -133,13 +143,24 @@ export const evaluateCostOptimization = (
   const pricingCoverageIsSafe =
     coverage.percentage >= input.settings.minimumPricingCoveragePercentage;
   const anomalies = pricingCoverageIsSafe
-    ? detectCostAnomalies(input.index, input.query, input.pricing, input.settings, input.now)
+    ? detectCostAnomalies(
+        input.index,
+        input.query,
+        input.pricing,
+        input.settings,
+        input.now,
+        input.unknownModelPricing
+      )
     : [];
   const historyBuckets = getHistoryBuckets(input.index, input.query.projectPath);
-  const forecastCoverage = getPricingCoverage(historyBuckets, input.pricing);
+  const forecastCoverage = getPricingCoverage(
+    historyBuckets,
+    input.pricing,
+    input.unknownModelPricing
+  );
   const budgets = cloneBudgets(input.budgets);
   let forecast = forecastCostTrend({
-    dailyCosts: buildDailyCosts(historyBuckets, input.pricing),
+    dailyCosts: buildDailyCosts(historyBuckets, input.pricing, input.unknownModelPricing),
     settings: input.settings,
     budgets,
     coverage: forecastCoverage,
@@ -152,14 +173,15 @@ export const evaluateCostOptimization = (
     const globalHistoryBuckets = getHistoryBuckets(input.index, undefined);
     const globalSelectedBuckets = selectQueryBuckets(input.index, globalQuery, input.now);
     const globalForecast = forecastCostTrend({
-      dailyCosts: buildDailyCosts(globalHistoryBuckets, input.pricing),
+      dailyCosts: buildDailyCosts(globalHistoryBuckets, input.pricing, input.unknownModelPricing),
       settings: input.settings,
       budgets,
-      coverage: getPricingCoverage(globalHistoryBuckets, input.pricing),
+      coverage: getPricingCoverage(globalHistoryBuckets, input.pricing, input.unknownModelPricing),
       query: globalQuery,
       currentPeriodCostUsd: calculateEstimatedCost(
         globalSelectedBuckets.map(toUsageSlice),
-        input.pricing
+        input.pricing,
+        input.unknownModelPricing
       ).pricedCostUsd,
       now: input.now,
     });
@@ -203,6 +225,7 @@ export const evaluateCostOptimization = (
     },
     query: { ...input.query },
     pricing: clonePricing(input.pricing),
+    ...(input.unknownModelPricing ? { unknownModelPricing: { ...input.unknownModelPricing } } : {}),
     budgets,
     coverage,
     currentCostUsd,

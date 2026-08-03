@@ -149,6 +149,7 @@ const makeCostBudget = (
   },
   periodStart: '2026-07-01T00:00:00.000Z',
   periodEnd: FIXED_NOW.toISOString(),
+  assumedTokens: 0,
   cost: {
     used: usedUsd,
     limit: limitUsd,

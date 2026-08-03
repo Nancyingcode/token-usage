@@ -7,7 +7,7 @@
  * - 定价覆盖不足的当前观测和历史样本都不参与检测
  * - 会话基线按同项目同模型、同模型、全局依次降级
  */
-import type { ModelPricingEntry } from './budgetTypes';
+import type { ModelPricingEntry, UnknownModelPricing } from './budgetTypes';
 import { getPricingCoverage } from './costOptimizationCost';
 import type {
   CostAnomaly,
@@ -126,11 +126,16 @@ const toUsageSlice = (bucket: IndexedUsageBucket): UsageSlice => ({
 const toObservation = (
   buckets: IndexedUsageBucket[],
   metadata: ObservationMetadata,
-  pricingEntries: ModelPricingEntry[]
+  pricingEntries: ModelPricingEntry[],
+  unknownModelPricing?: UnknownModelPricing
 ): CostObservation => ({
   ...metadata,
-  actualCostUsd: calculateEstimatedCost(buckets.map(toUsageSlice), pricingEntries).pricedCostUsd,
-  coverage: getPricingCoverage(buckets, pricingEntries),
+  actualCostUsd: calculateEstimatedCost(
+    buckets.map(toUsageSlice),
+    pricingEntries,
+    unknownModelPricing
+  ).pricedCostUsd,
+  coverage: getPricingCoverage(buckets, pricingEntries, unknownModelPricing),
   contributionIds: [
     ...new Set(buckets.flatMap((bucket) => Object.keys(bucket.contributionCounts))),
   ].sort((first, second) => first.localeCompare(second)),
@@ -155,7 +160,8 @@ const groupBuckets = (
 const buildDayObservations = (
   buckets: IndexedUsageBucket[],
   pricingEntries: ModelPricingEntry[],
-  selectedProjectPath: string | undefined
+  selectedProjectPath: string | undefined,
+  unknownModelPricing?: UnknownModelPricing
 ): CostObservation[] =>
   [...groupBuckets(buckets, (bucket) => bucket.date ?? '').entries()]
     .filter(([date]) => Boolean(date))
@@ -172,13 +178,15 @@ const buildDayObservations = (
           projectPath: selectedProjectPath,
           projectName: groupedBuckets[0]?.projectName,
         },
-        pricingEntries
+        pricingEntries,
+        unknownModelPricing
       )
     );
 
 const buildProjectObservations = (
   buckets: IndexedUsageBucket[],
-  pricingEntries: ModelPricingEntry[]
+  pricingEntries: ModelPricingEntry[],
+  unknownModelPricing?: UnknownModelPricing
 ): CostObservation[] =>
   [
     ...groupBuckets(buckets, (bucket) =>
@@ -205,14 +213,16 @@ const buildProjectObservations = (
           projectPath: stableProjectPath,
           projectName,
         },
-        pricingEntries
+        pricingEntries,
+        unknownModelPricing
       );
     });
 
 const buildModelObservations = (
   buckets: IndexedUsageBucket[],
   pricingEntries: ModelPricingEntry[],
-  selectedProjectPath: string | undefined
+  selectedProjectPath: string | undefined,
+  unknownModelPricing?: UnknownModelPricing
 ): CostObservation[] =>
   [
     ...groupBuckets(buckets, (bucket) =>
@@ -238,13 +248,15 @@ const buildModelObservations = (
           projectName,
           modelId,
         },
-        pricingEntries
+        pricingEntries,
+        unknownModelPricing
       );
     });
 
 const buildSessionObservations = (
   buckets: IndexedUsageBucket[],
-  pricingEntries: ModelPricingEntry[]
+  pricingEntries: ModelPricingEntry[],
+  unknownModelPricing?: UnknownModelPricing
 ): CostObservation[] =>
   buckets
     .filter(({ sessionId, occurredAt }) => Boolean(sessionId) && Boolean(occurredAt))
@@ -265,7 +277,8 @@ const buildSessionObservations = (
           modelId: bucket.modelId,
           sessionId,
         },
-        pricingEntries
+        pricingEntries,
+        unknownModelPricing
       );
     });
 
@@ -430,7 +443,8 @@ export const detectCostAnomalies = (
   query: CostOptimizationQuery,
   pricingEntries: ModelPricingEntry[],
   settings: CostOptimizationSettings,
-  now: Date = new Date()
+  now: Date = new Date(),
+  unknownModelPricing?: UnknownModelPricing
 ): CostAnomaly[] => {
   const selectedProjectBuckets = query.projectPath
     ? Object.values(index.projectDayModelBuckets).filter(
@@ -445,14 +459,28 @@ export const detectCostAnomalies = (
     ({ projectPath }) => !query.projectPath || projectPath === query.projectPath
   );
 
-  const dayObservations = buildDayObservations(scopedDayBuckets, pricingEntries, query.projectPath);
-  const projectObservations = buildProjectObservations(projectBuckets, pricingEntries);
+  const dayObservations = buildDayObservations(
+    scopedDayBuckets,
+    pricingEntries,
+    query.projectPath,
+    unknownModelPricing
+  );
+  const projectObservations = buildProjectObservations(
+    projectBuckets,
+    pricingEntries,
+    unknownModelPricing
+  );
   const modelObservations = buildModelObservations(
     scopedDayBuckets,
     pricingEntries,
-    query.projectPath
+    query.projectPath,
+    unknownModelPricing
   );
-  const sessionObservations = buildSessionObservations(sessionBuckets, pricingEntries);
+  const sessionObservations = buildSessionObservations(
+    sessionBuckets,
+    pricingEntries,
+    unknownModelPricing
+  );
   const anomalies = [
     ...detectSeriesAnomalies(dayObservations, query, settings, now),
     ...detectSeriesAnomalies(projectObservations, query, settings, now),

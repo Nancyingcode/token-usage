@@ -46,7 +46,12 @@ const ModelCostComparison: React.FC<ModelCostComparisonProps> = ({ rows, scenari
 
                 return (
                   <tr key={row.modelId ?? 'unknown'}>
-                    <td>{row.modelId ?? t('comparison.unknownModel')}</td>
+                    <td>
+                      {row.modelId ?? t('comparison.unknownModel')}
+                      {row.coverage.assumedTokens > 0 ? (
+                        <small>{t('comparison.assumedPricing')}</small>
+                      ) : null}
+                    </td>
                     <td>
                       <strong>{formatCompactNumber(row.totalTokens, locale)}</strong>
                       <small>
@@ -68,7 +73,16 @@ const ModelCostComparison: React.FC<ModelCostComparisonProps> = ({ rows, scenari
                         ? formatUsd(row.averageSessionCostUsd, locale)
                         : t('comparison.pricingIncomplete')}
                     </td>
-                    <td>{formatPercent(row.coverage.percentage, locale)}</td>
+                    <td>
+                      {formatPercent(row.coverage.percentage, locale)}
+                      {row.coverage.assumedTokens > 0 ? (
+                        <small>
+                          {t('comparison.exactCoverage', {
+                            percentage: formatPercent(row.coverage.exactPercentage, locale),
+                          })}
+                        </small>
+                      ) : null}
+                    </td>
                   </tr>
                 );
               })}

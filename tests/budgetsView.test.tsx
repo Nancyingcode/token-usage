@@ -11,6 +11,7 @@ describe('BudgetsView', () => {
 
     expect(markup).toContain('112%');
     expect(markup).toContain('Pricing incomplete');
+    expect(markup).toContain('Includes 120 tokens priced by the unknown-model assumption');
     expect(markup).toContain('Unpriced models');
     expect(markup).toContain('Token budget reached 100%');
     expect(markup).toContain('Global budgets');
@@ -36,6 +37,7 @@ describe('BudgetsView', () => {
     expect(markup).toContain('预算中心');
     expect(markup).toContain('Token 预算已达到 100%');
     expect(markup).toContain('计价不完整');
+    expect(markup).toContain('包含 120 个按未知模型假设计价的 Token');
     expect(markup).toContain('全局预算');
     expect(markup).toContain('项目预算');
     expect(markup).toContain('模型');
@@ -62,6 +64,7 @@ const SNAPSHOT: BudgetSnapshot = {
       },
       periodStart: '2026-07-01T00:00:00.000Z',
       periodEnd: '2026-07-20T12:00:00.000Z',
+      assumedTokens: 0,
       token: { used: 100, limit: 1_000, percent: 10, severity: 'normal' },
       unpricedTokens: 0,
       unpricedModelIds: [],
@@ -78,6 +81,7 @@ const SNAPSHOT: BudgetSnapshot = {
       },
       periodStart: '2026-07-20T00:00:00.000Z',
       periodEnd: '2026-07-20T12:00:00.000Z',
+      assumedTokens: 0,
       token: { used: 112, limit: 100, percent: 112, severity: 'over' },
       unpricedTokens: 0,
       unpricedModelIds: [],
@@ -95,6 +99,7 @@ const SNAPSHOT: BudgetSnapshot = {
       },
       periodStart: '2026-07-20T00:00:00.000Z',
       periodEnd: '2026-07-20T12:00:00.000Z',
+      assumedTokens: 120,
       cost: { used: 8.5, limit: 10, percent: 85, severity: 'warning', incomplete: true },
       unpricedTokens: 250,
       unpricedModelIds: ['future-model'],
@@ -122,4 +127,6 @@ const ACTIONS: BudgetActions = {
   updateThresholds: vi.fn(async () => SNAPSHOT),
   savePricingOverride: vi.fn(async () => SNAPSHOT),
   resetPricingOverride: vi.fn(async () => SNAPSHOT),
+  saveUnknownModelPricing: vi.fn(async () => SNAPSHOT),
+  deleteUnknownModelPricing: vi.fn(async () => SNAPSHOT),
 };

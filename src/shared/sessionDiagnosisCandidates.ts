@@ -106,12 +106,19 @@ export const buildSessionDiagnosisObservations = ({
         pricedCostUsd: estimate.pricedCostUsd,
         coverage: {
           pricedTokens,
+          exactPricedTokens: pricedTokens,
+          assumedTokens: 0,
           unpricedTokens,
           totalTokens: usage.totalTokens,
           percentage:
             usage.totalTokens > 0
               ? (pricedTokens / usage.totalTokens) * PERCENTAGE_SCALE
               : PERCENTAGE_SCALE,
+          exactPercentage:
+            usage.totalTokens > 0
+              ? (pricedTokens / usage.totalTokens) * PERCENTAGE_SCALE
+              : PERCENTAGE_SCALE,
+          assumedPercentage: 0,
           unpricedModelIds: [...estimate.unpricedModelIds],
         },
         ...usage,

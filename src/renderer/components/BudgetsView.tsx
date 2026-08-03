@@ -178,6 +178,7 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
     <ModelPricingView
       pricing={snapshot.pricing}
       unpricedModels={snapshot.unpricedModels}
+      unknownModelPricing={snapshot.unknownModelPricing}
       actions={actions}
       initialModelId={pricingTarget}
       onInitialModelConsumed={clearPricingTarget}

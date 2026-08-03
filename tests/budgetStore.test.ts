@@ -48,7 +48,7 @@ describe('budget store', () => {
 
     await expect(store.load()).resolves.toEqual({ config, warnings: [] });
     await expect(readdir(testDirectory)).resolves.toEqual(['budget-config.json']);
-    await expect(readFile(configPath, 'utf8')).resolves.toContain('"schemaVersion": 2');
+    await expect(readFile(configPath, 'utf8')).resolves.toContain('"schemaVersion": 3');
   });
 
   it('migrates schema 1 budgets to all-model targets without losing configuration', async () => {
@@ -73,10 +73,44 @@ describe('budget store', () => {
     const result = await createBudgetStore(configPath, fixedNow).load();
 
     expect(result.warnings).toEqual([]);
-    expect(result.config.schemaVersion).toBe(2);
+    expect(result.config.schemaVersion).toBe(3);
     expect(result.config.policies[0]).toEqual(
       expect.objectContaining({ modelTarget: { kind: 'all' } })
     );
+  });
+
+  it('migrates schema 2 without enabling unknown-model fallback pricing', async () => {
+    const schemaTwoConfig = {
+      schemaVersion: 2,
+      policies: [],
+      thresholds: { warningPercent: 80, criticalPercent: 100 },
+      pricingOverrides: [],
+      notificationReceipts: [],
+    };
+    await writeFile(configPath, JSON.stringify(schemaTwoConfig), 'utf8');
+
+    const result = await createBudgetStore(configPath, fixedNow).load();
+
+    expect(result.warnings).toEqual([]);
+    expect(result.config.schemaVersion).toBe(3);
+    expect(result.config.unknownModelPricing).toBeUndefined();
+  });
+
+  it('round-trips a configured unknown-model fallback price', async () => {
+    const store = createBudgetStore(configPath, fixedNow);
+    const config: PersistedBudgetConfig = {
+      ...DEFAULT_BUDGET_CONFIG,
+      unknownModelPricing: {
+        inputUsdPerMillion: 2,
+        cachedInputUsdPerMillion: 0.5,
+        outputUsdPerMillion: 10,
+        updatedAt: FIXED_TIMESTAMP,
+      },
+    };
+
+    await store.save(config);
+
+    await expect(store.load()).resolves.toEqual({ config, warnings: [] });
   });
 
   it('backs up malformed JSON before returning defaults', async () => {
@@ -104,7 +138,7 @@ describe('budget store', () => {
   });
 
   it('refuses a future schema without overwriting it', async () => {
-    const future = '{"schemaVersion":3}';
+    const future = '{"schemaVersion":4}';
     await writeFile(configPath, future, 'utf8');
 
     await expect(createBudgetStore(configPath, fixedNow).load()).rejects.toThrow('newer schema');

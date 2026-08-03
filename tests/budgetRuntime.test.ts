@@ -155,6 +155,31 @@ describe('budget runtime', () => {
 
     expect(runtime.getSnapshot().statuses).toHaveLength(3);
   });
+
+  it('persists and removes unknown-model fallback pricing with main-process timestamps', async () => {
+    const dependencies = makeRuntimeDependencies();
+    const runtime = createBudgetRuntime(dependencies);
+    await runtime.initialize();
+    await runtime.applyUsageResult(makeScanResult(1_000, ''));
+
+    const priced = await runtime.saveUnknownModelPricing({
+      inputUsdPerMillion: 2,
+      cachedInputUsdPerMillion: 0.5,
+      outputUsdPerMillion: 10,
+    });
+
+    expect(priced.unknownModelPricing).toEqual({
+      inputUsdPerMillion: 2,
+      cachedInputUsdPerMillion: 0.5,
+      outputUsdPerMillion: 10,
+      updatedAt: FIXED_NOW.toISOString(),
+    });
+    expect(priced.unpricedModels).toEqual([]);
+
+    const unpriced = await runtime.deleteUnknownModelPricing();
+    expect(unpriced.unknownModelPricing).toBeUndefined();
+    expect(unpriced.unpricedModels).toEqual([{ modelId: undefined, totalTokens: 1_000 }]);
+  });
 });
 
 interface RuntimeDependencyOverrides {
@@ -184,7 +209,10 @@ const makeRuntimeDependencies = (
   };
 };
 
-const makeScanResult = (totalTokens: number): UsageScanResult => {
+const makeScanResult = (
+  totalTokens: number,
+  modelId: string | undefined = 'gpt-test'
+): UsageScanResult => {
   const timestamp = new Date(2026, 6, 20, 10, 0).toISOString();
   const session: UsageSession = {
     sessionId: 'runtime-session',
@@ -195,7 +223,7 @@ const makeScanResult = (totalTokens: number): UsageScanResult => {
     usageSlices: [
       {
         occurredAt: timestamp,
-        modelId: 'gpt-test',
+        modelId,
         inputTokens: totalTokens,
         cachedInputTokens: 0,
         outputTokens: 0,
@@ -229,5 +257,6 @@ const cloneConfig = (config: PersistedBudgetConfig): PersistedBudgetConfig => ({
     ...override,
     aliases: [...override.aliases],
   })),
+  ...(config.unknownModelPricing ? { unknownModelPricing: { ...config.unknownModelPricing } } : {}),
   notificationReceipts: config.notificationReceipts.map((receipt) => ({ ...receipt })),
 });

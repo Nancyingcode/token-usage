@@ -3,20 +3,23 @@
  * @description
  * 展示模型计价信息，并提供价格覆盖项的新增、编辑、校验与重置交互。
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { TFunction } from 'i18next';
 import { ExternalLink, Pencil, Plus, RotateCcw, Save, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type {
   ModelPricingEntry,
+  UnknownModelPricing,
+  UnknownModelPricingInput,
   UnpricedModelSummary,
   ValidationIssue,
 } from '../../shared/budgetTypes';
-import { isValidationIssue } from '../../shared/budgetValidation';
+import { getUnknownModelPricingIssues, isValidationIssue } from '../../shared/budgetValidation';
 import { isRecord } from '../../shared/runtimeTypes';
 import { ICON_SIZE_SMALL } from '../constants/ui';
 import type { BudgetActions } from '../hooks/useBudgetSnapshot';
 import { resolveRendererLocale } from '../i18n';
+import { buildPricingModelOptions, type PricingModelOption } from '../utils/pricingModelOptions';
 import {
   createPricingFormState,
   getPricingFormIssues,
@@ -25,10 +28,12 @@ import {
 } from '../utils/pricingForm';
 import { formatNumber, formatShortDateTime, formatUsd } from '../utils/formatters';
 import { translateValidationIssue } from '../utils/validationIssues';
+import PricingModelCombobox from './PricingModelCombobox';
 
 interface ModelPricingViewProps {
   pricing: ModelPricingEntry[];
   unpricedModels: UnpricedModelSummary[];
+  unknownModelPricing?: UnknownModelPricing;
   actions: BudgetActions;
   initialModelId?: string | null;
   onInitialModelConsumed?: () => void;
@@ -63,9 +68,10 @@ const getIssueMessage = (
 
 const PricingEditor: React.FC<{
   model: PricingEditorModel;
+  modelOptions: PricingModelOption[];
   actions: BudgetActions;
   onClose: () => void;
-}> = ({ model, actions, onClose }) => {
+}> = ({ model, modelOptions, actions, onClose }) => {
   const { t } = useTranslation('budgets');
   const { t: tCommon } = useTranslation('common');
   const [state, setState] = useState<PricingFormState>(() =>
@@ -101,6 +107,7 @@ const PricingEditor: React.FC<{
   };
 
   const formIssue = getIssueMessage(issues, 'form', t);
+  const modelIdIssue = getIssueMessage(issues, 'modelId', t);
 
   return (
     <aside className="budget-drawer">
@@ -121,17 +128,25 @@ const PricingEditor: React.FC<{
           </button>
         </div>
 
-        <label className="form-field">
-          <span>{t('pricing.modelId')}</span>
-          <input
+        {modelIdLocked ? (
+          <label className="form-field">
+            <span>{t('pricing.modelId')}</span>
+            <input value={state.modelId} readOnly />
+            {modelIdIssue ? <small className="field-error">{modelIdIssue}</small> : null}
+          </label>
+        ) : (
+          <PricingModelCombobox
             value={state.modelId}
-            readOnly={modelIdLocked}
-            onChange={(event) => updateField('modelId', event.target.value)}
+            options={modelOptions}
+            label={t('pricing.modelId')}
+            pricedLabel={t('pricing.pricedOption')}
+            unpricedLabel={t('pricing.unpricedOption')}
+            unknownModelLabel={tCommon('value.unknownModel')}
+            unknownModelDescription={t('pricing.unknownModelDescription')}
+            error={modelIdIssue}
+            onChange={(modelId) => updateField('modelId', modelId)}
           />
-          {getIssueMessage(issues, 'modelId', t) ? (
-            <small className="field-error">{getIssueMessage(issues, 'modelId', t)}</small>
-          ) : null}
-        </label>
+        )}
         <label className="form-field">
           <span>{t('pricing.aliases')}</span>
           <input
@@ -188,9 +203,149 @@ const PRICE_INPUTS: Array<{
   { field: 'outputUsdPerMillion', labelKey: 'pricing.outputPrice' },
 ];
 
+type UnknownPricingFormState = Record<
+  'inputUsdPerMillion' | 'cachedInputUsdPerMillion' | 'outputUsdPerMillion',
+  string
+>;
+
+const createUnknownPricingFormState = (pricing?: UnknownModelPricing): UnknownPricingFormState => ({
+  inputUsdPerMillion:
+    pricing?.inputUsdPerMillion === undefined ? '' : String(pricing.inputUsdPerMillion),
+  cachedInputUsdPerMillion:
+    pricing?.cachedInputUsdPerMillion === undefined ? '' : String(pricing.cachedInputUsdPerMillion),
+  outputUsdPerMillion:
+    pricing?.outputUsdPerMillion === undefined ? '' : String(pricing.outputUsdPerMillion),
+});
+
+const toUnknownModelPricingInput = (state: UnknownPricingFormState): UnknownModelPricingInput => ({
+  inputUsdPerMillion: Number(state.inputUsdPerMillion),
+  cachedInputUsdPerMillion: Number(state.cachedInputUsdPerMillion),
+  outputUsdPerMillion: Number(state.outputUsdPerMillion),
+});
+
+const getUnknownPricingFormIssues = (state: UnknownPricingFormState): ValidationIssue[] => {
+  const requiredIssues = PRICE_INPUTS.filter(({ field }) => !state[field].trim()).map(
+    ({ field }) => ({
+      field,
+      code:
+        field === 'inputUsdPerMillion'
+          ? ('input-price-required' as const)
+          : field === 'cachedInputUsdPerMillion'
+            ? ('cached-input-price-required' as const)
+            : ('output-price-required' as const),
+    })
+  );
+  const requiredFields = new Set<string>(requiredIssues.map(({ field }) => field));
+  const pricingIssues = getUnknownModelPricingIssues(toUnknownModelPricingInput(state)).filter(
+    ({ field }) => !requiredFields.has(field)
+  );
+
+  return [...requiredIssues, ...pricingIssues];
+};
+
+const UnknownPricingEditor: React.FC<{
+  pricing?: UnknownModelPricing;
+  actions: BudgetActions;
+  onClose: () => void;
+}> = ({ pricing, actions, onClose }) => {
+  const { t } = useTranslation('budgets');
+  const { t: tCommon } = useTranslation('common');
+  const [state, setState] = useState<UnknownPricingFormState>(() =>
+    createUnknownPricingFormState(pricing)
+  );
+  const [issues, setIssues] = useState<ValidationIssue[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    const nextIssues = getUnknownPricingFormIssues(state);
+
+    if (nextIssues.length > 0) {
+      setIssues(nextIssues);
+      return;
+    }
+
+    const input = toUnknownModelPricingInput(state);
+    const isZeroPricing = Object.values(input).every((value) => value === 0);
+
+    if (isZeroPricing && !window.confirm(t('pricing.zeroFallbackConfirm'))) {
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await actions.saveUnknownModelPricing(input);
+      onClose();
+    } catch (error) {
+      setIssues(getActionIssues(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const formIssue = getIssueMessage(issues, 'form', t);
+
+  return (
+    <aside className="budget-drawer">
+      <form className="drawer-form" onSubmit={handleSubmit}>
+        <div className="drawer-heading">
+          <div>
+            <h2>{pricing ? t('pricing.editFallback') : t('pricing.setFallback')}</h2>
+            <p>{t('pricing.fallbackEditorDescription')}</p>
+          </div>
+          <button
+            type="button"
+            className="icon-button"
+            title={t('drawer.close')}
+            aria-label={t('drawer.close')}
+            onClick={onClose}
+          >
+            <X size={ICON_SIZE_SMALL} />
+          </button>
+        </div>
+
+        {PRICE_INPUTS.map((input) => {
+          const issue = getIssueMessage(issues, input.field, t);
+          return (
+            <label className="form-field" key={input.field}>
+              <span>{t(input.labelKey)}</span>
+              <input
+                type="number"
+                min="0"
+                step="0.0001"
+                value={state[input.field]}
+                onChange={(event) => {
+                  setState((current) => ({
+                    ...current,
+                    [input.field]: event.target.value,
+                  }));
+                  setIssues([]);
+                }}
+              />
+              {issue ? <small className="field-error">{issue}</small> : null}
+            </label>
+          );
+        })}
+
+        {formIssue ? <p className="form-error">{formIssue}</p> : null}
+        <div className="drawer-actions">
+          <button type="button" className="secondary-button" onClick={onClose}>
+            {tCommon('action.cancel')}
+          </button>
+          <button type="submit" className="primary-button" disabled={saving}>
+            <Save size={ICON_SIZE_SMALL} />
+            {saving ? tCommon('action.saving') : t('pricing.saveFallback')}
+          </button>
+        </div>
+      </form>
+    </aside>
+  );
+};
+
 const ModelPricingView: React.FC<ModelPricingViewProps> = ({
   pricing,
   unpricedModels,
+  unknownModelPricing,
   actions,
   initialModelId,
   onInitialModelConsumed,
@@ -200,7 +355,12 @@ const ModelPricingView: React.FC<ModelPricingViewProps> = ({
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const [editorModel, setEditorModel] = useState<PricingEditorModel | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [unknownEditorOpen, setUnknownEditorOpen] = useState(false);
   const showUnpricedModels = unpricedModels.length > 0;
+  const modelOptions = useMemo(
+    () => buildPricingModelOptions(pricing, unpricedModels),
+    [pricing, unpricedModels]
+  );
 
   useEffect(() => {
     if (!initialModelId) {
@@ -229,8 +389,33 @@ const ModelPricingView: React.FC<ModelPricingViewProps> = ({
     }
   };
 
+  const handleDeleteUnknownPricing = async (): Promise<void> => {
+    if (!window.confirm(t('pricing.disableFallbackConfirm'))) {
+      return;
+    }
+
+    try {
+      await actions.deleteUnknownModelPricing();
+      setActionError(null);
+    } catch (error) {
+      setActionError(getErrorMessage(error));
+    }
+  };
+
   const editor = editorModel ? (
-    <PricingEditor model={editorModel} actions={actions} onClose={() => setEditorModel(null)} />
+    <PricingEditor
+      model={editorModel}
+      modelOptions={modelOptions}
+      actions={actions}
+      onClose={() => setEditorModel(null)}
+    />
+  ) : null;
+  const unknownEditor = unknownEditorOpen ? (
+    <UnknownPricingEditor
+      pricing={unknownModelPricing}
+      actions={actions}
+      onClose={() => setUnknownEditorOpen(false)}
+    />
   ) : null;
 
   return (
@@ -250,16 +435,65 @@ const ModelPricingView: React.FC<ModelPricingViewProps> = ({
         </button>
       </div>
 
+      <section className="unknown-pricing-card panel">
+        <div>
+          <h4>{t('pricing.fallbackTitle')}</h4>
+          <p>{t('pricing.fallbackDescription')}</p>
+        </div>
+        {unknownModelPricing ? (
+          <>
+            <div className="unknown-pricing-values">
+              <span>{t('pricing.userAssumption')}</span>
+              <strong>{formatUsd(unknownModelPricing.inputUsdPerMillion, locale)}</strong>
+              <strong>{formatUsd(unknownModelPricing.cachedInputUsdPerMillion, locale)}</strong>
+              <strong>{formatUsd(unknownModelPricing.outputUsdPerMillion, locale)}</strong>
+              <small>
+                {formatShortDateTime(
+                  unknownModelPricing.updatedAt,
+                  locale,
+                  tCommon('value.unknownDate')
+                )}
+              </small>
+            </div>
+            <div className="pricing-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setUnknownEditorOpen(true)}
+              >
+                {t('pricing.editFallback')}
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => void handleDeleteUnknownPricing()}
+              >
+                {t('pricing.disableFallback')}
+              </button>
+            </div>
+          </>
+        ) : (
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => setUnknownEditorOpen(true)}
+          >
+            {t('pricing.setFallback')}
+          </button>
+        )}
+      </section>
+
       {showUnpricedModels ? (
         <div className="unpriced-model-list pricing-status-label">
           <strong>{t('pricing.unpricedModels')}</strong>
           {unpricedModels.map((model) => {
-            const canAddPrice = Boolean(model.modelId);
+            const displayModelId = model.modelId?.trim();
+            const canAddPrice = Boolean(displayModelId);
             return (
               <div key={model.modelId ?? 'unknown-model'}>
                 <span>
                   {t('pricing.unpricedTokens', {
-                    model: model.modelId ?? tCommon('value.unknownModel'),
+                    model: displayModelId || tCommon('value.unknownModel'),
                     tokens: formatNumber(model.totalTokens, locale),
                   })}
                 </span>
@@ -267,11 +501,19 @@ const ModelPricingView: React.FC<ModelPricingViewProps> = ({
                   <button
                     type="button"
                     className="secondary-button"
-                    onClick={() => setEditorModel({ detectedModelId: model.modelId })}
+                    onClick={() => setEditorModel({ detectedModelId: displayModelId })}
                   >
                     {t('pricing.addPrice')}
                   </button>
-                ) : null}
+                ) : (
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => setUnknownEditorOpen(true)}
+                  >
+                    {t('pricing.setFallback')}
+                  </button>
+                )}
               </div>
             );
           })}
@@ -351,6 +593,7 @@ const ModelPricingView: React.FC<ModelPricingViewProps> = ({
         })}
       </div>
       {editor}
+      {unknownEditor}
     </section>
   );
 };

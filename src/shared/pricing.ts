@@ -8,12 +8,24 @@ import type {
   DailyCostEstimate,
   ModelPricingEntry,
   ModelPricingOverride,
+  UnknownModelPricing,
+  UnknownModelPricingInput,
 } from './budgetTypes';
-import type { UsageSession, UsageSlice, UsageSummary } from './usageTypes';
+import type { TokenUsage, UsageSession, UsageSlice, UsageSummary } from './usageTypes';
 
 const TOKENS_PER_MILLION = 1_000_000;
 const UNKNOWN_MODEL_ID = 'Unknown model';
 const DATE_PART_LENGTH = 2;
+
+export interface PricingContext {
+  pricingById: Map<string, ModelPricingEntry>;
+  unknownModelPricing?: UnknownModelPricingInput;
+}
+
+export type UsagePricingResult =
+  | { kind: 'exact'; costUsd: number; pricing: ModelPricingEntry }
+  | { kind: 'assumed'; costUsd: number; pricing: UnknownModelPricingInput }
+  | { kind: 'unpriced'; costUsd: 0 };
 
 export const normalizeModelId = (modelId: string): string =>
   modelId.trim().toLocaleLowerCase('en-US');
@@ -64,6 +76,51 @@ const buildPricingIndex = (pricingEntries: ModelPricingEntry[]): Map<string, Mod
   return index;
 };
 
+export const createPricingContext = (
+  pricingEntries: ModelPricingEntry[],
+  unknownModelPricing?: UnknownModelPricingInput
+): PricingContext => ({
+  pricingById: buildPricingIndex(pricingEntries),
+  ...(unknownModelPricing ? { unknownModelPricing } : {}),
+});
+
+export const calculateUsageCost = (
+  usage: TokenUsage,
+  pricing: UnknownModelPricingInput
+): number => {
+  const regularInputTokens = Math.max(usage.inputTokens - usage.cachedInputTokens, 0);
+
+  return (
+    (regularInputTokens * pricing.inputUsdPerMillion +
+      usage.cachedInputTokens * pricing.cachedInputUsdPerMillion +
+      usage.outputTokens * pricing.outputUsdPerMillion) /
+    TOKENS_PER_MILLION
+  );
+};
+
+export const priceTokenUsage = (
+  usage: TokenUsage,
+  modelId: string | undefined,
+  context: PricingContext
+): UsagePricingResult => {
+  const trimmedModelId = modelId?.trim();
+
+  if (trimmedModelId) {
+    const pricing = context.pricingById.get(normalizeModelId(trimmedModelId));
+    return pricing
+      ? { kind: 'exact', costUsd: calculateUsageCost(usage, pricing), pricing }
+      : { kind: 'unpriced', costUsd: 0 };
+  }
+
+  return context.unknownModelPricing
+    ? {
+        kind: 'assumed',
+        costUsd: calculateUsageCost(usage, context.unknownModelPricing),
+        pricing: context.unknownModelPricing,
+      }
+    : { kind: 'unpriced', costUsd: 0 };
+};
+
 const appendUniqueModelId = (modelIds: string[], modelId: string | undefined): string[] => {
   const displayModelId = modelId?.trim() || UNKNOWN_MODEL_ID;
   const normalizedModelId = normalizeModelId(displayModelId);
@@ -76,36 +133,39 @@ const appendUniqueModelId = (modelIds: string[], modelId: string | undefined): s
 
 export const calculateEstimatedCost = (
   slices: UsageSlice[],
-  pricingEntries: ModelPricingEntry[]
+  pricingEntries: ModelPricingEntry[],
+  unknownModelPricing?: UnknownModelPricing
 ): CostEstimate => {
-  const pricingById = buildPricingIndex(pricingEntries);
+  const context = createPricingContext(pricingEntries, unknownModelPricing);
 
   return slices.reduce<CostEstimate>(
     (estimate, slice) => {
-      const modelKey = slice.modelId ? normalizeModelId(slice.modelId) : undefined;
-      const modelPricing = modelKey ? pricingById.get(modelKey) : undefined;
+      const pricingResult = priceTokenUsage(slice, slice.modelId, context);
 
-      if (!modelPricing) {
+      if (pricingResult.kind === 'unpriced') {
         return {
-          pricedCostUsd: estimate.pricedCostUsd,
+          ...estimate,
           unpricedTokens: estimate.unpricedTokens + slice.totalTokens,
           unpricedModelIds: appendUniqueModelId(estimate.unpricedModelIds, slice.modelId),
         };
       }
 
-      const regularInputTokens = Math.max(slice.inputTokens - slice.cachedInputTokens, 0);
-      const pricedCostUsd =
-        (regularInputTokens * modelPricing.inputUsdPerMillion +
-          slice.cachedInputTokens * modelPricing.cachedInputUsdPerMillion +
-          slice.outputTokens * modelPricing.outputUsdPerMillion) /
-        TOKENS_PER_MILLION;
-
       return {
         ...estimate,
-        pricedCostUsd: estimate.pricedCostUsd + pricedCostUsd,
+        pricedCostUsd: estimate.pricedCostUsd + pricingResult.costUsd,
+        assumedCostUsd:
+          estimate.assumedCostUsd + (pricingResult.kind === 'assumed' ? pricingResult.costUsd : 0),
+        assumedTokens:
+          estimate.assumedTokens + (pricingResult.kind === 'assumed' ? slice.totalTokens : 0),
       };
     },
-    { pricedCostUsd: 0, unpricedTokens: 0, unpricedModelIds: [] }
+    {
+      pricedCostUsd: 0,
+      assumedCostUsd: 0,
+      assumedTokens: 0,
+      unpricedTokens: 0,
+      unpricedModelIds: [],
+    }
   );
 };
 
@@ -130,9 +190,14 @@ export const getSessionUsageSlices = (session: UsageSession): UsageSlice[] => {
 
 export const getSummaryCostEstimate = (
   summary: UsageSummary,
-  pricingEntries: ModelPricingEntry[]
+  pricingEntries: ModelPricingEntry[],
+  unknownModelPricing?: UnknownModelPricing
 ): CostEstimate =>
-  calculateEstimatedCost(summary.sessions.flatMap(getSessionUsageSlices), pricingEntries);
+  calculateEstimatedCost(
+    summary.sessions.flatMap(getSessionUsageSlices),
+    pricingEntries,
+    unknownModelPricing
+  );
 
 const toLocalDateKey = (timestamp: string): string | undefined => {
   const date = new Date(timestamp);
@@ -149,7 +214,8 @@ const toLocalDateKey = (timestamp: string): string | undefined => {
 
 export const buildDailyCostEstimates = (
   sessions: UsageSession[],
-  pricingEntries: ModelPricingEntry[]
+  pricingEntries: ModelPricingEntry[],
+  unknownModelPricing?: UnknownModelPricing
 ): DailyCostEstimate[] => {
   const slicesByDate = new Map<string, UsageSlice[]>();
 
@@ -167,5 +233,8 @@ export const buildDailyCostEstimates = (
 
   return [...slicesByDate.entries()]
     .sort(([firstDate], [secondDate]) => firstDate.localeCompare(secondDate))
-    .map(([date, slices]) => ({ date, ...calculateEstimatedCost(slices, pricingEntries) }));
+    .map(([date, slices]) => ({
+      date,
+      ...calculateEstimatedCost(slices, pricingEntries, unknownModelPricing),
+    }));
 };

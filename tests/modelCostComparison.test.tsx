@@ -24,9 +24,13 @@ describe('ModelCostComparison', () => {
       averageSessionCostUsd: 0,
       coverage: {
         pricedTokens: 0,
+        exactPricedTokens: 0,
+        assumedTokens: 0,
         unpricedTokens: SNAPSHOT.modelRows[0].totalTokens,
         totalTokens: SNAPSHOT.modelRows[0].totalTokens,
         percentage: 0,
+        exactPercentage: 0,
+        assumedPercentage: 0,
         unpricedModelIds: ['gpt-source'],
       },
     };

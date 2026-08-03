@@ -206,6 +206,8 @@ const AppContent: React.FC<AppContentProps> = ({
   }
 
   const pricing = budgetModel?.kind === 'ready' ? budgetModel.snapshot.pricing : [];
+  const unknownModelPricing =
+    budgetModel?.kind === 'ready' ? budgetModel.snapshot.unknownModelPricing : undefined;
 
   switch (model.kind) {
     case 'error':
@@ -242,6 +244,7 @@ const AppContent: React.FC<AppContentProps> = ({
             <Overview
               summary={model.summary}
               pricing={pricing}
+              unknownModelPricing={unknownModelPricing}
               period={period}
               scannedAt={model.result.scannedAt}
             />
@@ -259,7 +262,11 @@ const AppContent: React.FC<AppContentProps> = ({
             <ProjectsView projects={model.summary.byProject} onProjectSelect={onProjectSelect} />
           ) : null}
           {activeView === 'performance' ? (
-            <PerformanceView summary={model.summary} pricing={pricing} />
+            <PerformanceView
+              summary={model.summary}
+              pricing={pricing}
+              unknownModelPricing={unknownModelPricing}
+            />
           ) : null}
           {activeView === 'wrapped' ? <SettingsView result={model.result} /> : null}
         </>

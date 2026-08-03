@@ -3,6 +3,7 @@ import type {
   BudgetSnapshot,
   BudgetThresholds,
   ModelPricingOverrideInput,
+  UnknownModelPricingInput,
 } from '../shared/budgetTypes';
 import type {
   CostOptimizationQuery,
@@ -21,6 +22,8 @@ interface BudgetApi {
   updateThresholds: (input: BudgetThresholds) => Promise<BudgetSnapshot>;
   savePricingOverride: (input: ModelPricingOverrideInput) => Promise<BudgetSnapshot>;
   resetPricingOverride: (modelId: string) => Promise<BudgetSnapshot>;
+  saveUnknownModelPricing: (input: UnknownModelPricingInput) => Promise<BudgetSnapshot>;
+  deleteUnknownModelPricing: () => Promise<BudgetSnapshot>;
   onUpdated: (listener: (snapshot: BudgetSnapshot) => void) => () => void;
   onNavigate: (listener: (policyId: string) => void) => () => void;
 }

@@ -78,10 +78,59 @@ describe('cost optimization cost analysis', () => {
     expect(selected.map(({ id }) => id)).toEqual(['recent']);
     expect(getPricingCoverage(selected, PRICING)).toEqual({
       pricedTokens: 100,
+      exactPricedTokens: 100,
+      assumedTokens: 0,
       unpricedTokens: 0,
       totalTokens: 100,
       percentage: 100,
+      exactPercentage: 100,
+      assumedPercentage: 0,
       unpricedModelIds: [],
     });
+  });
+
+  it('separates exact and assumed coverage for missing model ids', () => {
+    const buckets = [
+      makeBucket('gpt-source', 100, 0, 0),
+      makeBucket(undefined, 200, 0, 0),
+      makeBucket('future-model', 300, 0, 0),
+    ];
+    const unknownModelPricing = {
+      inputUsdPerMillion: 2,
+      cachedInputUsdPerMillion: 0.5,
+      outputUsdPerMillion: 10,
+      updatedAt: '2026-08-03T00:00:00.000Z',
+    };
+
+    const coverage = getPricingCoverage(buckets, PRICING, unknownModelPricing);
+    expect(coverage).toEqual({
+      pricedTokens: 300,
+      exactPricedTokens: 100,
+      assumedTokens: 200,
+      unpricedTokens: 300,
+      totalTokens: 600,
+      percentage: 50,
+      exactPercentage: coverage.exactPercentage,
+      assumedPercentage: coverage.assumedPercentage,
+      unpricedModelIds: ['future-model'],
+    });
+    expect(coverage.exactPercentage).toBeCloseTo(100 / 6);
+    expect(coverage.assumedPercentage).toBeCloseTo(100 / 3);
+
+    const rows = evaluateModelCosts(
+      makeIndex(buckets),
+      { period: 'total' },
+      PRICING,
+      FIXED_NOW,
+      unknownModelPricing
+    );
+    const unknownRow = rows.find(({ modelId }) => modelId === undefined);
+
+    expect(unknownRow).toEqual(
+      expect.objectContaining({
+        pricedCostUsd: 0.0004,
+        coverage: expect.objectContaining({ assumedTokens: 200, unpricedTokens: 0 }),
+      })
+    );
   });
 });

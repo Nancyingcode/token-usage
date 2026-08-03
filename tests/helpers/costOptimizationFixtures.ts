@@ -37,9 +37,13 @@ export const PRICING: ModelPricingEntry[] = [
 ];
 export const COVERAGE: PricingCoverage = {
   pricedTokens: 1_100_000,
+  exactPricedTokens: 1_100_000,
+  assumedTokens: 0,
   unpricedTokens: 0,
   totalTokens: 1_100_000,
   percentage: 100,
+  exactPercentage: 100,
+  assumedPercentage: 0,
   unpricedModelIds: [],
 };
 

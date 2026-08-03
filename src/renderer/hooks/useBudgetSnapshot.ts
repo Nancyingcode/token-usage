@@ -9,6 +9,7 @@ import type {
   BudgetSnapshot,
   BudgetThresholds,
   ModelPricingOverrideInput,
+  UnknownModelPricingInput,
 } from '../../shared/budgetTypes';
 
 export interface BudgetActions {
@@ -17,6 +18,8 @@ export interface BudgetActions {
   updateThresholds: (input: BudgetThresholds) => Promise<BudgetSnapshot>;
   savePricingOverride: (input: ModelPricingOverrideInput) => Promise<BudgetSnapshot>;
   resetPricingOverride: (modelId: string) => Promise<BudgetSnapshot>;
+  saveUnknownModelPricing: (input: UnknownModelPricingInput) => Promise<BudgetSnapshot>;
+  deleteUnknownModelPricing: () => Promise<BudgetSnapshot>;
 }
 
 export interface UseBudgetSnapshotResult {
@@ -80,6 +83,10 @@ export const useBudgetSnapshot = (): UseBudgetSnapshotResult => {
         applySnapshot(window.codexUsage.budgets.savePricingOverride(input)),
       resetPricingOverride: (modelId) =>
         applySnapshot(window.codexUsage.budgets.resetPricingOverride(modelId)),
+      saveUnknownModelPricing: (input) =>
+        applySnapshot(window.codexUsage.budgets.saveUnknownModelPricing(input)),
+      deleteUnknownModelPricing: () =>
+        applySnapshot(window.codexUsage.budgets.deleteUnknownModelPricing()),
     }),
     [applySnapshot]
   );

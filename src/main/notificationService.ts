@@ -52,10 +52,15 @@ export const createNotificationService = (
     const metric = i18n.t(`notifications:metric.${alert.metric}`);
     const notification = adapter.create({
       title: i18n.t('notifications:title'),
-      body: i18n.t('notifications:reached', {
-        metric,
-        thresholdPercent: alert.thresholdPercent,
-      }),
+      body: i18n.t(
+        alert.usesUnknownModelPricing
+          ? 'notifications:reachedWithUnknownAssumption'
+          : 'notifications:reached',
+        {
+          metric,
+          thresholdPercent: alert.thresholdPercent,
+        }
+      ),
     });
     notification.onClick(() => onNavigate(alert.policyId));
     notification.show();

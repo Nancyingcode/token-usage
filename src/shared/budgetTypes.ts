@@ -57,6 +57,16 @@ export interface ModelPricingOverride extends ModelPricingOverrideInput {
   updatedAt: string;
 }
 
+export interface UnknownModelPricingInput {
+  inputUsdPerMillion: number;
+  cachedInputUsdPerMillion: number;
+  outputUsdPerMillion: number;
+}
+
+export interface UnknownModelPricing extends UnknownModelPricingInput {
+  updatedAt: string;
+}
+
 export interface ModelPricingEntry extends ModelPricingOverrideInput {
   effectiveAt: string;
   sourceKind: ModelPricingSourceKind;
@@ -77,6 +87,7 @@ export interface BudgetPolicyStatus {
   periodEnd: string;
   token?: BudgetProgress;
   cost?: BudgetProgress;
+  assumedTokens: number;
   unpricedTokens: number;
   unpricedModelIds: string[];
 }
@@ -89,6 +100,7 @@ export interface BudgetAlert {
   metric: BudgetMetric;
   thresholdPercent: number;
   severity: Exclude<BudgetSeverity, 'normal'>;
+  usesUnknownModelPricing?: boolean;
 }
 
 export interface NotificationReceipt {
@@ -102,6 +114,7 @@ export interface PersistedBudgetConfig {
   policies: BudgetPolicy[];
   thresholds: BudgetThresholds;
   pricingOverrides: ModelPricingOverride[];
+  unknownModelPricing?: UnknownModelPricing;
   notificationReceipts: NotificationReceipt[];
 }
 
@@ -125,6 +138,7 @@ export interface BudgetSnapshot {
   alerts: BudgetAlert[];
   summary: BudgetSnapshotSummary;
   pricing: ModelPricingEntry[];
+  unknownModelPricing?: UnknownModelPricing;
   unpricedModels: UnpricedModelSummary[];
 }
 
@@ -133,6 +147,7 @@ export interface EvaluateBudgetsInput {
   policies: BudgetPolicy[];
   thresholds: BudgetThresholds;
   pricing: ModelPricingEntry[];
+  unknownModelPricing?: UnknownModelPricing;
   now?: Date;
   dataState: BudgetDataState;
   staleReason?: string;
@@ -140,6 +155,8 @@ export interface EvaluateBudgetsInput {
 
 export interface CostEstimate {
   pricedCostUsd: number;
+  assumedCostUsd: number;
+  assumedTokens: number;
   unpricedTokens: number;
   unpricedModelIds: string[];
 }

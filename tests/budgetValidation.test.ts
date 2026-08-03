@@ -3,6 +3,7 @@ import {
   getBudgetPolicyIssues,
   getPricingOverrideIssues,
   getThresholdIssues,
+  getUnknownModelPricingIssues,
 } from '../src/shared/budgetValidation';
 
 describe('budget validation', () => {
@@ -89,5 +90,26 @@ describe('budget validation', () => {
         code: 'output-price-non-negative',
       },
     ]);
+  });
+
+  it('validates unknown-model fallback rates without requiring a model id', () => {
+    expect(
+      getUnknownModelPricingIssues({
+        inputUsdPerMillion: -1,
+        cachedInputUsdPerMillion: Number.POSITIVE_INFINITY,
+        outputUsdPerMillion: 0,
+      })
+    ).toEqual([
+      { field: 'inputUsdPerMillion', code: 'input-price-non-negative' },
+      { field: 'cachedInputUsdPerMillion', code: 'cached-input-price-non-negative' },
+    ]);
+
+    expect(
+      getUnknownModelPricingIssues({
+        inputUsdPerMillion: 0,
+        cachedInputUsdPerMillion: 0,
+        outputUsdPerMillion: 0,
+      })
+    ).toEqual([]);
   });
 });

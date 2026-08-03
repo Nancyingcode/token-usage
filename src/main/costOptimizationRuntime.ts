@@ -8,7 +8,7 @@
  * - 价格或设置变化不得重建 Token 索引
  * - 刷新失败只标记 stale，不丢弃最后成功索引
  */
-import type { BudgetSnapshot, ModelPricingEntry } from '../shared/budgetTypes';
+import type { BudgetSnapshot, ModelPricingEntry, UnknownModelPricing } from '../shared/budgetTypes';
 import {
   applyUsageChangeSet,
   createEmptyCostOptimizationIndex,
@@ -93,7 +93,10 @@ const cloneDefaultSettings = (): CostOptimizationSettings =>
 const getQueryKey = (query: CostOptimizationQuery): string =>
   JSON.stringify([query.period, query.projectPath ?? null]);
 
-const getPricingSignature = (pricing: ModelPricingEntry[]): string => JSON.stringify(pricing);
+const getPricingSignature = (
+  pricing: ModelPricingEntry[],
+  unknownModelPricing?: UnknownModelPricing
+): string => JSON.stringify([pricing, unknownModelPricing ?? null]);
 
 const getBudgetSignature = (snapshot: BudgetSnapshot): string => JSON.stringify(snapshot.statuses);
 
@@ -127,11 +130,12 @@ export const createCostOptimizationRuntime = (
   let index = createEmptyCostOptimizationIndex(dependencies.sessionsDir, now());
   let settings = cloneDefaultSettings();
   let pricing = dependencies.defaultPricing;
+  let unknownModelPricing: UnknownModelPricing | undefined;
   let budgets: BudgetSnapshot['statuses'] = [];
   let dataState: CostOptimizationDataState = 'fresh';
   let staleReason: string | undefined;
   let cacheStats = { ...EMPTY_CACHE_STATS };
-  let pricingSignature = getPricingSignature(pricing);
+  let pricingSignature = getPricingSignature(pricing, unknownModelPricing);
   let budgetSignature = JSON.stringify(budgets);
   let lastEvaluationDayKey: string | undefined;
 
@@ -157,6 +161,7 @@ export const createCostOptimizationRuntime = (
       query,
       settings,
       pricing,
+      unknownModelPricing,
       budgets,
       now: now(),
       dataState,
@@ -277,7 +282,10 @@ export const createCostOptimizationRuntime = (
 
   const applyBudgetSnapshot = (snapshot: BudgetSnapshot): Promise<CostOptimizationSnapshot> =>
     enqueue(async () => {
-      const nextPricingSignature = getPricingSignature(snapshot.pricing);
+      const nextPricingSignature = getPricingSignature(
+        snapshot.pricing,
+        snapshot.unknownModelPricing
+      );
       const nextBudgetSignature = getBudgetSignature(snapshot);
       const pricingChanged = nextPricingSignature !== pricingSignature;
       const budgetsChanged = nextBudgetSignature !== budgetSignature;
@@ -287,6 +295,7 @@ export const createCostOptimizationRuntime = (
       }
 
       pricing = snapshot.pricing;
+      unknownModelPricing = snapshot.unknownModelPricing;
       budgets = snapshot.statuses;
       pricingSignature = nextPricingSignature;
       budgetSignature = nextBudgetSignature;

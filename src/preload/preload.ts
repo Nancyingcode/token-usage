@@ -1,11 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import {
   BUDGET_DELETE_POLICY_CHANNEL,
+  BUDGET_DELETE_UNKNOWN_MODEL_PRICING_CHANNEL,
   BUDGET_GET_SNAPSHOT_CHANNEL,
   BUDGET_NAVIGATE_CHANNEL,
   BUDGET_RESET_PRICING_CHANNEL,
   BUDGET_SAVE_POLICY_CHANNEL,
   BUDGET_SAVE_PRICING_CHANNEL,
+  BUDGET_SAVE_UNKNOWN_MODEL_PRICING_CHANNEL,
   BUDGET_UPDATED_CHANNEL,
   BUDGET_UPDATE_THRESHOLDS_CHANNEL,
   COST_OPTIMIZATION_GET_SNAPSHOT_CHANNEL,
@@ -32,6 +34,7 @@ import type {
   BudgetSnapshot,
   BudgetThresholds,
   ModelPricingOverrideInput,
+  UnknownModelPricingInput,
 } from '../shared/budgetTypes';
 import type { SupportedLocale } from '../shared/i18n/locale';
 import type { UsageScanResult } from '../shared/usageTypes';
@@ -85,6 +88,10 @@ contextBridge.exposeInMainWorld('codexUsage', {
       ipcRenderer.invoke(BUDGET_SAVE_PRICING_CHANNEL, input),
     resetPricingOverride: (modelId: string): Promise<BudgetSnapshot> =>
       ipcRenderer.invoke(BUDGET_RESET_PRICING_CHANNEL, modelId),
+    saveUnknownModelPricing: (input: UnknownModelPricingInput): Promise<BudgetSnapshot> =>
+      ipcRenderer.invoke(BUDGET_SAVE_UNKNOWN_MODEL_PRICING_CHANNEL, input),
+    deleteUnknownModelPricing: (): Promise<BudgetSnapshot> =>
+      ipcRenderer.invoke(BUDGET_DELETE_UNKNOWN_MODEL_PRICING_CHANNEL),
     onUpdated: (listener: (snapshot: BudgetSnapshot) => void): (() => void) =>
       subscribe(BUDGET_UPDATED_CHANNEL, listener),
     onNavigate: (listener: (policyId: string) => void): (() => void) =>

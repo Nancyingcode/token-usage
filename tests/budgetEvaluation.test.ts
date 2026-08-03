@@ -47,6 +47,28 @@ describe('budget evaluation', () => {
     expect(snapshot.unpricedModels).toEqual([{ modelId: undefined, totalTokens: 900 }]);
   });
 
+  it('includes explicitly configured fallback cost while preserving assumed-token status', () => {
+    const snapshot = evaluateBudgets({
+      ...makeEvaluationInputWithUnknownModel(),
+      unknownModelPricing: {
+        inputUsdPerMillion: 2,
+        cachedInputUsdPerMillion: 0.5,
+        outputUsdPerMillion: 10,
+        updatedAt: '2026-08-03T00:00:00.000Z',
+      },
+    });
+
+    expect(snapshot.statuses[0].cost).toEqual(
+      expect.objectContaining({ used: 0.0018, incomplete: false })
+    );
+    expect(snapshot.statuses[0].assumedTokens).toBe(900);
+    expect(snapshot.statuses[0].unpricedTokens).toBe(0);
+    expect(snapshot.unpricedModels).toEqual([]);
+    expect(snapshot.unknownModelPricing).toEqual(
+      expect.objectContaining({ inputUsdPerMillion: 2 })
+    );
+  });
+
   it('filters canonical, alias, unpriced, and missing IDs by model target', () => {
     const sessions = [
       makeSession('C:\\repo', [

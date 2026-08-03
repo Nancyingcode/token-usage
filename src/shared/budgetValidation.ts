@@ -14,6 +14,8 @@ import type {
   ModelPricingOverrideInput,
   NotificationReceipt,
   PersistedBudgetConfig,
+  UnknownModelPricing,
+  UnknownModelPricingInput,
   ValidationIssue,
   ValidationIssueCode,
 } from './budgetTypes';
@@ -25,8 +27,9 @@ const MAXIMUM_PERCENT = 100;
 const MINIMUM_PRICE = 0;
 
 const LEGACY_BUDGET_CONFIG_SCHEMA_VERSION = 1;
+const MODEL_TARGET_BUDGET_CONFIG_SCHEMA_VERSION = 2;
 
-export const BUDGET_CONFIG_SCHEMA_VERSION = 2;
+export const BUDGET_CONFIG_SCHEMA_VERSION = 3;
 
 const VALIDATION_ISSUE_CODES: ReadonlySet<ValidationIssueCode> = new Set([
   'project-required',
@@ -163,6 +166,26 @@ export const getPricingOverrideIssues = (input: ModelPricingOverrideInput): Vali
   return issues;
 };
 
+export const getUnknownModelPricingIssues = (
+  input: UnknownModelPricingInput
+): ValidationIssue[] => {
+  const issues: ValidationIssue[] = [];
+
+  if (!isNonNegativeFinite(input.inputUsdPerMillion)) {
+    issues.push({ field: 'inputUsdPerMillion', code: 'input-price-non-negative' });
+  }
+
+  if (!isNonNegativeFinite(input.cachedInputUsdPerMillion)) {
+    issues.push({ field: 'cachedInputUsdPerMillion', code: 'cached-input-price-non-negative' });
+  }
+
+  if (!isNonNegativeFinite(input.outputUsdPerMillion)) {
+    issues.push({ field: 'outputUsdPerMillion', code: 'output-price-non-negative' });
+  }
+
+  return issues;
+};
+
 const isBudgetScope = (value: unknown): value is BudgetScope =>
   value === 'global' || value === 'project';
 
@@ -267,6 +290,26 @@ const isPricingOverride = (value: unknown): value is ModelPricingOverride => {
   return getPricingOverrideIssues(pricingInput).length === 0;
 };
 
+const isUnknownModelPricing = (value: unknown): value is UnknownModelPricing => {
+  if (
+    !isRecord(value) ||
+    typeof value.inputUsdPerMillion !== 'number' ||
+    typeof value.cachedInputUsdPerMillion !== 'number' ||
+    typeof value.outputUsdPerMillion !== 'number' ||
+    typeof value.updatedAt !== 'string'
+  ) {
+    return false;
+  }
+
+  return (
+    getUnknownModelPricingIssues({
+      inputUsdPerMillion: value.inputUsdPerMillion,
+      cachedInputUsdPerMillion: value.cachedInputUsdPerMillion,
+      outputUsdPerMillion: value.outputUsdPerMillion,
+    }).length === 0
+  );
+};
+
 const isNotificationReceipt = (value: unknown): value is NotificationReceipt =>
   isRecord(value) &&
   typeof value.key === 'string' &&
@@ -279,6 +322,7 @@ export const decodePersistedBudgetConfig = (raw: unknown): PersistedBudgetConfig
   if (
     !isRecord(raw) ||
     (raw.schemaVersion !== LEGACY_BUDGET_CONFIG_SCHEMA_VERSION &&
+      raw.schemaVersion !== MODEL_TARGET_BUDGET_CONFIG_SCHEMA_VERSION &&
       raw.schemaVersion !== BUDGET_CONFIG_SCHEMA_VERSION)
   ) {
     throw new TypeError('Budget configuration has an invalid schema.');
@@ -306,6 +350,13 @@ export const decodePersistedBudgetConfig = (raw: unknown): PersistedBudgetConfig
     throw new TypeError('Budget configuration contains invalid pricing overrides.');
   }
 
+  const unknownModelPricing =
+    schemaVersion === BUDGET_CONFIG_SCHEMA_VERSION ? raw.unknownModelPricing : undefined;
+
+  if (unknownModelPricing !== undefined && !isUnknownModelPricing(unknownModelPricing)) {
+    throw new TypeError('Budget configuration contains invalid unknown-model pricing.');
+  }
+
   if (
     !Array.isArray(raw.notificationReceipts) ||
     !raw.notificationReceipts.every(isNotificationReceipt)
@@ -328,6 +379,7 @@ export const decodePersistedBudgetConfig = (raw: unknown): PersistedBudgetConfig
     policies,
     thresholds: raw.thresholds,
     pricingOverrides: raw.pricingOverrides,
+    ...(unknownModelPricing === undefined ? {} : { unknownModelPricing }),
     notificationReceipts: raw.notificationReceipts,
   };
 };

@@ -27,8 +27,13 @@ interface BudgetListProps {
 
 type CostCellModel =
   | { kind: 'unset' }
-  | { kind: 'complete'; progress: BudgetProgress }
-  | { kind: 'incomplete'; progress: BudgetProgress; unpricedTokens: number };
+  | { kind: 'complete'; progress: BudgetProgress; assumedTokens: number }
+  | {
+      kind: 'incomplete';
+      progress: BudgetProgress;
+      unpricedTokens: number;
+      assumedTokens: number;
+    };
 
 const getCostCellModel = (status: BudgetPolicyStatus): CostCellModel => {
   if (!status.cost) {
@@ -36,8 +41,13 @@ const getCostCellModel = (status: BudgetPolicyStatus): CostCellModel => {
   }
 
   return status.cost.incomplete
-    ? { kind: 'incomplete', progress: status.cost, unpricedTokens: status.unpricedTokens }
-    : { kind: 'complete', progress: status.cost };
+    ? {
+        kind: 'incomplete',
+        progress: status.cost,
+        unpricedTokens: status.unpricedTokens,
+        assumedTokens: status.assumedTokens,
+      }
+    : { kind: 'complete', progress: status.cost, assumedTokens: status.assumedTokens };
 };
 
 const getProgressWidth = (percent: number): string =>
@@ -106,6 +116,13 @@ const CostCell: React.FC<{ model: CostCellModel }> = ({ model }) => {
         <small>
           {t('list.pricingIncomplete', {
             tokens: formatNumber(model.unpricedTokens, locale),
+          })}
+        </small>
+      ) : null}
+      {model.assumedTokens > 0 ? (
+        <small>
+          {t('list.assumedPricing', {
+            tokens: formatNumber(model.assumedTokens, locale),
           })}
         </small>
       ) : null}

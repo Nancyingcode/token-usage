@@ -97,6 +97,8 @@ export const en = {
       cost: 'Cost',
     },
     reached: '{{metric}} budget reached {{thresholdPercent}}%.',
+    reachedWithUnknownAssumption:
+      '{{metric}} budget reached {{thresholdPercent}}% and includes unknown-model fallback pricing.',
   },
   settings: {
     title: 'Settings',
@@ -132,6 +134,8 @@ export const en = {
       linesChanged: 'Lines Changed',
       sessions: 'Sessions',
       pricingIncomplete: 'Pricing incomplete',
+      assumedPricing: 'Includes unknown-model assumption',
+      assumedTokens: '{{tokens}} assumed tokens',
       unpricedTokens: '{{tokens}} unpriced tokens',
       tokensPriced: '{{tokens}} tokens priced',
       fromCache: '{{percent}}% from cache',
@@ -150,6 +154,7 @@ export const en = {
       tokenTrendChart: 'Token trend chart',
       trendPoint: '{{date}}, {{tokens}} total tokens, estimated cost {{cost}}{{pricingState}}',
       pricingState: ', pricing incomplete',
+      assumedPricingState: ', includes unknown-model assumption',
       weekday: {
         monday: 'Mon',
         wednesday: 'Wed',
@@ -194,6 +199,7 @@ export const en = {
       cacheHitRate: 'Cache Hit Rate',
       costEfficiency: 'Cost Efficiency',
       pricingIncomplete: 'Pricing incomplete',
+      assumedPricing: 'Includes unknown-model assumption',
       peakHours: 'Peak Hours',
       mostActiveAt: 'Most active at {{time}}',
       errorRate: 'Error Rate',
@@ -273,6 +279,7 @@ export const en = {
       edit: 'Edit budget',
       delete: 'Delete budget',
       pricingIncomplete: 'Pricing incomplete · {{tokens}} tokens',
+      assumedPricing: 'Includes {{tokens}} tokens priced by the unknown-model assumption',
     },
     drawer: {
       addTitle: 'Add budget',
@@ -324,12 +331,29 @@ export const en = {
       editorAdd: 'Add model price',
       editorDescription: 'Prices are USD per one million tokens.',
       modelId: 'Model ID',
+      pricedOption: 'Priced',
+      unpricedOption: 'Unpriced',
+      unknownModelDescription: 'Missing Model ID; a price cannot be added.',
       aliases: 'Aliases',
       aliasesPlaceholder: 'alias-one, alias-two',
       inputPrice: 'Input price',
       cachedInputPrice: 'Cached input price',
       outputPrice: 'Output price',
       savePrice: 'Save price',
+      fallbackTitle: 'Unknown-model fallback pricing',
+      fallbackDescription:
+        'This user-defined assumption only applies to usage missing a Model ID; concrete unpriced model IDs remain unpriced.',
+      userAssumption: 'User assumption',
+      setFallback: 'Set fallback price',
+      editFallback: 'Edit fallback price',
+      disableFallback: 'Disable fallback pricing',
+      saveFallback: 'Save fallback price',
+      fallbackEditorDescription:
+        'Set USD prices per one million tokens for usage that has no Model ID.',
+      zeroFallbackConfirm:
+        'All missing-Model-ID usage will be estimated at zero cost. Save this assumption?',
+      disableFallbackConfirm:
+        'Disable fallback pricing? Historical usage missing a Model ID will become unpriced again.',
     },
     validation: {
       'project-required': 'Project is required.',
@@ -391,6 +415,7 @@ export const en = {
       metrics: 'Cost optimization summary',
       currentCost: 'Current cost',
       pricingCoverage: 'Pricing coverage',
+      assumedPricingCoverage: 'Exact {{exact}} · unknown-model assumption {{assumed}}',
       periodEndForecast: 'Period-end forecast',
       insufficientHistory: 'Insufficient history',
       pricingRequired: 'Pricing required',
@@ -446,6 +471,8 @@ export const en = {
       coverage: 'Pricing coverage',
       unknownModel: 'Unknown model',
       pricingIncomplete: 'Pricing incomplete',
+      assumedPricing: 'Unknown-model assumption',
+      exactCoverage: 'Exact coverage: {{percentage}}',
       tokenComposition: 'Input {{input}} · cached {{cached}} · output {{output}}',
       sourceModel: 'Source model',
       targetModel: 'Target model',

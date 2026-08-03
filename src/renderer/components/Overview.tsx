@@ -6,7 +6,11 @@
 import React, { useState } from 'react';
 import { Coins, FileCode2, LockKeyhole, MessageSquareText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { CostEstimate, ModelPricingEntry } from '../../shared/budgetTypes';
+import type {
+  CostEstimate,
+  ModelPricingEntry,
+  UnknownModelPricing,
+} from '../../shared/budgetTypes';
 import { buildDailyCostEstimates, getSummaryCostEstimate } from '../../shared/pricing';
 import { getCachePercentage } from '../../shared/usageMetrics';
 import type { UsageDay, UsagePeriod, UsageSummary } from '../../shared/usageTypes';
@@ -19,6 +23,7 @@ import PageHeader from './PageHeader';
 interface OverviewProps {
   summary: UsageSummary;
   pricing: ModelPricingEntry[];
+  unknownModelPricing?: UnknownModelPricing;
   period: UsagePeriod;
   scannedAt: string;
 }
@@ -65,6 +70,7 @@ export interface TrendPoint {
   day: UsageDay;
   cost: number;
   pricingIncomplete: boolean;
+  assumedPricing: boolean;
   placement: TooltipPlacement;
 }
 
@@ -90,6 +96,7 @@ export const buildTrendPoints = (
       day,
       cost: costEstimate?.pricedCostUsd ?? 0,
       pricingIncomplete: (costEstimate?.unpricedTokens ?? 0) > 0,
+      assumedPricing: (costEstimate?.assumedTokens ?? 0) > 0,
       placement: getTooltipPlacement(x),
     };
   });
@@ -153,7 +160,11 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
           ) : null}
           {points.map((point) => {
             const active = point.day.date === activeDate;
-            const pricingState = point.pricingIncomplete ? t('overview.pricingState') : '';
+            const pricingState = point.pricingIncomplete
+              ? t('overview.pricingState')
+              : point.assumedPricing
+                ? t('overview.assumedPricingState')
+                : '';
             const ariaLabel = t('overview.trendPoint', {
               date: point.day.date,
               tokens: formatNumber(point.day.totalTokens, locale),
@@ -199,6 +210,8 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
             </div>
             {activePoint.pricingIncomplete ? (
               <span className="pricing-incomplete-label">{t('overview.pricingIncomplete')}</span>
+            ) : activePoint.assumedPricing ? (
+              <span className="pricing-assumed-label">{t('overview.assumedPricing')}</span>
             ) : null}
             <dl>
               <div>
@@ -268,19 +281,34 @@ const ActivityGrid: React.FC<ActivityGridProps> = ({ days, period, anchorDate })
   );
 };
 
-const Overview: React.FC<OverviewProps> = ({ summary, pricing, period, scannedAt }) => {
+const Overview: React.FC<OverviewProps> = ({
+  summary,
+  pricing,
+  unknownModelPricing,
+  period,
+  scannedAt,
+}) => {
   const { t, i18n } = useTranslation('analytics');
   const { t: tCommon } = useTranslation('common');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const days = summary.byDay.slice(-TREND_HISTORY_DAYS);
   const maxDay = Math.max(1, ...days.map((day) => day.totalTokens));
-  const totalCost = getSummaryCostEstimate(summary, pricing);
+  const totalCost = getSummaryCostEstimate(summary, pricing, unknownModelPricing);
   const pricingIncomplete = totalCost.unpricedTokens > 0;
+  const assumedPricing = totalCost.assumedTokens > 0;
+  const showAssumedPricing = !pricingIncomplete && assumedPricing;
   const dailyCosts = new Map<string, CostEstimate>(
-    buildDailyCostEstimates(summary.sessions, pricing).map(
-      ({ date, pricedCostUsd, unpricedTokens, unpricedModelIds }) => [
+    buildDailyCostEstimates(summary.sessions, pricing, unknownModelPricing).map(
+      ({
         date,
-        { pricedCostUsd, unpricedTokens, unpricedModelIds },
+        pricedCostUsd,
+        assumedCostUsd,
+        assumedTokens,
+        unpricedTokens,
+        unpricedModelIds,
+      }) => [
+        date,
+        { pricedCostUsd, assumedCostUsd, assumedTokens, unpricedTokens, unpricedModelIds },
       ]
     )
   );
@@ -304,9 +332,13 @@ const Overview: React.FC<OverviewProps> = ({ summary, pricing, period, scannedAt
                 ? `${t('overview.pricingIncomplete')} · ${t('overview.unpricedTokens', {
                     tokens: formatCompactNumber(totalCost.unpricedTokens, locale),
                   })}`
-                : t('overview.tokensPriced', {
-                    tokens: formatCompactNumber(summary.totals.totalTokens, locale),
-                  })
+                : assumedPricing
+                  ? `${t('overview.assumedPricing')} · ${t('overview.assumedTokens', {
+                      tokens: formatCompactNumber(totalCost.assumedTokens, locale),
+                    })}`
+                  : t('overview.tokensPriced', {
+                      tokens: formatCompactNumber(summary.totals.totalTokens, locale),
+                    })
             }
             icon={Coins}
             emphasis="featured"
@@ -345,6 +377,7 @@ const Overview: React.FC<OverviewProps> = ({ summary, pricing, period, scannedAt
               <p>
                 {t('overview.total')}: {formatUsd(totalCost.pricedCostUsd, locale)}
                 {pricingIncomplete ? ` · ${t('overview.pricingIncomplete')}` : ''}
+                {showAssumedPricing ? ` · ${t('overview.assumedPricing')}` : ''}
               </p>
             </div>
           </div>

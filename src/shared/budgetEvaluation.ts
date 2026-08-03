@@ -94,6 +94,7 @@ const buildPolicyStatus = (
   policy: BudgetPolicy,
   thresholds: BudgetThresholds,
   pricing: ModelPricingEntry[],
+  unknownModelPricing: EvaluateBudgetsInput['unknownModelPricing'],
   now: Date
 ): BudgetPolicyStatus => {
   const range = getNaturalPeriodRange(policy.period, now);
@@ -105,7 +106,7 @@ const buildPolicyStatus = (
     range.end.getTime()
   );
   const totalTokens = slices.reduce((total, slice) => total + slice.totalTokens, 0);
-  const costEstimate = calculateEstimatedCost(slices, pricing);
+  const costEstimate = calculateEstimatedCost(slices, pricing, unknownModelPricing);
 
   return {
     policy,
@@ -124,6 +125,7 @@ const buildPolicyStatus = (
             costEstimate.unpricedTokens > 0
           ),
         }),
+    assumedTokens: costEstimate.assumedTokens,
     unpricedTokens: costEstimate.unpricedTokens,
     unpricedModelIds: costEstimate.unpricedModelIds,
   };
@@ -145,6 +147,7 @@ const buildAlert = (
     metric,
     thresholdPercent,
     severity,
+    ...(metric === 'cost' && status.assumedTokens > 0 ? { usesUnknownModelPricing: true } : {}),
   };
 };
 
@@ -190,12 +193,13 @@ const getStatusSeverity = (status: BudgetPolicyStatus): BudgetSeverity => {
 
 const buildUnpricedModels = (
   sessions: UsageSession[],
-  pricing: ModelPricingEntry[]
+  pricing: ModelPricingEntry[],
+  unknownModelPricing: EvaluateBudgetsInput['unknownModelPricing']
 ): UnpricedModelSummary[] => {
   const summariesByModel = new Map<string, UnpricedModelSummary>();
 
   sessions.flatMap(getSessionUsageSlices).forEach((slice) => {
-    const estimate = calculateEstimatedCost([slice], pricing);
+    const estimate = calculateEstimatedCost([slice], pricing, unknownModelPricing);
 
     if (estimate.unpricedTokens === 0) {
       return;
@@ -218,10 +222,21 @@ const buildUnpricedModels = (
 export const evaluateBudgets = (input: EvaluateBudgetsInput): BudgetSnapshot => {
   const now = input.now ?? new Date();
   const statuses = input.policies.map((policy) =>
-    buildPolicyStatus(input.sessions, policy, input.thresholds, input.pricing, now)
+    buildPolicyStatus(
+      input.sessions,
+      policy,
+      input.thresholds,
+      input.pricing,
+      input.unknownModelPricing,
+      now
+    )
   );
   const statusSeverities = statuses.map(getStatusSeverity);
-  const unpricedModels = buildUnpricedModels(input.sessions, input.pricing);
+  const unpricedModels = buildUnpricedModels(
+    input.sessions,
+    input.pricing,
+    input.unknownModelPricing
+  );
 
   return {
     generatedAt: now.toISOString(),
@@ -238,6 +253,7 @@ export const evaluateBudgets = (input: EvaluateBudgetsInput): BudgetSnapshot => 
       unpricedModelCount: unpricedModels.length,
     },
     pricing: input.pricing,
+    ...(input.unknownModelPricing ? { unknownModelPricing: { ...input.unknownModelPricing } } : {}),
     unpricedModels,
   };
 };

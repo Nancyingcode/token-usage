@@ -12,7 +12,16 @@ import { renderWithI18n } from './helpers/renderWithI18n';
 describe('buildTrendPoints', () => {
   it('maps boundaries, cost, and placement for chart points', () => {
     const dailyCosts = new Map<string, CostEstimate>([
-      ['2026-07-14', { pricedCostUsd: 0.25, unpricedTokens: 0, unpricedModelIds: [] }],
+      [
+        '2026-07-14',
+        {
+          pricedCostUsd: 0.25,
+          assumedCostUsd: 0,
+          assumedTokens: 0,
+          unpricedTokens: 0,
+          unpricedModelIds: [],
+        },
+      ],
     ]);
     const points = buildTrendPoints(
       [makeDay('2026-07-14', 100), makeDay('2026-07-15', 50), makeDay('2026-07-16', 25)],

@@ -41,6 +41,27 @@ describe('cost optimization evaluation', () => {
     expect(snapshot.conservativeSavingsUsd).toBe(0);
   });
 
+  it('includes configured unknown-model fallback pricing in totals and forecast coverage', () => {
+    const snapshot = evaluateCostOptimization({
+      ...makeEvaluationInputWithUnpricedUsage(),
+      unknownModelPricing: {
+        inputUsdPerMillion: 2,
+        cachedInputUsdPerMillion: 0.5,
+        outputUsdPerMillion: 10,
+        updatedAt: '2026-08-03T00:00:00.000Z',
+      },
+    });
+
+    expect(snapshot.coverage.assumedTokens).toBe(20_000_000);
+    expect(snapshot.coverage.unpricedTokens).toBe(0);
+    expect(snapshot.coverage.exactPercentage).toBeLessThan(100);
+    expect(snapshot.currentCostUsd).toBeGreaterThan(40);
+    expect(snapshot.forecast.kind).toBe('ready');
+    expect(snapshot.unknownModelPricing).toEqual(
+      expect.objectContaining({ inputUsdPerMillion: 2 })
+    );
+  });
+
   it('gates forecasting with full forecast-history coverage, not the current query window', () => {
     const snapshot = evaluateCostOptimization({
       ...makeEvaluationInputWithUnpricedUsage(),
@@ -65,6 +86,7 @@ describe('cost optimization evaluation', () => {
       },
       periodStart: '2026-07-01T00:00:00.000Z',
       periodEnd: FIXED_NOW.toISOString(),
+      assumedTokens: 0,
       unpricedTokens: 0,
       unpricedModelIds: [],
     };
@@ -102,6 +124,7 @@ describe('cost optimization evaluation', () => {
         percent: 100,
         severity: 'over',
       },
+      assumedTokens: 0,
       unpricedTokens: 0,
       unpricedModelIds: [],
     };
@@ -161,6 +184,7 @@ describe('cost optimization evaluation', () => {
         percent: 100,
         severity: 'over',
       },
+      assumedTokens: 0,
       unpricedTokens: 0,
       unpricedModelIds: [],
     };

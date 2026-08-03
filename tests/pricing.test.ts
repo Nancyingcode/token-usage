@@ -53,7 +53,34 @@ describe('pricing', () => {
 
     expect(estimate).toEqual({
       pricedCostUsd: 0,
+      assumedCostUsd: 0,
+      assumedTokens: 0,
       unpricedTokens: 12,
+      unpricedModelIds: ['future-model'],
+    });
+  });
+
+  it('uses fallback pricing only when the model id is missing or blank', () => {
+    const fallback = {
+      inputUsdPerMillion: 2,
+      cachedInputUsdPerMillion: 0.5,
+      outputUsdPerMillion: 10,
+      updatedAt: '2026-08-03T00:00:00.000Z',
+    };
+    const estimate = calculateEstimatedCost(
+      [
+        makeSlice('2026-07-20T00:00:00.000Z', '', 100, 40, 20, 5, 120),
+        makeSlice('2026-07-20T00:01:00.000Z', 'future-model', 50, 0, 0, 0, 50),
+      ],
+      [],
+      fallback
+    );
+
+    expect(estimate).toEqual({
+      pricedCostUsd: 0.00034,
+      assumedCostUsd: 0.00034,
+      assumedTokens: 120,
+      unpricedTokens: 50,
       unpricedModelIds: ['future-model'],
     });
   });

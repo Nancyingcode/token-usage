@@ -1,4 +1,4 @@
-import type { BudgetPolicyStatus, ModelPricingEntry } from './budgetTypes';
+import type { BudgetPolicyStatus, ModelPricingEntry, UnknownModelPricing } from './budgetTypes';
 import type { TokenUsage, UsagePeriod, UsageSession } from './usageTypes';
 
 export const SHORT_FORECAST_HORIZON_DAYS = 7;
@@ -107,9 +107,13 @@ export interface CostOptimizationIndex {
 
 export interface PricingCoverage {
   pricedTokens: number;
+  exactPricedTokens: number;
+  assumedTokens: number;
   unpricedTokens: number;
   totalTokens: number;
   percentage: number;
+  exactPercentage: number;
+  assumedPercentage: number;
   unpricedModelIds: string[];
 }
 
@@ -349,6 +353,7 @@ export interface CostOptimizationSnapshot {
   settings: CostOptimizationSettings;
   query: CostOptimizationQuery;
   pricing: ModelPricingEntry[];
+  unknownModelPricing?: UnknownModelPricing;
   budgets: BudgetPolicyStatus[];
   coverage: PricingCoverage;
   currentCostUsd: number;

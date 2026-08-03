@@ -17,12 +17,15 @@ import type {
   ModelPricingOverride,
   ModelPricingOverrideInput,
   PersistedBudgetConfig,
+  UnknownModelPricing,
+  UnknownModelPricingInput,
   ValidationIssue,
 } from '../shared/budgetTypes';
 import {
   getBudgetPolicyIssues,
   getPricingOverrideIssues,
   getThresholdIssues,
+  getUnknownModelPricingIssues,
 } from '../shared/budgetValidation';
 import { recordNotifications, selectPendingNotifications } from '../shared/notificationPolicy';
 import { mergeModelPricing } from '../shared/pricing';
@@ -50,6 +53,8 @@ export interface BudgetRuntime {
   updateThresholds: (input: BudgetThresholds) => Promise<BudgetSnapshot>;
   savePricingOverride: (input: ModelPricingOverrideInput) => Promise<BudgetSnapshot>;
   resetPricingOverride: (modelId: string) => Promise<BudgetSnapshot>;
+  saveUnknownModelPricing: (input: UnknownModelPricingInput) => Promise<BudgetSnapshot>;
+  deleteUnknownModelPricing: () => Promise<BudgetSnapshot>;
   subscribe: (listener: RuntimeListener) => () => void;
   subscribeNavigation: (listener: RuntimeNavigationListener) => () => void;
   navigateToPolicy: (policyId: string) => void;
@@ -135,6 +140,7 @@ export const createBudgetRuntime = (dependencies: BudgetRuntimeDependencies): Bu
       policies: config.policies,
       thresholds: config.thresholds,
       pricing: getCurrentPricing(),
+      unknownModelPricing: config.unknownModelPricing,
       now: now(),
       dataState,
       staleReason,
@@ -323,6 +329,24 @@ export const createBudgetRuntime = (dependencies: BudgetRuntimeDependencies): Bu
     return saveConfigAndReevaluate({ ...config, pricingOverrides });
   };
 
+  const saveUnknownModelPricing = async (
+    input: UnknownModelPricingInput
+  ): Promise<BudgetSnapshot> => {
+    throwForIssues(getUnknownModelPricingIssues(input));
+    const unknownModelPricing: UnknownModelPricing = {
+      ...input,
+      updatedAt: now().toISOString(),
+    };
+
+    return saveConfigAndReevaluate({ ...config, unknownModelPricing });
+  };
+
+  const deleteUnknownModelPricing = async (): Promise<BudgetSnapshot> => {
+    const nextConfig = { ...config };
+    delete nextConfig.unknownModelPricing;
+    return saveConfigAndReevaluate(nextConfig);
+  };
+
   const subscribe = (listener: RuntimeListener): (() => void) => {
     listeners.add(listener);
     return () => listeners.delete(listener);
@@ -347,6 +371,8 @@ export const createBudgetRuntime = (dependencies: BudgetRuntimeDependencies): Bu
     updateThresholds,
     savePricingOverride,
     resetPricingOverride,
+    saveUnknownModelPricing,
+    deleteUnknownModelPricing,
     subscribe,
     subscribeNavigation,
     navigateToPolicy,
