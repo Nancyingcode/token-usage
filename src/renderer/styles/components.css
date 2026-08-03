@@ -206,7 +206,7 @@
 }
 
 .metric-card--featured .metric-copy strong {
-  color: var(--color-surface);
+  color: var(--color-brand-300);
 }
 
 .metric-card--featured .metric-icon {

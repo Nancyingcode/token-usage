@@ -55,4 +55,13 @@ describe('UI style policy', () => {
     expect(tokens).toContain('--font-size-body: 0.8125rem;');
     expect(tokens).toContain('--control-height-compact: 2rem;');
   });
+
+  it('uses the brand accent for the featured overview metric value', () => {
+    const components = readRendererStyle('styles/components.css');
+    const featuredValueRule =
+      components.match(/\.metric-card--featured \.metric-copy strong\s*\{([^}]*)\}/)?.[1] ?? '';
+
+    expect(featuredValueRule).toContain('color: var(--color-brand-300);');
+    expect(featuredValueRule).not.toContain('color: var(--color-surface);');
+  });
 });
