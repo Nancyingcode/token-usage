@@ -45,15 +45,23 @@ const makeInput = (
 });
 
 describe('resolveAppContentModel', () => {
-  it('prioritizes an error over loading', () => {
-    expect(resolveAppContentModel(makeInput({ error: 'Scan failed', loading: true }))).toEqual({
-      kind: 'error',
-      message: 'Scan failed',
-    });
+  it('returns an initial error before a scan result exists', () => {
+    expect(
+      resolveAppContentModel(
+        makeInput({
+          error: 'Scan failed',
+          loading: false,
+          result: null,
+          filteredSummary: null,
+        })
+      )
+    ).toEqual({ kind: 'error', message: 'Scan failed' });
   });
 
-  it('returns loading when no error exists', () => {
-    expect(resolveAppContentModel(makeInput({ loading: true }))).toEqual({ kind: 'loading' });
+  it('returns loading only before a scan result exists', () => {
+    expect(
+      resolveAppContentModel(makeInput({ loading: true, result: null, filteredSummary: null }))
+    ).toEqual({ kind: 'loading' });
   });
 
   it('returns idle before a scan result exists', () => {
@@ -66,13 +74,24 @@ describe('resolveAppContentModel', () => {
     const result = makeResult(EMPTY_SUMMARY);
     const model = resolveAppContentModel(makeInput({ result, filteredSummary: EMPTY_SUMMARY }));
 
-    expect(model).toEqual({ kind: 'empty', result });
+    expect(model).toEqual({
+      kind: 'empty',
+      result,
+      freshness: { refreshing: false, staleReason: null },
+    });
   });
 
   it('returns period-empty when only the filtered summary is empty', () => {
+    const result = makeResult();
+
     expect(
-      resolveAppContentModel(makeInput({ filteredSummary: EMPTY_SUMMARY, period: 'week' }))
-    ).toEqual({ kind: 'period-empty', period: 'week' });
+      resolveAppContentModel(makeInput({ result, filteredSummary: EMPTY_SUMMARY, period: 'week' }))
+    ).toEqual({
+      kind: 'period-empty',
+      period: 'week',
+      result,
+      freshness: { refreshing: false, staleReason: null },
+    });
   });
 
   it('does not classify Total as a rolling-period empty state', () => {
@@ -87,6 +106,34 @@ describe('resolveAppContentModel', () => {
     const result = makeResult();
     const model = resolveAppContentModel(makeInput({ result }));
 
-    expect(model).toEqual({ kind: 'ready', result, summary: READY_SUMMARY });
+    expect(model).toEqual({
+      kind: 'ready',
+      result,
+      summary: READY_SUMMARY,
+      freshness: { refreshing: false, staleReason: null },
+    });
+  });
+
+  it('keeps the last successful result when a later refresh fails', () => {
+    const result = makeResult();
+
+    expect(
+      resolveAppContentModel(
+        makeInput({ result, filteredSummary: READY_SUMMARY, error: 'Disk unavailable' })
+      )
+    ).toMatchObject({
+      kind: 'ready',
+      result,
+      freshness: { refreshing: false, staleReason: 'Disk unavailable' },
+    });
+  });
+
+  it('keeps content visible during a background refresh', () => {
+    expect(
+      resolveAppContentModel(makeInput({ loading: true, result: makeResult() }))
+    ).toMatchObject({
+      kind: 'ready',
+      freshness: { refreshing: true, staleReason: null },
+    });
   });
 });

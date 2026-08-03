@@ -31,16 +31,32 @@ const RESULT: UsageScanResult = {
   summary: SUMMARY,
   warnings: [],
 };
+const FRESHNESS = { refreshing: false, staleReason: null };
 
 const STATE_CASES: Array<{ model: AppContentModel; expectedText: string }> = [
   { model: { kind: 'error', message: 'Disk unavailable' }, expectedText: 'Scan failed' },
   { model: { kind: 'loading' }, expectedText: 'Scanning local Codex sessions' },
-  { model: { kind: 'empty', result: RESULT }, expectedText: 'No Codex sessions found' },
   {
-    model: { kind: 'period-empty', period: 'week' },
+    model: { kind: 'empty', result: RESULT, freshness: FRESHNESS },
+    expectedText: 'No Codex sessions found',
+  },
+  {
+    model: { kind: 'period-empty', period: 'week', result: RESULT, freshness: FRESHNESS },
     expectedText: 'No sessions in this period',
   },
 ];
+
+const renderAppContent = (model: AppContentModel): string =>
+  renderWithI18n(
+    <AppContent
+      activeView="overview"
+      model={model}
+      onRefresh={vi.fn()}
+      onProjectSelect={vi.fn()}
+      selectedProjectPath={null}
+      onClearProjectFilter={vi.fn()}
+    />
+  );
 
 describe('AppContent', () => {
   it.each(STATE_CASES)('renders the $model.kind model', ({ model, expectedText }) => {
@@ -48,6 +64,7 @@ describe('AppContent', () => {
       <AppContent
         activeView="overview"
         model={model}
+        onRefresh={vi.fn()}
         onProjectSelect={vi.fn()}
         selectedProjectPath={null}
         onClearProjectFilter={vi.fn()}
@@ -61,7 +78,8 @@ describe('AppContent', () => {
     const markup = renderWithI18n(
       <AppContent
         activeView="overview"
-        model={{ kind: 'ready', result: RESULT, summary: SUMMARY }}
+        model={{ kind: 'ready', result: RESULT, summary: SUMMARY, freshness: FRESHNESS }}
+        onRefresh={vi.fn()}
         onProjectSelect={vi.fn()}
         selectedProjectPath={null}
         onClearProjectFilter={vi.fn()}
@@ -76,6 +94,7 @@ describe('AppContent', () => {
       <AppContent
         activeView="overview"
         model={{ kind: 'idle' }}
+        onRefresh={vi.fn()}
         onProjectSelect={vi.fn()}
         selectedProjectPath={null}
         onClearProjectFilter={vi.fn()}
@@ -90,6 +109,7 @@ describe('AppContent', () => {
       <AppContent
         activeView="budgets"
         model={{ kind: 'error', message: 'Disk unavailable' }}
+        onRefresh={vi.fn()}
         onProjectSelect={vi.fn()}
         selectedProjectPath={null}
         onClearProjectFilter={vi.fn()}
@@ -118,6 +138,7 @@ describe('AppContent', () => {
       <AppContent
         activeView="overview"
         model={{ kind: 'loading' }}
+        onRefresh={vi.fn()}
         onProjectSelect={vi.fn()}
         selectedProjectPath={null}
         onClearProjectFilter={vi.fn()}
@@ -126,14 +147,15 @@ describe('AppContent', () => {
     );
 
     expect(markup).toContain('正在扫描本地 Codex 会话');
-    expect(markup).toContain('不修改或上传任何数据');
+    expect(markup).toContain('aria-label="正在扫描本地 Codex 会话"');
   });
 
   it('renders interactive project rows in the Tools view', () => {
     const markup = renderWithI18n(
       <AppContent
         activeView="tools"
-        model={{ kind: 'ready', result: RESULT, summary: SUMMARY }}
+        model={{ kind: 'ready', result: RESULT, summary: SUMMARY, freshness: FRESHNESS }}
+        onRefresh={vi.fn()}
         onProjectSelect={vi.fn()}
         selectedProjectPath={null}
         onClearProjectFilter={vi.fn()}
@@ -148,7 +170,8 @@ describe('AppContent', () => {
     const markup = renderWithI18n(
       <AppContent
         activeView="sessions"
-        model={{ kind: 'ready', result: RESULT, summary: SUMMARY }}
+        model={{ kind: 'ready', result: RESULT, summary: SUMMARY, freshness: FRESHNESS }}
+        onRefresh={vi.fn()}
         onProjectSelect={vi.fn()}
         selectedProjectPath={'C:\\repo'}
         onClearProjectFilter={vi.fn()}
@@ -162,7 +185,8 @@ describe('AppContent', () => {
     const markup = renderWithI18n(
       <AppContent
         activeView="sessions"
-        model={{ kind: 'ready', result: RESULT, summary: SUMMARY }}
+        model={{ kind: 'ready', result: RESULT, summary: SUMMARY, freshness: FRESHNESS }}
+        onRefresh={vi.fn()}
         onProjectSelect={vi.fn()}
         selectedProjectPath={null}
         onClearProjectFilter={vi.fn()}
@@ -176,5 +200,26 @@ describe('AppContent', () => {
     );
 
     expect(markup).toContain('Open diagnosis: Input footprint growth');
+  });
+
+  it('renders a structural skeleton only for the initial load', () => {
+    const markup = renderAppContent({ kind: 'loading' });
+
+    expect(markup).toContain('class="loading-skeleton"');
+    expect(markup).toContain('aria-busy="true"');
+  });
+
+  it('keeps ready content visible with a retry action when data is stale', () => {
+    const markup = renderAppContent({
+      kind: 'ready',
+      result: RESULT,
+      summary: SUMMARY,
+      freshness: { refreshing: false, staleReason: 'Disk unavailable' },
+    });
+
+    expect(markup).toContain('Cost Trends');
+    expect(markup).toContain('Showing previous data');
+    expect(markup).toContain('Disk unavailable');
+    expect(markup).toContain('Retry scan');
   });
 });

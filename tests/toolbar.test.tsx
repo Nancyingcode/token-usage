@@ -56,11 +56,14 @@ describe('PeriodToggle', () => {
     expect(onPeriodChange).toHaveBeenCalledWith('total');
   });
 
-  it('hides rolling period controls on Budgets', () => {
+  it.each([
+    ['budgets', 'Budgets'],
+    ['wrapped', 'Settings'],
+  ] as const)('hides rolling period controls on %s', (activeView, expectedTitle) => {
     const markup = renderToStaticMarkup(
       <I18nextProvider i18n={testI18n}>
         <Toolbar
-          activeView="budgets"
+          activeView={activeView}
           loading={false}
           onRefresh={vi.fn()}
           period="month"
@@ -70,9 +73,28 @@ describe('PeriodToggle', () => {
     );
 
     expect(markup).not.toContain('Date range');
-    expect(markup).toContain('Budgets');
+    expect(markup).toContain(expectedTitle);
     expect(markup).toContain('English');
     expect(markup).toContain('中文');
+  });
+
+  it('shows stale state text when a refresh fails after a successful scan', () => {
+    const markup = renderToStaticMarkup(
+      <I18nextProvider i18n={testI18n}>
+        <Toolbar
+          activeView="overview"
+          loading={false}
+          error="Disk unavailable"
+          scannedAt="2026-08-03T00:00:00.000Z"
+          onRefresh={vi.fn()}
+          period="month"
+          onPeriodChange={vi.fn()}
+        />
+      </I18nextProvider>
+    );
+
+    expect(markup).toContain('Previous data');
+    expect(markup).not.toContain('Daemon');
   });
 });
 

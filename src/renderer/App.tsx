@@ -218,6 +218,7 @@ const App: React.FC = () => {
         <Toolbar
           activeView={activeView}
           loading={loading}
+          error={error}
           scannedAt={result?.scannedAt}
           onRefresh={refresh}
           period={period}
@@ -227,6 +228,7 @@ const App: React.FC = () => {
         <AppContent
           activeView={activeView}
           model={contentModel}
+          onRefresh={refresh}
           budgetModel={budgetModel}
           budgetActions={budgetState.actions}
           focusedPolicyId={focusedPolicyId}

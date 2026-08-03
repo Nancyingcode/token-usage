@@ -1,11 +1,12 @@
 import React from 'react';
-import { RefreshCw, Sidebar as SidebarIcon } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { SupportedLocale } from '../../shared/i18n/locale';
 import type { UsagePeriod } from '../../shared/usageTypes';
-import { ICON_SIZE_SMALL, ICON_STROKE_WIDTH } from '../constants/ui';
+import { ICON_SIZE_SMALL } from '../constants/ui';
 import { resolveRendererLocale } from '../i18n';
 import { formatShortDateTime } from '../utils/formatters';
+import { hasPeriodFilter, resolveToolbarScanState } from '../utils/toolbarState';
 import LanguageSelector from './LanguageSelector';
 import type { ViewKey } from './Sidebar';
 
@@ -26,6 +27,7 @@ interface PeriodToggleProps {
 interface ToolbarProps extends PeriodToggleProps {
   activeView: ViewKey;
   loading: boolean;
+  error?: string | null;
   scannedAt?: string;
   onRefresh: () => void;
 }
@@ -81,6 +83,7 @@ export const PeriodToggle: React.FC<PeriodToggleProps> = ({
 const Toolbar: React.FC<ToolbarProps> = ({
   activeView,
   loading,
+  error = null,
   scannedAt,
   onRefresh,
   period,
@@ -89,7 +92,8 @@ const Toolbar: React.FC<ToolbarProps> = ({
   const { t, i18n } = useTranslation('common');
   const [changingLocale, setChangingLocale] = React.useState(false);
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
-  const showPeriodToggle = activeView !== 'budgets';
+  const showPeriodToggle = hasPeriodFilter(activeView);
+  const scanState = resolveToolbarScanState({ loading, error, scannedAt });
   const periodLabels: PeriodLabels = {
     ariaLabel: t('toolbar.dateRange'),
     today: t('toolbar.today'),
@@ -112,11 +116,10 @@ const Toolbar: React.FC<ToolbarProps> = ({
   return (
     <header className="toolbar">
       <div className="toolbar-title">
-        <SidebarIcon size={ICON_SIZE_SMALL} strokeWidth={ICON_STROKE_WIDTH} />
         <strong>{t(VIEW_TRANSLATION_KEYS[activeView])}</strong>
-        <span className="daemon-pill">
-          <i />
-          {t('app.daemon')}
+        <span className={`scan-status scan-status--${scanState}`}>
+          <i aria-hidden="true" />
+          {t(`toolbar.scanState.${scanState}`)}
         </span>
         {scannedAt ? (
           <span className="scan-time">

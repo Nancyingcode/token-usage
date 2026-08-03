@@ -2,6 +2,7 @@ import React from 'react';
 import type { TFunction } from 'i18next';
 import { AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import type { SupportedLocale } from '../../shared/i18n/locale';
 import type {
   CostOptimizationSettings,
   CostOptimizationSnapshot,
@@ -11,11 +12,14 @@ import type {
 import { ICON_SIZE_LARGE } from '../constants/ui';
 import type { BudgetSnapshot } from '../../shared/budgetTypes';
 import type { BudgetActions } from '../hooks/useBudgetSnapshot';
-import type { AppContentModel } from '../utils/appContentModel';
+import { resolveRendererLocale } from '../i18n';
+import type { AppContentModel, AppFreshness } from '../utils/appContentModel';
+import { formatShortDateTime } from '../utils/formatters';
 import type { SessionDiagnosisDetailModel } from '../utils/sessionDiagnosisDetailState';
 import BudgetsView from './BudgetsView';
 import CostOptimizationView, { type CostOptimizationContentModel } from './CostOptimizationView';
 import EmptyState from './EmptyState';
+import LoadingSkeleton from './LoadingSkeleton';
 import Overview from './Overview';
 import PeriodEmptyState from './PeriodEmptyState';
 import PerformanceView from './PerformanceView';
@@ -23,10 +27,12 @@ import ProjectsView from './ProjectsView';
 import SessionsView from './SessionsView';
 import SettingsView from './SettingsView';
 import type { ViewKey } from './Sidebar';
+import StatusBanner from './StatusBanner';
 
 interface AppContentProps {
   activeView: ViewKey;
   model: AppContentModel;
+  onRefresh: () => void;
   onProjectSelect: (projectPath: string) => void;
   selectedProjectPath: string | null;
   onClearProjectFilter: () => void;
@@ -57,6 +63,43 @@ const IDLE_DIAGNOSIS_DETAIL_MODEL: SessionDiagnosisDetailModel = { kind: 'idle' 
 const EMPTY_DIAGNOSTICS: SessionDiagnosisSummary[] = [];
 const ignoreCostOptimizationTab = (): void => undefined;
 const ignoreDiagnosis = (): void => undefined;
+
+const renderFreshnessBanner = (
+  freshness: AppFreshness,
+  scannedAt: string,
+  onRefresh: () => void,
+  t: TFunction<'common'>,
+  locale: SupportedLocale
+): React.ReactNode => {
+  if (freshness.refreshing) {
+    return (
+      <StatusBanner
+        tone="info"
+        title={t('toolbar.scanState.scanning')}
+        description={t('state.refreshingData')}
+      />
+    );
+  }
+
+  if (freshness.staleReason === null) {
+    return null;
+  }
+
+  const scannedAtLabel = formatShortDateTime(scannedAt, locale, t('value.unknownDate'));
+
+  return (
+    <StatusBanner
+      tone="warning"
+      title={t('state.showingPreviousData')}
+      description={t('state.previousDataDescription', {
+        scannedAt: scannedAtLabel,
+        reason: freshness.staleReason,
+      })}
+      actionLabel={t('state.retryScan')}
+      onAction={onRefresh}
+    />
+  );
+};
 
 const renderBudgetContent = (
   model: BudgetContentModel | undefined,
@@ -107,6 +150,7 @@ const renderBudgetContent = (
 const AppContent: React.FC<AppContentProps> = ({
   activeView,
   model,
+  onRefresh,
   onProjectSelect,
   selectedProjectPath,
   onClearProjectFilter,
@@ -127,7 +171,8 @@ const AppContent: React.FC<AppContentProps> = ({
   onCostProjectPathChange,
   onCostSettingsUpdate,
 }) => {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
+  const locale = resolveRendererLocale(i18n.resolvedLanguage);
 
   if (activeView === 'budgets') {
     return renderBudgetContent(
@@ -171,22 +216,25 @@ const AppContent: React.FC<AppContentProps> = ({
         </section>
       );
     case 'loading':
-      return (
-        <section className="state-panel">
-          <div className="loader" />
-          <div>
-            <h2>{t('state.scanningTitle')}</h2>
-            <p>{t('state.scanningDescription')}</p>
-          </div>
-        </section>
-      );
+      return <LoadingSkeleton label={t('state.scanningTitle')} />;
     case 'empty':
-      return <EmptyState sessionsDir={model.result.sessionsDir} warnings={model.result.warnings} />;
+      return (
+        <>
+          {renderFreshnessBanner(model.freshness, model.result.scannedAt, onRefresh, t, locale)}
+          <EmptyState sessionsDir={model.result.sessionsDir} warnings={model.result.warnings} />
+        </>
+      );
     case 'period-empty':
-      return <PeriodEmptyState period={model.period} />;
+      return (
+        <>
+          {renderFreshnessBanner(model.freshness, model.result.scannedAt, onRefresh, t, locale)}
+          <PeriodEmptyState period={model.period} />
+        </>
+      );
     case 'ready':
       return (
         <>
+          {renderFreshnessBanner(model.freshness, model.result.scannedAt, onRefresh, t, locale)}
           {activeView === 'overview' ? (
             <Overview summary={model.summary} pricing={pricing} />
           ) : null}
