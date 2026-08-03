@@ -26,6 +26,9 @@ describe('CostOptimizationView', () => {
     expect(markup).toContain('Pricing coverage');
     expect(markup).toContain('$48.20');
     expect(markup).toContain('Analysis settings');
+    expect(markup).toContain('class="page-header"');
+    expect(markup).toContain('class="accessible-tabs"');
+    expect(markup).toContain('status-label');
   });
 
   it('renders loading and error states independently of usage content', () => {
@@ -61,6 +64,7 @@ describe('CostOptimizationView', () => {
     );
 
     expect(loadingMarkup).toContain('Loading cost analysis');
+    expect(loadingMarkup).toContain('class="loading-skeleton"');
     expect(errorMarkup).toContain('analysis unavailable');
   });
 

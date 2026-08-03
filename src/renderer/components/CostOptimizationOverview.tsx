@@ -39,16 +39,16 @@ const CostOptimizationOverview: React.FC<CostOptimizationOverviewProps> = ({ sna
   return (
     <div className="cost-optimization-overview">
       <section className="cost-optimization-metric-grid" aria-label={t('overview.metrics')}>
-        <article className="metric-card">
+        <article className="metric-card metric-card--featured">
           <div className="metric-copy">
             <span>{t('overview.currentCost')}</span>
             <strong>{formatUsd(snapshot.currentCostUsd, locale)}</strong>
             <small>{t('overview.pricingCoverage')}</small>
-            <em>{formatPercent(snapshot.coverage.percentage, locale)}</em>
+            <em className="status-label">{formatPercent(snapshot.coverage.percentage, locale)}</em>
           </div>
           <CircleDollarSign size={ICON_SIZE_LARGE} />
         </article>
-        <article className="metric-card">
+        <article className="metric-card metric-card--default">
           <div className="metric-copy">
             <span>{t('overview.periodEndForecast')}</span>
             <strong>{forecastValue}</strong>
@@ -62,7 +62,7 @@ const CostOptimizationOverview: React.FC<CostOptimizationOverviewProps> = ({ sna
           </div>
           <ShieldCheck size={ICON_SIZE_LARGE} />
         </article>
-        <article className="metric-card">
+        <article className="metric-card metric-card--default">
           <div className="metric-copy">
             <span>{t('overview.anomalies')}</span>
             <strong>{snapshot.anomalies.length}</strong>
@@ -70,7 +70,7 @@ const CostOptimizationOverview: React.FC<CostOptimizationOverviewProps> = ({ sna
           </div>
           <TriangleAlert size={ICON_SIZE_LARGE} />
         </article>
-        <article className="metric-card">
+        <article className="metric-card metric-card--default">
           <div className="metric-copy">
             <span>{t('overview.conservativeSavings')}</span>
             <strong>{savingsValue}</strong>

@@ -28,6 +28,9 @@ describe('session diagnosis detail', () => {
     expect(markup).toContain('Insufficient data');
     expect(markup).toContain('Not applicable');
     expect(markup).toContain('Back to diagnosis list');
+    expect(markup).toContain('status-label');
+    expect(markup).toContain('Critical');
+    expect(markup).toContain('High confidence');
   });
 
   it('renders unresolved and partial-pricing evidence without a full-cost claim', () => {

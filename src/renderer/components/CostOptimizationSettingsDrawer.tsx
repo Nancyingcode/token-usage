@@ -225,7 +225,7 @@ const CostOptimizationSettingsDrawer: React.FC<CostOptimizationSettingsDrawerPro
   return (
     <aside
       ref={dialogRef}
-      className="budget-drawer cost-optimization-drawer"
+      className="drawer-shell budget-drawer cost-optimization-drawer"
       role="dialog"
       aria-modal="true"
       aria-labelledby="cost-optimization-settings-title"

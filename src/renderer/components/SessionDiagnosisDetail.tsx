@@ -229,7 +229,7 @@ const getEvidenceItems = (
 };
 
 const EvidenceGrid: React.FC<{ items: EvidenceItem[] }> = ({ items }) => (
-  <dl className="session-diagnosis-detail-evidence-grid">
+  <dl className="definition-list evidence-card-grid session-diagnosis-detail-evidence-grid">
     {items.map(({ label, value }) => (
       <div key={label}>
         <dt>{label}</dt>
@@ -249,8 +249,12 @@ const FindingHeading: React.FC<{
     <div className="session-diagnosis-detail-finding-heading">
       <SeverityIcon size={ICON_SIZE_SMALL} aria-hidden="true" />
       <strong>{t(CAUSE_KEYS[finding.cause])}</strong>
-      <span>{t(`diagnostics.severity.${finding.severity}`)}</span>
-      <span>{t(`diagnostics.confidence.${finding.confidence}`)}</span>
+      <span className={`status-label severity-${finding.severity}`}>
+        {t(`diagnostics.severity.${finding.severity}`)}
+      </span>
+      <span className={`status-label confidence-${finding.confidence}`}>
+        {t(`diagnostics.confidence.${finding.confidence}`)}
+      </span>
     </div>
   );
 };

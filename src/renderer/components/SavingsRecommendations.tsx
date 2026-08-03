@@ -167,7 +167,9 @@ const SavingsRecommendations: React.FC<SavingsRecommendationsProps> = ({
             <article className="panel cost-savings-card" key={recommendation.id}>
               <div className="cost-savings-heading">
                 <div>
-                  <span>{t(`savings.confidence.${recommendation.confidence}`)}</span>
+                  <span className={`status-label confidence-${recommendation.confidence}`}>
+                    {t(`savings.confidence.${recommendation.confidence}`)}
+                  </span>
                   <h3>{t(TITLE_KEYS[recommendation.type])}</h3>
                   <p>{recommendation.scopeLabel}</p>
                 </div>

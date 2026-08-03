@@ -642,6 +642,178 @@
   min-height: var(--control-height-default);
 }
 
+.cost-optimization-workspace,
+.cost-optimization-overview,
+.cost-detail-stack,
+.session-diagnosis-detail {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-4);
+}
+
+.cost-optimization-toolbar {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.cost-optimization-toolbar label {
+  display: grid;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-label);
+}
+
+.cost-optimization-toolbar select {
+  min-width: 11rem;
+  height: var(--control-height-default);
+  padding: 0 var(--space-2);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.cost-optimization-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.cost-optimization-metric-grid .metric-card > svg {
+  color: var(--color-brand-700);
+}
+
+.cost-optimization-metric-grid .metric-card--featured > svg {
+  color: var(--color-brand-300);
+}
+
+.cost-optimization-metric-grid .metric-copy small,
+.cost-optimization-metric-grid .metric-copy em {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-label);
+  font-style: normal;
+}
+
+.cost-optimization-metric-grid .metric-card--featured .metric-copy small {
+  color: #b9d5cc;
+}
+
+.cost-optimization-metric-grid .metric-copy em.status-label {
+  color: var(--color-brand-950);
+  background: var(--color-brand-300);
+}
+
+.cost-optimization-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.cost-table-scroll {
+  overflow-x: auto;
+}
+
+.cost-detail-table th:not(:first-child),
+.cost-detail-table td:not(:first-child),
+.cost-optimization-summary-list em,
+.cost-savings-heading > strong {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cost-detail-filter-bar {
+  min-height: 3rem;
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.cost-detail-definition-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.cost-anomaly-card,
+.cost-savings-card,
+.session-diagnosis-detail-detector,
+.session-diagnosis-detail-other-list article {
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.cost-anomaly-card,
+.cost-savings-card {
+  padding: var(--space-4);
+}
+
+.session-diagnosis-severity,
+.session-diagnosis-confidence {
+  color: var(--color-warning-text);
+  background: #fff8e8;
+}
+
+.session-diagnosis-detail-finding-heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.session-diagnosis-timeline-series polyline,
+.session-diagnosis-timeline-cache-line {
+  fill: none;
+  stroke: var(--color-brand-700);
+  stroke-width: 2;
+}
+
+.session-diagnosis-timeline-series.output polyline,
+.session-diagnosis-timeline-series.reasoning polyline {
+  stroke: var(--color-brand-500);
+}
+
+.session-diagnosis-timeline-point circle {
+  fill: var(--color-surface);
+  stroke: var(--color-brand-700);
+  stroke-width: 2;
+}
+
+.session-diagnosis-timeline-point circle:focus-visible,
+.session-diagnosis-timeline-model-switch:focus-visible {
+  outline: none;
+  filter: drop-shadow(0 0 0.25rem rgba(55, 183, 134, 0.65));
+}
+
+.session-diagnosis-timeline-tooltip {
+  fill: var(--color-brand-950);
+  font-size: var(--font-size-label);
+}
+
+@media (max-width: 1050px) {
+  .cost-optimization-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .cost-optimization-toolbar,
+  .cost-detail-filter-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cost-optimization-toolbar select,
+  .cost-optimization-summary-grid,
+  .cost-optimization-metric-grid,
+  .cost-detail-definition-grid {
+    width: 100%;
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 760px) {
   .budget-summary-grid {
     grid-template-columns: 1fr;

@@ -355,6 +355,7 @@ export const en = {
       stale: 'Showing the last successful analysis. {{reason}}',
       staleDefault: 'Usage data is stale.',
       dismissWarning: 'Dismiss warning',
+      analysisWarning: 'Analysis warning',
     },
     state: {
       loadingTitle: 'Loading cost analysis',

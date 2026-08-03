@@ -123,11 +123,13 @@ const CostAnomalies: React.FC<CostAnomaliesProps> = ({ anomalies }) => {
                   <SeverityIcon size={ICON_SIZE_SMALL} />
                   <div>
                     <strong>{t(`anomaly.level.${anomaly.level}`)}</strong>
-                    <span>{t(`anomaly.severity.${anomaly.severity}`)}</span>
+                    <span className={`status-label severity-${anomaly.severity}`}>
+                      {t(`anomaly.severity.${anomaly.severity}`)}
+                    </span>
                   </div>
                   <em>{formatUsd(anomaly.actualCostUsd, locale)}</em>
                 </div>
-                <dl className="cost-detail-definition-grid">
+                <dl className="definition-list cost-detail-definition-grid">
                   <div>
                     <dt>{t('anomalies.baseline')}</dt>
                     <dd>{formatUsd(anomaly.baselineCostUsd, locale)}</dd>

@@ -3,7 +3,7 @@
  * @description 提供独立成本分析入口、项目筛选、告警降级和分析设置抽屉。
  */
 import React, { useMemo, useState } from 'react';
-import { AlertCircle, Settings2, X } from 'lucide-react';
+import { AlertCircle, Settings2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type {
   CostOptimizationSettings,
@@ -18,9 +18,12 @@ import CostAnomalies from './CostAnomalies';
 import CostForecast from './CostForecast';
 import CostOptimizationOverview from './CostOptimizationOverview';
 import CostOptimizationSettingsDrawer from './CostOptimizationSettingsDrawer';
+import LoadingSkeleton from './LoadingSkeleton';
 import ModelCostComparison from './ModelCostComparison';
+import PageHeader from './PageHeader';
 import SavingsRecommendations from './SavingsRecommendations';
 import SessionDiagnosticsView from './SessionDiagnosticsView';
+import StatusBanner from './StatusBanner';
 
 export type CostOptimizationContentModel =
   | { kind: 'loading' }
@@ -125,51 +128,44 @@ const CostOptimizationView: React.FC<CostOptimizationViewProps> = ({
     value: tab.key,
     label: t(tab.labelKey),
   }));
+  const headingActions = (
+    <div className="cost-optimization-toolbar">
+      <label>
+        <span>{t('page.project')}</span>
+        <select
+          value={projectPath ?? ''}
+          onChange={(event) => onProjectPathChange(event.target.value || undefined)}
+        >
+          <option value="">{t('page.allProjects')}</option>
+          {projectOptions.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button
+        type="button"
+        className="secondary-button"
+        onClick={() => setSettingsOpen(true)}
+        disabled={model.kind !== 'ready'}
+      >
+        <Settings2 size={ICON_SIZE_SMALL} />
+        {t('page.analysisSettings')}
+      </button>
+    </div>
+  );
 
   return (
     <section className="cost-optimization-workspace">
-      <div className="cost-optimization-heading">
-        <div>
-          <span>{t('page.eyebrow')}</span>
-          <h1>{t('page.title')}</h1>
-          <p>{t('page.description')}</p>
-        </div>
-        <div className="cost-optimization-toolbar">
-          <label>
-            <span>{t('page.project')}</span>
-            <select
-              value={projectPath ?? ''}
-              onChange={(event) => onProjectPathChange(event.target.value || undefined)}
-            >
-              <option value="">{t('page.allProjects')}</option>
-              {projectOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => setSettingsOpen(true)}
-            disabled={model.kind !== 'ready'}
-          >
-            <Settings2 size={ICON_SIZE_SMALL} />
-            {t('page.analysisSettings')}
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow={t('page.eyebrow')}
+        title={t('page.title')}
+        description={t('page.description')}
+        actions={headingActions}
+      />
 
-      {model.kind === 'loading' ? (
-        <section className="state-panel">
-          <div className="loader" />
-          <div>
-            <h2>{t('state.loadingTitle')}</h2>
-            <p>{t('state.loadingDescription')}</p>
-          </div>
-        </section>
-      ) : null}
+      {model.kind === 'loading' ? <LoadingSkeleton label={t('state.loadingTitle')} /> : null}
 
       {model.kind === 'error' ? (
         <section className="state-panel">
@@ -184,25 +180,23 @@ const CostOptimizationView: React.FC<CostOptimizationViewProps> = ({
       {model.kind === 'ready' ? (
         <>
           {model.snapshot.dataState === 'stale' ? (
-            <div className="budget-stale-banner">
-              {t('page.stale', {
+            <StatusBanner
+              tone="warning"
+              title={t('page.staleDefault')}
+              description={t('page.stale', {
                 reason: model.snapshot.staleReason ?? t('page.staleDefault'),
               })}
-            </div>
+            />
           ) : null}
           {visibleWarnings.map((warning) => (
-            <div className="cost-optimization-warning" key={warning}>
-              <span>{warning}</span>
-              <button
-                type="button"
-                className="icon-button quiet"
-                title={t('page.dismissWarning')}
-                aria-label={t('page.dismissWarning')}
-                onClick={() => setDismissedWarnings((current) => [...current, warning])}
-              >
-                <X size={ICON_SIZE_SMALL} />
-              </button>
-            </div>
+            <StatusBanner
+              key={warning}
+              tone="warning"
+              title={t('page.analysisWarning')}
+              description={warning}
+              actionLabel={t('page.dismissWarning')}
+              onAction={() => setDismissedWarnings((current) => [...current, warning])}
+            />
           ))}
           <AccessibleTabs
             groupId="cost-optimization"

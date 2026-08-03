@@ -351,6 +351,7 @@ export const zhCN = {
       stale: '正在显示上次成功的分析。{{reason}}',
       staleDefault: '用量数据已过期。',
       dismissWarning: '关闭警告',
+      analysisWarning: '分析警告',
     },
     state: {
       loadingTitle: '正在加载成本分析',

@@ -256,7 +256,7 @@ const SessionDiagnosisList: React.FC<SessionDiagnosisListProps> = ({
                     })}
                   </span>
                   <span
-                    className="session-diagnosis-severity"
+                    className="status-label session-diagnosis-severity"
                     data-label={t('diagnostics.list.severity')}
                   >
                     {finding ? (
@@ -268,7 +268,10 @@ const SessionDiagnosisList: React.FC<SessionDiagnosisListProps> = ({
                       '—'
                     )}
                   </span>
-                  <span data-label={t('diagnostics.list.confidence')}>
+                  <span
+                    className="status-label session-diagnosis-confidence"
+                    data-label={t('diagnostics.list.confidence')}
+                  >
                     {finding ? t(`diagnostics.confidence.${finding.confidence}`) : '—'}
                   </span>
                 </button>

@@ -29,7 +29,7 @@ const ModelCostComparison: React.FC<ModelCostComparisonProps> = ({ rows, scenari
           </div>
         </div>
         <div className="cost-table-scroll">
-          <table className="cost-detail-table">
+          <table className="detail-table cost-detail-table">
             <thead>
               <tr>
                 <th>{t('comparison.model')}</th>
@@ -85,7 +85,7 @@ const ModelCostComparison: React.FC<ModelCostComparisonProps> = ({ rows, scenari
           </div>
         </div>
         <div className="cost-table-scroll">
-          <table className="cost-detail-table">
+          <table className="detail-table cost-detail-table">
             <thead>
               <tr>
                 <th>{t('comparison.sourceModel')}</th>
