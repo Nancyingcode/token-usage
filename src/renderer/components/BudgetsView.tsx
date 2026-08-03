@@ -10,6 +10,7 @@ import type { BudgetPolicy, BudgetSnapshot } from '../../shared/budgetTypes';
 import { ICON_SIZE_SMALL } from '../constants/ui';
 import type { BudgetActions } from '../hooks/useBudgetSnapshot';
 import { buildBudgetViewModel, type BudgetFilters } from '../utils/budgetViewModel';
+import { buildBudgetModelOptions } from '../utils/budgetModelOptions';
 import AccessibleTabs, { getTabId, getTabPanelId } from './AccessibleTabs';
 import BudgetAlertBanner from './BudgetAlertBanner';
 import BudgetDrawer, { type BudgetDrawerModel } from './BudgetDrawer';
@@ -49,6 +50,10 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
   const [pricingTarget, setPricingTarget] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const model = useMemo(() => buildBudgetViewModel(snapshot, filters), [filters, snapshot]);
+  const modelOptions = useMemo(
+    () => buildBudgetModelOptions(snapshot.pricing, snapshot.unpricedModels),
+    [snapshot.pricing, snapshot.unpricedModels]
+  );
   const visibleAlerts = model.alerts.filter(({ id }) => !dismissedAlertIds.has(id));
   const showStaleWarning = snapshot.dataState === 'stale';
 
@@ -100,6 +105,7 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({
     editorModel.kind === 'closed' ? null : (
       <BudgetDrawer
         model={editorModel}
+        modelOptions={modelOptions}
         thresholds={snapshot.thresholds}
         actions={actions}
         onClose={closeEditor}

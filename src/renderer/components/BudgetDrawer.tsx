@@ -25,11 +25,14 @@ import type { BudgetActions } from '../hooks/useBudgetSnapshot';
 import { useOverlayFocus } from '../hooks/useOverlayFocus';
 import { budgetFormReducer, createBudgetFormState, toBudgetPolicyInput } from '../utils/budgetForm';
 import { translateValidationIssue } from '../utils/validationIssues';
+import type { BudgetModelOption } from '../utils/budgetModelOptions';
+import BudgetModelCombobox from './BudgetModelCombobox';
 
 export type BudgetDrawerModel = { kind: 'policy'; policy?: BudgetPolicy } | { kind: 'thresholds' };
 
 interface BudgetDrawerProps {
   model: BudgetDrawerModel;
+  modelOptions: BudgetModelOption[];
   thresholds: BudgetThresholds;
   actions: BudgetActions;
   onClose: () => void;
@@ -59,7 +62,13 @@ const getIssueMessage = (
   return issue ? translateValidationIssue(issue, t) : undefined;
 };
 
-const PolicyForm: React.FC<BudgetDrawerProps> = ({ model, actions, onClose, onSaved }) => {
+const PolicyForm: React.FC<BudgetDrawerProps> = ({
+  model,
+  modelOptions,
+  actions,
+  onClose,
+  onSaved,
+}) => {
   const { t } = useTranslation('budgets');
   const { t: tCommon } = useTranslation('common');
   const policy = model.kind === 'policy' ? model.policy : undefined;
@@ -70,6 +79,7 @@ const PolicyForm: React.FC<BudgetDrawerProps> = ({ model, actions, onClose, onSa
   const projectIssue = getIssueMessage(state.issues, ['projectPath'], t);
   const tokenIssue = getIssueMessage(state.issues, ['tokenLimit'], t);
   const costIssue = getIssueMessage(state.issues, ['costLimitUsd'], t);
+  const modelIssue = getIssueMessage(state.issues, ['modelId'], t);
   const formIssue = getIssueMessage(state.issues, ['limits', 'businessKey', 'form'], t);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
@@ -159,6 +169,16 @@ const PolicyForm: React.FC<BudgetDrawerProps> = ({ model, actions, onClose, onSa
           ))}
         </div>
       </fieldset>
+
+      <BudgetModelCombobox
+        value={state.modelTarget}
+        options={modelOptions}
+        label={t('drawer.modelId')}
+        allModelsLabel={t('drawer.allModels')}
+        unknownModelLabel={t('drawer.unknownModel')}
+        error={modelIssue}
+        onChange={(modelTarget) => dispatch({ type: 'model-target-changed', modelTarget })}
+      />
 
       <div className="limit-setting">
         <label className="toggle-field">

@@ -5,6 +5,12 @@ import ConfirmDialog from '../src/renderer/components/ConfirmDialog';
 import type { BudgetActions } from '../src/renderer/hooks/useBudgetSnapshot';
 import { renderWithI18n } from './helpers/renderWithI18n';
 
+const MODEL_OPTIONS = [
+  { key: 'all', target: { kind: 'all' as const } },
+  { key: 'unknown', target: { kind: 'unknown' as const } },
+  { key: 'model:gpt-test', target: { kind: 'model' as const, modelId: 'gpt-test' } },
+];
+
 const ACTIONS: BudgetActions = {
   savePolicy: vi.fn(),
   deletePolicy: vi.fn(),
@@ -18,6 +24,7 @@ describe('BudgetDrawer', () => {
     const markup = renderWithI18n(
       <BudgetDrawer
         model={{ kind: 'policy' }}
+        modelOptions={MODEL_OPTIONS}
         thresholds={{ warningPercent: 80, criticalPercent: 100 }}
         actions={ACTIONS}
         onClose={vi.fn()}
@@ -28,6 +35,11 @@ describe('BudgetDrawer', () => {
     expect(markup).toContain('Token limit');
     expect(markup).toContain('Estimated cost limit');
     expect(markup).toContain('Monthly');
+    expect(markup).toContain('role="combobox"');
+    expect(markup).toContain('Model ID');
+    expect(markup).toContain('All models');
+    expect(markup).toContain('Unknown model');
+    expect(markup).toContain('gpt-test');
     expect(markup).toContain('class="drawer-shell budget-drawer"');
     expect(markup).toContain('role="dialog"');
     expect(markup).toContain('aria-modal="true"');
@@ -37,6 +49,7 @@ describe('BudgetDrawer', () => {
     const markup = renderWithI18n(
       <BudgetDrawer
         model={{ kind: 'thresholds' }}
+        modelOptions={MODEL_OPTIONS}
         thresholds={{ warningPercent: 80, criticalPercent: 100 }}
         actions={ACTIONS}
         onClose={vi.fn()}
@@ -70,6 +83,7 @@ describe('ConfirmDialog', () => {
     const markup = renderWithI18n(
       <BudgetDrawer
         model={{ kind: 'policy' }}
+        modelOptions={MODEL_OPTIONS}
         thresholds={{ warningPercent: 80, criticalPercent: 100 }}
         actions={ACTIONS}
         onClose={vi.fn()}
@@ -80,5 +94,8 @@ describe('ConfirmDialog', () => {
     expect(markup).toContain('添加预算');
     expect(markup).toContain('Token 上限');
     expect(markup).toContain('估算费用上限');
+    expect(markup).toContain('模型 ID');
+    expect(markup).toContain('所有模型');
+    expect(markup).toContain('未知模型');
   });
 });
