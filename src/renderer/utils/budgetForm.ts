@@ -24,6 +24,7 @@ export type BudgetFormAction =
   | { type: 'scope-changed'; scope: BudgetScope }
   | { type: 'project-changed'; projectPath: string }
   | { type: 'period-changed'; period: BudgetPeriod }
+  | { type: 'model-target-changed'; modelTarget: BudgetModelTarget }
   | { type: 'token-enabled'; enabled: boolean }
   | { type: 'token-limit-changed'; value: string }
   | { type: 'cost-enabled'; enabled: boolean }
@@ -61,6 +62,8 @@ export const budgetFormReducer = (
       return { ...state, projectPath: action.projectPath, issues: [] };
     case 'period-changed':
       return { ...state, period: action.period, issues: [] };
+    case 'model-target-changed':
+      return { ...state, modelTarget: { ...action.modelTarget }, issues: [] };
     case 'token-enabled':
       return { ...state, tokenEnabled: action.enabled, issues: [] };
     case 'token-limit-changed':
@@ -79,7 +82,10 @@ export const toBudgetPolicyInput = (state: BudgetFormState): BudgetPolicyInput =
   scope: state.scope,
   ...(state.scope === 'project' ? { projectPath: state.projectPath.trim() } : {}),
   period: state.period,
-  modelTarget: { ...state.modelTarget },
+  modelTarget:
+    state.modelTarget.kind === 'model'
+      ? { kind: 'model', modelId: state.modelTarget.modelId.trim() }
+      : { ...state.modelTarget },
   ...(state.tokenEnabled ? { tokenLimit: Number(state.tokenLimit) } : {}),
   ...(state.costEnabled ? { costLimitUsd: Number(state.costLimitUsd) } : {}),
 });
