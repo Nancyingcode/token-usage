@@ -10,7 +10,7 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
-  box-shadow: 0 0.0625rem 0.125rem rgba(16, 43, 39, 0.04);
+  box-shadow: 0 0.0625rem 0.125rem var(--color-shadow-subtle);
 }
 
 .state-panel h2 {
@@ -33,7 +33,7 @@
 .loader {
   width: 1.5rem;
   height: 1.5rem;
-  border: 0.1875rem solid #dcebe6;
+  border: 0.1875rem solid var(--color-brand-border);
   border-top-color: var(--color-brand-500);
   border-radius: 999px;
   animation: spin 0.8s linear infinite;
@@ -48,21 +48,21 @@
   align-items: center;
   gap: var(--space-3);
   color: var(--color-text);
-  background: #edf6f3;
-  border: 1px solid #c7dfd7;
+  background: var(--color-brand-surface);
+  border: 1px solid var(--color-brand-border);
   border-radius: var(--radius-card);
 }
 
 .status-banner--warning {
   color: var(--color-warning-text);
-  background: #fff8e8;
-  border-color: #e8ce8f;
+  background: var(--color-warning-surface);
+  border-color: var(--color-warning-border);
 }
 
 .status-banner--danger {
   color: var(--color-danger-text);
-  background: #fff1f1;
-  border-color: #e8b7b7;
+  background: var(--color-danger-surface);
+  border-color: var(--color-danger-border);
 }
 
 .status-banner-icon {
@@ -122,12 +122,12 @@
 
 .accessible-tab:hover {
   color: var(--color-brand-950);
-  background: #f0f7f4;
+  background: var(--color-brand-surface);
 }
 
 .accessible-tab.active {
   color: var(--color-brand-950);
-  background: #e8f4ef;
+  background: var(--color-brand-surface);
   border-bottom-color: var(--color-brand-500);
   font-weight: 700;
 }
@@ -145,7 +145,7 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
-  box-shadow: 0 0.0625rem 0.125rem rgba(16, 43, 39, 0.04);
+  box-shadow: 0 0.0625rem 0.125rem var(--color-shadow-subtle);
 }
 
 .metric-card {
@@ -190,7 +190,7 @@
   place-items: center;
   flex: 0 0 auto;
   color: var(--color-brand-700);
-  background: #e8f4ef;
+  background: var(--color-brand-surface);
   border-radius: var(--radius-control);
 }
 
@@ -202,7 +202,7 @@
 
 .metric-card--featured .metric-copy p,
 .metric-card--featured .metric-copy span {
-  color: #b9d5cc;
+  color: var(--color-brand-border);
 }
 
 .metric-card--featured .metric-copy strong {
@@ -362,7 +362,7 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
-  box-shadow: 0 0.0625rem 0.125rem rgba(16, 43, 39, 0.04);
+  box-shadow: 0 0.0625rem 0.125rem var(--color-shadow-subtle);
 }
 
 .filter-bar {
@@ -377,7 +377,7 @@
   width: 100%;
   height: var(--space-1);
   overflow: hidden;
-  background: #e7efec;
+  background: var(--color-brand-surface);
   border-radius: 999px;
 }
 
@@ -490,7 +490,7 @@
 .definition-list > div {
   min-width: 0;
   padding: var(--space-3);
-  background: #f6f9f8;
+  background: var(--color-brand-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
 }
@@ -521,20 +521,20 @@
 .status-label.severity-critical,
 .severity-critical > .status-label {
   color: var(--color-danger-text);
-  background: #fff1f1;
+  background: var(--color-danger-surface);
 }
 
 .status-label.severity-warning,
 .severity-warning > .status-label {
   color: var(--color-warning-text);
-  background: #fff8e8;
+  background: var(--color-warning-surface);
 }
 
 .status-label.confidence-high,
 .status-label.confidence-medium,
 .status-label.confidence-low {
   color: var(--color-brand-700);
-  background: #e8f4ef;
+  background: var(--color-brand-surface);
 }
 
 @media (max-width: 760px) {
@@ -552,7 +552,12 @@
 .loading-skeleton-metrics i,
 .loading-skeleton-panels i {
   display: block;
-  background: linear-gradient(90deg, #e8efed 25%, #f5f8f7 50%, #e8efed 75%);
+  background: linear-gradient(
+    90deg,
+    var(--color-brand-surface) 25%,
+    var(--color-brand-surface) 50%,
+    var(--color-brand-surface) 75%
+  );
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.2s ease-in-out infinite;
 }

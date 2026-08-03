@@ -3,7 +3,7 @@
  * @description 约束 Renderer 样式入口、视觉令牌和迁移完成条件。
  */
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -17,12 +17,33 @@ describe('UI style policy', () => {
       [
         "@import './styles/tokens.css';",
         "@import './styles/base.css';",
-        "@import './styles/legacy.css';",
         "@import './styles/shell.css';",
         "@import './styles/components.css';",
         "@import './styles/views.css';",
       ].join('\n')
     );
+  });
+
+  it('has no temporary legacy stylesheet after migration', () => {
+    expect(readRendererStyle('styles.css')).not.toContain('legacy.css');
+    expect(existsSync(resolve(process.cwd(), 'src/renderer/styles/legacy.css'))).toBe(false);
+  });
+
+  it('keeps raw colors inside tokens only', () => {
+    for (const file of ['base.css', 'shell.css', 'components.css', 'views.css']) {
+      expect(readRendererStyle(`styles/${file}`)).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(/i);
+    }
+  });
+
+  it('forbids undersized production text and unsafe blanket transitions', () => {
+    const css = ['base.css', 'shell.css', 'components.css', 'views.css']
+      .map((file) => readRendererStyle(`styles/${file}`))
+      .join('\n');
+    const fontSizes = css.match(/font-size:\s*[^;]+;/g) ?? [];
+
+    expect(fontSizes.every((declaration) => declaration.includes('var(--font-size-'))).toBe(true);
+    expect(css).not.toContain('transition: all');
+    expect(css).toContain('@media (prefers-reduced-motion: reduce)');
   });
 
   it('defines the approved brand tokens', () => {

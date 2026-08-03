@@ -13,7 +13,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
-  color: #ffffff;
+  color: var(--color-surface);
   background: var(--color-brand-950);
 }
 
@@ -28,7 +28,7 @@
 .sidebar-brand strong {
   min-width: 0;
   overflow: hidden;
-  color: #ffffff;
+  color: var(--color-surface);
   font-size: var(--font-size-body-small);
   line-height: 1.2;
   text-overflow: ellipsis;
@@ -84,7 +84,7 @@
 .nav-group-title {
   margin: 0;
   padding: 0 var(--space-2);
-  color: #78978e;
+  color: var(--color-brand-sidebar-label);
   font-size: var(--font-size-label);
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -100,7 +100,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  color: #aac4bc;
+  color: var(--color-brand-sidebar-muted);
   background: transparent;
   border: 0;
   border-radius: var(--radius-control);
@@ -112,8 +112,8 @@
 }
 
 .nav-item:hover {
-  color: #ffffff;
-  background: #183a34;
+  color: var(--color-surface);
+  background: var(--color-brand-sidebar-hover);
 }
 
 .nav-item svg {
@@ -122,8 +122,8 @@
 }
 
 .nav-item.active {
-  color: #ffffff;
-  background: #20473f;
+  color: var(--color-surface);
+  background: var(--color-brand-sidebar-active);
   box-shadow: inset 3px 0 var(--color-brand-300);
   font-weight: 700;
 }
@@ -179,7 +179,7 @@
   width: 0.5rem;
   height: 0.5rem;
   flex: 0 0 auto;
-  background: #879690;
+  background: var(--color-text-muted);
   border-radius: 50%;
 }
 
@@ -198,7 +198,7 @@
 }
 
 .scan-status--stale i {
-  background: #c08a20;
+  background: var(--color-warning-accent);
 }
 
 .scan-status--failed {
@@ -206,7 +206,7 @@
 }
 
 .scan-status--failed i {
-  background: #b64a4a;
+  background: var(--color-danger-accent);
 }
 
 .scan-time {
@@ -236,7 +236,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.0625rem;
-  background: #eaf0ee;
+  background: var(--color-brand-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
 }
@@ -255,7 +255,7 @@
 .period-toggle button.active {
   color: var(--color-brand-950);
   background: var(--color-surface);
-  box-shadow: 0 0.0625rem 0.25rem rgba(16, 43, 39, 0.1);
+  box-shadow: 0 0.0625rem 0.25rem var(--color-shadow-soft);
 }
 
 .icon-button {
@@ -286,7 +286,7 @@
   .sidebar {
     min-height: auto;
     padding: var(--space-4) var(--space-3);
-    border-bottom: 1px solid #2e5048;
+    border-bottom: 1px solid var(--color-brand-700);
   }
 
   .nav-list {
