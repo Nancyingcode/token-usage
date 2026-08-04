@@ -7,12 +7,14 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ModelPricingEntry, UnknownModelPricing } from '../../shared/budgetTypes';
 import { getSummaryCostEstimate } from '../../shared/pricing';
-import { getCachePercentage } from '../../shared/usageMetrics';
 import type { UsageSummary } from '../../shared/usageTypes';
 import { resolveRendererLocale } from '../i18n';
+import { buildCacheEfficiency } from '../utils/cacheEfficiency';
 import { formatPercent, formatUsd } from '../utils/formatters';
+import { buildHourlyActivity } from '../utils/hourlyActivity';
+import CacheEfficiencyCard from './CacheEfficiencyCard';
+import HourlyActivityChart from './HourlyActivityChart';
 import PageHeader from './PageHeader';
-import TokenBar from './TokenBar';
 
 interface PerformanceViewProps {
   summary: UsageSummary;
@@ -31,8 +33,6 @@ interface DonutProps {
 }
 
 const PERFORMANCE_HISTORY_DAYS = 30;
-const PEAK_SESSION_COUNT = 12;
-const HIGHLIGHT_BAR_INTERVAL = 4;
 const MINI_LINE_VIEWBOX_WIDTH = 274;
 const MINI_LINE_VIEWBOX_HEIGHT = 138;
 const MINI_LINE_VIEWBOX = `0 0 ${MINI_LINE_VIEWBOX_WIDTH} ${MINI_LINE_VIEWBOX_HEIGHT}`;
@@ -109,26 +109,16 @@ const PerformanceView: React.FC<PerformanceViewProps> = ({
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const days = summary.byDay.slice(-PERFORMANCE_HISTORY_DAYS);
   const maxDay = Math.max(1, ...days.map((day) => day.totalTokens));
-  const maxSession = Math.max(
-    1,
-    ...summary.sessions.slice(0, PEAK_SESSION_COUNT).map((session) => session.totalTokens)
-  );
-  const cacheRate = getCachePercentage(
-    summary.totals.inputTokens,
-    summary.totals.cachedInputTokens
-  );
+  const cacheEfficiency = buildCacheEfficiency(summary);
   const totalCost = getSummaryCostEstimate(summary, pricing, unknownModelPricing);
   const pricingIncomplete = totalCost.unpricedTokens > 0;
+  const hourlyActivity = buildHourlyActivity(summary.sessions);
 
   return (
     <section className="page-stack">
       <PageHeader title={t('performance.title')} description={t('performance.description')} />
       <div className="performance-grid performance-card-grid">
-        <article className="panel perf-card">
-          <h3>{t('performance.cacheHitRate')}</h3>
-          <p>{formatPercent(cacheRate, locale)}</p>
-          <MiniLine days={days} max={maxDay} tone="cyan" />
-        </article>
+        <CacheEfficiencyCard efficiency={cacheEfficiency} />
 
         <article className="panel perf-card">
           <h3>{t('performance.costEfficiency')}</h3>
@@ -143,20 +133,7 @@ const PerformanceView: React.FC<PerformanceViewProps> = ({
 
         <article className="panel perf-card">
           <h3>{t('performance.peakHours')}</h3>
-          <p>{t('performance.mostActiveAt', { time: peakHour(summary) })}</p>
-          <div className="peak-bars">
-            {summary.sessions
-              .slice(0, PEAK_SESSION_COUNT)
-              .reverse()
-              .map((session, index) => (
-                <TokenBar
-                  key={session.sourceFile}
-                  value={session.totalTokens}
-                  max={maxSession}
-                  tone={index % HIGHLIGHT_BAR_INTERVAL === 0 ? 'purple' : 'blue'}
-                />
-              ))}
-          </div>
+          <HourlyActivityChart activity={hourlyActivity} />
         </article>
 
         <article className="panel perf-card">
@@ -170,17 +147,6 @@ const PerformanceView: React.FC<PerformanceViewProps> = ({
       </div>
     </section>
   );
-};
-
-const peakHour = (summary: UsageSummary): string => {
-  const hours = summary.sessions.reduce<Map<number, number>>((hourTotals, session) => {
-    const hour = new Date(session.startedAt).getHours();
-    hourTotals.set(hour, (hourTotals.get(hour) ?? 0) + session.totalTokens);
-    return hourTotals;
-  }, new Map());
-
-  const [hour = 0] = [...hours.entries()].sort((a, b) => b[1] - a[1])[0] ?? [];
-  return `${String(hour).padStart(2, '0')}:00`;
 };
 
 export default PerformanceView;
