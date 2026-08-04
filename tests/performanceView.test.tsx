@@ -89,6 +89,15 @@ describe('PerformanceView', () => {
     expect(markup).toContain('data-cache-percentage="60"');
   });
 
+  it('renders detailed cost efficiency instead of a total-token mini line', () => {
+    const summary = buildUsageSummary([makeSession(0)]);
+    const markup = renderWithI18n(<PerformanceView summary={summary} pricing={PRICING} />);
+
+    expect(markup).toContain('cost-efficiency-card');
+    expect(markup).toContain('Daily cost trend');
+    expect(markup).not.toContain('class="mini-line blue"');
+  });
+
   it('renders a detailed 24-hour activity distribution and peak summary', () => {
     const summary = buildUsageSummary([makeHourlySession(14, 300), makeHourlySession(8, 100)]);
     const markup = renderWithI18n(<PerformanceView summary={summary} pricing={PRICING} />);

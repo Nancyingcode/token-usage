@@ -6,13 +6,14 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ModelPricingEntry, UnknownModelPricing } from '../../shared/budgetTypes';
-import { getSummaryCostEstimate } from '../../shared/pricing';
 import type { UsageSummary } from '../../shared/usageTypes';
 import { resolveRendererLocale } from '../i18n';
 import { buildCacheEfficiency } from '../utils/cacheEfficiency';
-import { formatPercent, formatUsd } from '../utils/formatters';
+import { buildCostEfficiency } from '../utils/costEfficiency';
+import { formatPercent } from '../utils/formatters';
 import { buildHourlyActivity } from '../utils/hourlyActivity';
 import CacheEfficiencyCard from './CacheEfficiencyCard';
+import CostEfficiencyCard from './CostEfficiencyCard';
 import HourlyActivityChart from './HourlyActivityChart';
 import PageHeader from './PageHeader';
 
@@ -22,28 +23,10 @@ interface PerformanceViewProps {
   unknownModelPricing?: UnknownModelPricing;
 }
 
-interface MiniLineProps {
-  days: Array<{ date: string; totalTokens: number }>;
-  max: number;
-  tone: 'cyan' | 'blue';
-}
-
 interface DonutProps {
   value: number;
 }
 
-const PERFORMANCE_HISTORY_DAYS = 30;
-const MINI_LINE_VIEWBOX_WIDTH = 274;
-const MINI_LINE_VIEWBOX_HEIGHT = 138;
-const MINI_LINE_VIEWBOX = `0 0 ${MINI_LINE_VIEWBOX_WIDTH} ${MINI_LINE_VIEWBOX_HEIGHT}`;
-const MINI_LINE_LEFT = 12;
-const MINI_LINE_RIGHT = 262;
-const MINI_LINE_BASELINE = 118;
-const MINI_LINE_VERTICAL_RANGE = 92;
-const MINI_LINE_GRID_TOP = 26;
-const MINI_LINE_GRID_GAP = 28;
-const MINI_LINE_GRID_COUNT = 4;
-const MINI_LINE_GRID_LINES = Array.from({ length: MINI_LINE_GRID_COUNT }, (_, index) => index);
 const DONUT_VIEWBOX_SIZE = 120;
 const DONUT_VIEWBOX = `0 0 ${DONUT_VIEWBOX_SIZE} ${DONUT_VIEWBOX_SIZE}`;
 const DONUT_CENTER = DONUT_VIEWBOX_SIZE / 2;
@@ -52,35 +35,6 @@ const PERCENT_SCALE = 100;
 const APPLICATION_ERROR_COUNT = 0;
 const APPLICATION_ERROR_RATE = 0;
 const ERROR_RATE_FRACTION_DIGITS = 2;
-
-const MiniLine: React.FC<MiniLineProps> = ({ days, max, tone }) => {
-  const points = days.map((day, index) => {
-    const x =
-      days.length <= 1
-        ? MINI_LINE_LEFT
-        : MINI_LINE_LEFT + (index / (days.length - 1)) * (MINI_LINE_RIGHT - MINI_LINE_LEFT);
-    const y = MINI_LINE_BASELINE - (day.totalTokens / max) * MINI_LINE_VERTICAL_RANGE;
-    return { x, y, date: day.date };
-  });
-  const path = points
-    .map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x},${point.y}`)
-    .join(' ');
-
-  return (
-    <svg className={`mini-line ${tone}`} viewBox={MINI_LINE_VIEWBOX} aria-hidden="true">
-      {MINI_LINE_GRID_LINES.map((line) => (
-        <line
-          key={line}
-          x1={MINI_LINE_LEFT}
-          x2={MINI_LINE_RIGHT}
-          y1={MINI_LINE_GRID_TOP + line * MINI_LINE_GRID_GAP}
-          y2={MINI_LINE_GRID_TOP + line * MINI_LINE_GRID_GAP}
-        />
-      ))}
-      <path d={path} />
-    </svg>
-  );
-};
 
 const Donut: React.FC<DonutProps> = ({ value }) => {
   const circumference = 2 * Math.PI * DONUT_RADIUS;
@@ -107,11 +61,8 @@ const PerformanceView: React.FC<PerformanceViewProps> = ({
 }) => {
   const { t, i18n } = useTranslation('analytics');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
-  const days = summary.byDay.slice(-PERFORMANCE_HISTORY_DAYS);
-  const maxDay = Math.max(1, ...days.map((day) => day.totalTokens));
   const cacheEfficiency = buildCacheEfficiency(summary);
-  const totalCost = getSummaryCostEstimate(summary, pricing, unknownModelPricing);
-  const pricingIncomplete = totalCost.unpricedTokens > 0;
+  const costEfficiency = buildCostEfficiency(summary, pricing, unknownModelPricing);
   const hourlyActivity = buildHourlyActivity(summary.sessions);
 
   return (
@@ -119,17 +70,7 @@ const PerformanceView: React.FC<PerformanceViewProps> = ({
       <PageHeader title={t('performance.title')} description={t('performance.description')} />
       <div className="performance-grid performance-card-grid">
         <CacheEfficiencyCard efficiency={cacheEfficiency} />
-
-        <article className="panel perf-card">
-          <h3>{t('performance.costEfficiency')}</h3>
-          <p>{formatUsd(totalCost.pricedCostUsd, locale)}</p>
-          {pricingIncomplete ? (
-            <p className="pricing-incomplete-label">{t('performance.pricingIncomplete')}</p>
-          ) : totalCost.assumedTokens > 0 ? (
-            <p className="pricing-assumed-label">{t('performance.assumedPricing')}</p>
-          ) : null}
-          <MiniLine days={days} max={maxDay} tone="blue" />
-        </article>
+        <CostEfficiencyCard efficiency={costEfficiency} />
 
         <article className="panel perf-card">
           <h3>{t('performance.peakHours')}</h3>

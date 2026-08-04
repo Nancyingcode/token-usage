@@ -27,6 +27,12 @@ export type UsagePricingResult =
   | { kind: 'assumed'; costUsd: number; pricing: UnknownModelPricingInput }
   | { kind: 'unpriced'; costUsd: 0 };
 
+export interface UsageCostBreakdown {
+  regularInputCostUsd: number;
+  cachedInputCostUsd: number;
+  outputCostUsd: number;
+}
+
 export const normalizeModelId = (modelId: string): string =>
   modelId.trim().toLocaleLowerCase('en-US');
 
@@ -84,18 +90,27 @@ export const createPricingContext = (
   ...(unknownModelPricing ? { unknownModelPricing } : {}),
 });
 
+export const calculateUsageCostBreakdown = (
+  usage: TokenUsage,
+  pricing: UnknownModelPricingInput
+): UsageCostBreakdown => {
+  const regularInputTokens = Math.max(usage.inputTokens - usage.cachedInputTokens, 0);
+
+  return {
+    regularInputCostUsd: (regularInputTokens * pricing.inputUsdPerMillion) / TOKENS_PER_MILLION,
+    cachedInputCostUsd:
+      (usage.cachedInputTokens * pricing.cachedInputUsdPerMillion) / TOKENS_PER_MILLION,
+    outputCostUsd: (usage.outputTokens * pricing.outputUsdPerMillion) / TOKENS_PER_MILLION,
+  };
+};
+
 export const calculateUsageCost = (
   usage: TokenUsage,
   pricing: UnknownModelPricingInput
 ): number => {
-  const regularInputTokens = Math.max(usage.inputTokens - usage.cachedInputTokens, 0);
+  const breakdown = calculateUsageCostBreakdown(usage, pricing);
 
-  return (
-    (regularInputTokens * pricing.inputUsdPerMillion +
-      usage.cachedInputTokens * pricing.cachedInputUsdPerMillion +
-      usage.outputTokens * pricing.outputUsdPerMillion) /
-    TOKENS_PER_MILLION
-  );
+  return breakdown.regularInputCostUsd + breakdown.cachedInputCostUsd + breakdown.outputCostUsd;
 };
 
 export const priceTokenUsage = (

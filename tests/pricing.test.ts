@@ -5,6 +5,8 @@ import {
   calculateEstimatedCost,
   mergeModelPricing,
   normalizeModelId,
+  calculateUsageCost,
+  calculateUsageCostBreakdown,
 } from '../src/shared/pricing';
 import type { ModelPricingEntry, ModelPricingOverride } from '../src/shared/budgetTypes';
 import type { UsageSlice } from '../src/shared/usageTypes';
@@ -21,6 +23,25 @@ const TEST_PRICING: ModelPricingEntry = {
 };
 
 describe('pricing', () => {
+  it('splits regular input, cached input, and output cost without changing the total', () => {
+    const usage = makeSlice('2026-07-20T00:00:00.000Z', 'gpt-test', 100, 40, 20, 5, 120);
+    const frozenUsage = Object.freeze({ ...usage });
+    const frozenPricing = Object.freeze({ ...TEST_PRICING });
+
+    const breakdown = calculateUsageCostBreakdown(frozenUsage, frozenPricing);
+
+    expect(breakdown).toEqual({
+      regularInputCostUsd: 0.00012,
+      cachedInputCostUsd: 0.00002,
+      outputCostUsd: 0.0002,
+    });
+    expect(
+      breakdown.regularInputCostUsd + breakdown.cachedInputCostUsd + breakdown.outputCostUsd
+    ).toBeCloseTo(calculateUsageCost(frozenUsage, frozenPricing), 12);
+    expect(frozenUsage.reasoningOutputTokens).toBe(5);
+    expect(frozenPricing.outputUsdPerMillion).toBe(10);
+  });
+
   it('normalizes model ids for shared price matching', () => {
     expect(normalizeModelId('  GPT-Test  ')).toBe('gpt-test');
   });

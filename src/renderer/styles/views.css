@@ -198,8 +198,7 @@ code {
   overflow: visible;
 }
 
-.trend-chart line,
-.mini-line line {
+.trend-chart line {
   stroke: var(--color-border);
   stroke-width: 1;
 }
@@ -208,8 +207,7 @@ code {
   fill: var(--color-chart-fill);
 }
 
-.trend-line,
-.mini-line path {
+.trend-line {
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -435,21 +433,6 @@ code {
 
 .perf-card h3 {
   margin-bottom: 4px;
-}
-
-.mini-line {
-  width: 100%;
-  height: 158px;
-  display: block;
-  margin-top: 10px;
-}
-
-.mini-line.cyan path {
-  stroke: var(--color-info-accent);
-}
-
-.mini-line.blue path {
-  stroke: var(--color-info-accent);
 }
 
 .donut {
@@ -3272,30 +3255,6 @@ code {
   font-size: var(--font-size-body-small);
 }
 
-.mini-line {
-  width: 100%;
-  height: 9.875rem;
-  display: block;
-  margin-top: 0.625rem;
-}
-
-.mini-line line {
-  stroke: var(--color-border);
-  stroke-width: 1;
-}
-
-.mini-line path {
-  fill: none;
-  stroke: var(--color-brand-500);
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.mini-line.blue path {
-  stroke: var(--color-brand-700);
-}
-
 .cache-efficiency-card {
   grid-column: 1 / -1;
   min-height: 0;
@@ -3554,6 +3513,305 @@ code {
 }
 
 .cache-trend-empty {
+  min-height: 8rem;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  background: var(--color-surface-subtle);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.cost-efficiency-card {
+  grid-column: 1 / -1;
+  min-height: 0;
+  display: grid;
+  gap: var(--space-4);
+}
+
+.cost-efficiency-summary {
+  display: grid;
+  grid-template-columns: minmax(13rem, 0.8fr) minmax(22rem, 1.2fr);
+  align-items: end;
+  gap: var(--space-5);
+}
+
+.cost-efficiency-heading {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.cost-efficiency-heading h3,
+.cost-efficiency-heading p {
+  margin: 0;
+}
+
+.cost-efficiency-value-label,
+.cost-section-heading span,
+.cost-trend-empty {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-body-small);
+}
+
+.cost-efficiency-value {
+  color: var(--color-brand-700);
+  font-size: var(--font-size-display);
+  line-height: 1;
+}
+
+.cost-efficiency-stats {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.cost-efficiency-stats div {
+  min-width: 0;
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-1);
+  background: var(--color-surface-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.cost-efficiency-stats dt,
+.cost-trend-tooltip dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-label);
+}
+
+.cost-efficiency-stats dd,
+.cost-trend-tooltip dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-body);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.cost-efficiency-warning,
+.cost-efficiency-assumption {
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-1);
+  border-radius: var(--radius-control);
+  font-size: var(--font-size-body-small);
+}
+
+.cost-efficiency-warning {
+  color: var(--color-warning-text);
+  background: var(--color-warning-surface);
+  border: 1px solid var(--color-warning-border);
+}
+
+.cost-efficiency-assumption {
+  color: var(--color-brand-700);
+  background: var(--color-brand-surface);
+  border: 1px solid var(--color-brand-border);
+}
+
+.cost-coverage,
+.cost-composition,
+.cost-trend,
+.cost-section-heading {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.cost-section-heading {
+  gap: var(--space-1);
+}
+
+.cost-segment-track {
+  height: 0.75rem;
+  display: flex;
+  overflow: hidden;
+  background: var(--color-surface-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+}
+
+.cost-segment-track > span {
+  display: block;
+  transition: width var(--duration-fast) ease;
+}
+
+.cost-segment-exact,
+.cost-breakdown-regular-input {
+  background: var(--color-brand-700);
+}
+
+.cost-segment-assumed,
+.cost-breakdown-output {
+  background: var(--color-chart-purple);
+}
+
+.cost-segment-unpriced {
+  background: var(--color-warning-accent);
+}
+
+.cost-breakdown-cached-input {
+  background: var(--color-brand-300);
+}
+
+.cost-segment-legend {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  list-style: none;
+}
+
+.cost-segment-legend li {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-body-small);
+}
+
+.cost-segment-legend li::before {
+  width: 0.625rem;
+  height: 0.625rem;
+  content: '';
+  border-radius: 50%;
+}
+
+.cost-segment-legend li.exact::before,
+.cost-segment-legend li.regular-input::before {
+  background: var(--color-brand-700);
+}
+
+.cost-segment-legend li.assumed::before,
+.cost-segment-legend li.output::before {
+  background: var(--color-chart-purple);
+}
+
+.cost-segment-legend li.unpriced::before {
+  background: var(--color-warning-accent);
+}
+
+.cost-segment-legend li.cached-input::before {
+  background: var(--color-brand-300);
+  border: 1px solid var(--color-brand-border);
+}
+
+.cost-segment-legend strong {
+  color: var(--color-text);
+}
+
+.cost-trend {
+  margin: 0;
+}
+
+.cost-trend-scroll {
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.cost-trend-plot {
+  position: relative;
+  min-width: 34rem;
+}
+
+.cost-trend-bars {
+  height: 10rem;
+  padding: var(--space-2) var(--space-3) 0;
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-1);
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(33.333% - 1px),
+    var(--color-border) 33.333%
+  );
+  border-bottom: 1px solid var(--color-border);
+}
+
+.cost-trend-column {
+  min-width: 0.75rem;
+  flex: 1;
+  display: flex;
+}
+
+.cost-trend-target {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  outline: none;
+  border-radius: var(--radius-control);
+}
+
+.cost-trend-target:hover,
+.cost-trend-target:focus-visible {
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+
+.cost-trend-target.unavailable {
+  border: 1px dashed var(--color-warning-border);
+}
+
+.cost-trend-bar {
+  width: 100%;
+  display: block;
+  background: var(--color-brand-700);
+  border-radius: var(--radius-control) var(--radius-control) 0 0;
+  transition: height var(--duration-fast) ease;
+}
+
+.cost-trend-axis {
+  margin: var(--space-1) var(--space-3) 0;
+  display: flex;
+  justify-content: space-between;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-label);
+}
+
+.cost-trend-tooltip {
+  position: absolute;
+  right: var(--space-3);
+  top: var(--space-3);
+  z-index: 2;
+  min-width: 13rem;
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-1);
+  color: var(--color-text);
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-overlay);
+  font-size: var(--font-size-body-small);
+  pointer-events: none;
+}
+
+.cost-trend-tooltip > span {
+  color: var(--color-brand-700);
+  font-weight: 700;
+}
+
+.cost-trend-tooltip dl {
+  margin: var(--space-1) 0 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.cost-trend-tooltip dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.cost-trend-empty {
   min-height: 8rem;
   margin: 0;
   display: grid;
@@ -4783,12 +5041,18 @@ code {
     grid-column: auto;
   }
 
-  .cache-efficiency-summary {
+  .cost-efficiency-card {
+    grid-column: auto;
+  }
+
+  .cache-efficiency-summary,
+  .cost-efficiency-summary {
     grid-template-columns: 1fr;
     align-items: stretch;
   }
 
-  .cache-efficiency-stats {
+  .cache-efficiency-stats,
+  .cost-efficiency-stats {
     grid-template-columns: 1fr;
   }
 
@@ -4840,7 +5104,9 @@ code {
   }
 
   .cache-composition-cached,
-  .cache-composition-uncached {
+  .cache-composition-uncached,
+  .cost-segment-track > span,
+  .cost-trend-bar {
     transition: none;
   }
 }
