@@ -1,13 +1,17 @@
 /* Application shell, navigation, and toolbar rules. */
 
 .app-frame {
+  height: 100vh;
   min-height: 100vh;
   display: grid;
   grid-template-columns: 11.5rem minmax(0, 1fr);
+  grid-template-rows: var(--title-bar-height) minmax(0, 1fr);
+  overflow: hidden;
   background: var(--color-surface);
 }
 
 .sidebar {
+  grid-row: 1 / -1;
   position: sticky;
   top: 0;
   height: 100vh;
@@ -27,6 +31,50 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  -webkit-app-region: drag;
+}
+
+.title-bar {
+  height: var(--title-bar-height);
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.window-controls {
+  display: flex;
+  align-items: stretch;
+  -webkit-app-region: no-drag;
+}
+
+.window-control {
+  width: 2.875rem;
+  height: 100%;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  -webkit-app-region: no-drag;
+  transition:
+    color var(--duration-fast) ease,
+    background-color var(--duration-fast) ease;
+}
+
+.window-control:hover {
+  color: var(--color-text);
+  background: var(--color-surface-subtle);
+}
+
+.window-control--close:hover {
+  color: var(--color-text-on-brand);
+  background: var(--color-danger-accent);
 }
 
 .sidebar-brand strong {
@@ -285,14 +333,27 @@
 @media (max-width: 760px) {
   .app-frame {
     grid-template-columns: 1fr;
+    grid-template-rows: var(--title-bar-height) auto minmax(0, 1fr);
+  }
+
+  .title-bar {
+    grid-column: 1;
+    grid-row: 1;
   }
 
   .sidebar {
+    grid-column: 1;
+    grid-row: 2;
     height: auto;
     max-height: 100vh;
     min-height: auto;
     padding: var(--space-4) var(--space-3);
     border-bottom: 1px solid var(--color-brand-700);
+  }
+
+  .main-panel {
+    grid-column: 1;
+    grid-row: 3;
   }
 
   .nav-list {

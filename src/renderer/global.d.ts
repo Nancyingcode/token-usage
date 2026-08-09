@@ -18,6 +18,7 @@ import type {
   UsageDataPathSettings,
   UsageDataPathUpdateResult,
 } from '../shared/usageDataPathTypes';
+import type { WindowState } from '../shared/windowTypes';
 
 interface BudgetApi {
   getSnapshot: () => Promise<BudgetSnapshot>;
@@ -45,6 +46,14 @@ interface CostOptimizationApi {
   onUpdated: (listener: (snapshot: CostOptimizationSnapshot) => void) => () => void;
 }
 
+interface WindowControlApi {
+  minimize: () => Promise<void>;
+  toggleMaximize: () => Promise<WindowState>;
+  close: () => Promise<void>;
+  getState: () => Promise<WindowState>;
+  onStateChanged: (listener: (state: WindowState) => void) => () => void;
+}
+
 interface CodexUsageApi {
   scan: () => Promise<UsageScanResult>;
   onUsageUpdated: (listener: (result: UsageScanResult) => void) => () => void;
@@ -55,6 +64,7 @@ interface CodexUsageApi {
     reset: () => Promise<UsageDataPathUpdateResult>;
   };
   openExternal: (url: string) => Promise<void>;
+  window: WindowControlApi;
   locale: LocaleApi;
   budgets: BudgetApi;
   costOptimization: CostOptimizationApi;

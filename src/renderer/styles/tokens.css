@@ -63,6 +63,7 @@
   --radius-overlay: 1rem;
   --control-height-compact: 2rem;
   --control-height-default: 2.25rem;
+  --title-bar-height: 2.5rem;
   --shadow-overlay: 0 1.25rem 3.5rem rgba(16, 43, 39, 0.16);
   --shadow-card: 0 0.0625rem 0.125rem rgba(16, 43, 39, 0.04);
   --shadow-control: 0 0.0625rem 0.25rem rgba(16, 43, 39, 0.1);

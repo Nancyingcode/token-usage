@@ -27,13 +27,10 @@ import { createUsageScanner } from './usageScanner';
 import { createUsageRuntime } from './usageRuntime';
 import { createUsageDataPathService } from './usageDataPathService';
 import { createUsageDataPathStore } from './usageDataPathStore';
+import { createMainWindowOptions } from './windowConfig';
+import { registerWindowControlIpc, registerWindowStateEvents } from './windowControls';
 
 const CURRENT_DIRECTORY = fileURLToPath(new URL('.', import.meta.url));
-const DEFAULT_WINDOW_WIDTH = 1280;
-const DEFAULT_WINDOW_HEIGHT = 820;
-const MINIMUM_WINDOW_WIDTH = 1024;
-const MINIMUM_WINDOW_HEIGHT = 680;
-const WINDOW_BACKGROUND_COLOR = '#f8f7f4';
 const BUDGET_CONFIG_FILENAME = 'budget-config.json';
 const COST_OPTIMIZATION_CONFIG_FILENAME = 'cost-optimization-config.json';
 const COST_OPTIMIZATION_CACHE_FILENAME = 'cost-optimization-cache.json';
@@ -44,6 +41,7 @@ let mainWindow: BrowserWindow | null = null;
 let budgetRuntime: BudgetRuntime | undefined;
 let applicationRuntime: ApplicationRuntime | undefined;
 let unregisterIpc: (() => void) | undefined;
+let unregisterWindowControls: (() => void) | undefined;
 
 const focusMainWindow = (): void => {
   if (!mainWindow || mainWindow.isDestroyed()) {
@@ -73,25 +71,19 @@ const selectUsageDataDirectory = async (defaultPath: string): Promise<string | n
 
 const createWindow = (runtime: ApplicationRuntime): BrowserWindow => {
   const menuPolicy = getApplicationMenuPolicy(app.isPackaged);
-  const window = new BrowserWindow({
-    width: DEFAULT_WINDOW_WIDTH,
-    height: DEFAULT_WINDOW_HEIGHT,
-    minWidth: MINIMUM_WINDOW_WIDTH,
-    minHeight: MINIMUM_WINDOW_HEIGHT,
-    backgroundColor: WINDOW_BACKGROUND_COLOR,
-    autoHideMenuBar: menuPolicy.autoHideMenuBar,
-    webPreferences: {
-      preload: join(CURRENT_DIRECTORY, '../preload/preload.mjs'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: false,
-    },
-  });
+  const window = new BrowserWindow(
+    createMainWindowOptions({
+      preloadPath: join(CURRENT_DIRECTORY, '../preload/preload.mjs'),
+      autoHideMenuBar: menuPolicy.autoHideMenuBar,
+    })
+  );
+  const unregisterWindowStateListeners = registerWindowStateEvents(window);
 
   window.on('focus', () => {
     void runtime.refreshOnFocus().catch(() => undefined);
   });
   window.on('closed', () => {
+    unregisterWindowStateListeners();
     if (mainWindow === window) {
       mainWindow = null;
     }
@@ -183,6 +175,7 @@ const initializeApplication = async (): Promise<void> => {
     selectUsageDataDirectory,
     getWindow: () => mainWindow,
   });
+  unregisterWindowControls = registerWindowControlIpc();
 
   const menuPolicy = getApplicationMenuPolicy(app.isPackaged);
   if (menuPolicy.removeApplicationMenu) {
@@ -205,6 +198,8 @@ app.on('before-quit', () => {
   applicationRuntime?.stop();
   unregisterIpc?.();
   unregisterIpc = undefined;
+  unregisterWindowControls?.();
+  unregisterWindowControls = undefined;
 });
 
 app.on('window-all-closed', () => {

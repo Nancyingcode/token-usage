@@ -11,6 +11,12 @@ export const zhCN = {
       title: 'Codex Token 用量',
       daemon: '守护进程',
     },
+    windowControls: {
+      minimize: '最小化',
+      maximize: '最大化',
+      restore: '还原',
+      close: '关闭',
+    },
     navigation: {
       label: '主导航',
       group: {

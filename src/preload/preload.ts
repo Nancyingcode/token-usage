@@ -24,6 +24,11 @@ import {
   USAGE_DATA_PATH_UPDATE_CHANNEL,
   USAGE_SCAN_CHANNEL,
   USAGE_UPDATED_CHANNEL,
+  WINDOW_CLOSE_CHANNEL,
+  WINDOW_GET_STATE_CHANNEL,
+  WINDOW_MINIMIZE_CHANNEL,
+  WINDOW_STATE_CHANGED_CHANNEL,
+  WINDOW_TOGGLE_MAXIMIZE_CHANNEL,
 } from '../shared/ipcChannels';
 import type {
   CostOptimizationIpcResponse,
@@ -47,6 +52,7 @@ import type {
   UsageDataPathSettings,
   UsageDataPathUpdateResult,
 } from '../shared/usageDataPathTypes';
+import type { WindowState } from '../shared/windowTypes';
 
 const subscribe = <Payload>(
   channel: string,
@@ -96,6 +102,14 @@ contextBridge.exposeInMainWorld('codexUsage', {
       invokeUsageDataPath(USAGE_DATA_PATH_RESET_CHANNEL),
   },
   openExternal: (url: string): Promise<void> => ipcRenderer.invoke(OPEN_EXTERNAL_CHANNEL, url),
+  window: {
+    minimize: (): Promise<void> => ipcRenderer.invoke(WINDOW_MINIMIZE_CHANNEL),
+    toggleMaximize: (): Promise<WindowState> => ipcRenderer.invoke(WINDOW_TOGGLE_MAXIMIZE_CHANNEL),
+    close: (): Promise<void> => ipcRenderer.invoke(WINDOW_CLOSE_CHANNEL),
+    getState: (): Promise<WindowState> => ipcRenderer.invoke(WINDOW_GET_STATE_CHANNEL),
+    onStateChanged: (listener: (state: WindowState) => void): (() => void) =>
+      subscribe(WINDOW_STATE_CHANGED_CHANNEL, listener),
+  },
   locale: {
     get: (): Promise<SupportedLocale> => ipcRenderer.invoke(LOCALE_GET_CHANNEL),
     set: (locale: SupportedLocale): Promise<SupportedLocale> =>

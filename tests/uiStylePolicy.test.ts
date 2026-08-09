@@ -85,4 +85,14 @@ describe('UI style policy', () => {
     expect(sidebarRule).toContain('height: 100vh;');
     expect(sidebarRule).toContain('overflow-y: auto;');
   });
+
+  it('defines draggable title bar space without making controls draggable', () => {
+    const shell = readRendererStyle('styles/shell.css');
+    const titleBarRule = shell.match(/\.title-bar\s*\{([^}]*)\}/)?.[1] ?? '';
+    const controlRule = shell.match(/\.window-control\s*\{([^}]*)\}/)?.[1] ?? '';
+
+    expect(titleBarRule).toContain('-webkit-app-region: drag;');
+    expect(controlRule).toContain('-webkit-app-region: no-drag;');
+    expect(shell).toContain('.window-control--close:hover');
+  });
 });

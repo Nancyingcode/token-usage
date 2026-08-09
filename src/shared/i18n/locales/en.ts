@@ -13,6 +13,12 @@ export const en = {
       title: 'Codex Token Usage',
       daemon: 'Daemon',
     },
+    windowControls: {
+      minimize: 'Minimize',
+      maximize: 'Maximize',
+      restore: 'Restore',
+      close: 'Close',
+    },
     navigation: {
       label: 'Primary navigation',
       group: {

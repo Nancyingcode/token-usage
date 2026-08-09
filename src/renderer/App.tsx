@@ -13,6 +13,7 @@ import type {
 import AppContent from './components/AppContent';
 import Sidebar, { type ViewKey } from './components/Sidebar';
 import Toolbar from './components/Toolbar';
+import TitleBar from './components/TitleBar';
 import { useBudgetSnapshot } from './hooks/useBudgetSnapshot';
 import { useCostOptimizationSnapshot } from './hooks/useCostOptimizationSnapshot';
 import { useSessionDiagnosisDetail } from './hooks/useSessionDiagnosisDetail';
@@ -245,6 +246,7 @@ const App: React.FC = () => {
         warningCount={warningCount}
         budgetAlertCount={budgetAlertCount}
       />
+      <TitleBar />
       <main className="main-panel">
         <Toolbar
           activeView={activeView}
