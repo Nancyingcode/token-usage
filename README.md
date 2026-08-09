@@ -1,305 +1,206 @@
 # Codex Token Usage
 
-## 成本优化
+Codex Token Usage 是一款基于 Electron 的本地桌面分析工具。它以只读方式扫描 Codex 会话日志，按日期、项目和会话统计 Token 用量，并提供费用估算、预算预警、性能分析和成本优化建议。
 
-“成本优化”是独立的分析工作台，支持按全局周期和项目筛选本地 Codex 用量，并提供六个标签：
-
-- 总览：当前费用、定价覆盖率、期末预测、异常数量和保守节省额
-- 模型对比：实际模型成本与可配置候选模型的价格替代情景
-- 异常消耗：按日、项目、模型和会话分层检测，并展示基线与贡献证据链
-- 会话诊断：排列高影响会话，并解释输入增长、缓存复用下降、生成占比集中、模型成本主导和交互累积五类原因
-- 趋势预测：显示预测值、80% 经验区间和预计预算穿越日期
-- 节省建议：提供金额、计算依据、置信度、风险和重叠去重后的保守总额
-
-模型替代只比较相同 Token 用量下的价格差异，不代表质量、速度或能力等价，应用建议前必须结合实际工作负载验证。
-
-### 会话高消耗诊断
-
-“会话诊断”默认显示“需要关注”的高影响会话，也可以切换到全部会话，并按主要原因、严重程度和置信度筛选。打开某一项后，详情会依次展示主要原因、关键证据、输入/输出/推理与缓存率分轨时间线、其他发现，以及五个检测器的完整结果。从 Sessions 页点击原因徽标，也会切换到同一会话详情。
-
-五类原因分别是：输入 Token 足迹放大、缓存复用信号下降、输出或推理占比集中、模型成本主导，以及用量事件累积。每个检测器都会明确标记为“已发现”“未发现”“数据不足”或“不适用”，不会把缺少历史、切片或价格的数据误报为正常。
-
-诊断只使用会话 ID、时间、项目、模型、Token 数量、事件数量和本地估算费用等元数据，不读取或展示提示词、回复正文。定价不完整时仍会保留 Token 诊断，但只显示已计价费用和覆盖率，不生成完整费用结论，也不输出模型成本主导结论。
-
-所有费用均根据本地日志和当前模型价格表估算，不代表 OpenAI 实际账单。
-
-异常检测默认使用 28 个历史观察，至少需要 7 个样本。趋势预测至少需要 7 天历史数据；达到 28 天后，会在数据允许时加入星期周期。定价覆盖率低于默认安全阈值 80% 时，界面不会展示完整费用预测或汇总节省金额，而是提示先补全模型价格。
-
-成本优化会在 Electron 的 `userData` 目录维护两个版本化文件：
-
-```text
-<Electron userData>\cost-optimization-config.json
-<Electron userData>\cost-optimization-cache.json
-```
-
-配置文件保存分析参数，缓存文件保存可安全重建的增量成本索引。两者都不会修改 Codex 会话数据；应用始终以只读方式扫描 `%USERPROFILE%\.codex\sessions`，缓存损坏时可从当前会话文件重新构建。
-
-Codex Token Usage 是一个基于 Electron 的本地桌面统计工具，用于自动扫描本机 Codex 会话数据，并按日期、项目和会话展示 Token 消耗情况。
-
-应用只读取本地文件，不修改 Codex 数据，也不会上传统计结果。
-
-## 核心功能
-
-### 自动扫描 Codex 会话
-
-应用启动后会自动扫描当前用户目录下的 Codex 会话文件：
-
-```text
-%USERPROFILE%\.codex\sessions
-```
-
-系统会递归读取 `rollout-*.jsonl` 文件，并解析其中的 `token_count` 事件，生成统一的统计结果。
-
-### Token 消耗统计
-
-系统会统计以下 Token 指标：
-
-- 总 Token
-- 输入 Token
-- 缓存输入 Token
-- 输出 Token
-- 推理输出 Token
-- 会话数量
-- 项目数量
-
-统计口径优先使用 Codex 事件里的 `last_token_usage` 作为增量累加；如果会话中缺少增量数据，则使用最大的 `total_token_usage` 快照作为兜底。
-
-### 按日期统计
-
-Overview 页面会展示每日 Token 消耗趋势，帮助查看近期使用高峰和变化情况。
-
-主要展示内容：
-
-- 总成本估算
-- Token 总量
-- 缓存命中占比
-- 会话数量
-- 每日趋势图
-- Activity 活跃度热力图
-
-成本根据会话中记录的模型和 Budgets 价格表估算。无法识别价格的模型会保留 Token
-统计，并将费用标记为未计价，不会静默套用统一费率。
-
-### 按项目统计
-
-Projects（项目）页面会按项目路径聚合 Token 消耗，适合查看哪些项目使用 Codex 最多。
-
-每个项目会展示：
-
-- 项目名称
-- Token 占比
-- 会话数量
-- Token 总量
-- 最后活跃时间
-
-项目名称默认取工作目录路径的最后一段。
-
-### 按会话统计
-
-Sessions 页面会列出每个 Codex 会话的详细消耗。
-
-每条会话记录包含：
-
-- 会话名称或会话 ID
-- 所属项目
-- 开始时间
-- 输入 Token
-- 缓存 Token
-- 输出 Token
-- 总 Token
-- 解析状态
-
-已经获得主要诊断结论的会话会显示带文字的原因徽标；点击后进入“成本优化 → 会话诊断”的对应详情。
-
-如果某个 JSONL 文件存在损坏行或部分解析失败，系统会保留可用数据，并在状态列显示 warning。
-
-### 性能视图
-
-Performance 页面提供更偏分析型的视图，用于快速观察使用效率。
-
-包含模块：
-
-- Cache Hit Rate：缓存命中率
-- Cost Efficiency：按模型价格估算的成本趋势
-- Peak Hours：使用高峰时间
-- Error Rate：应用级错误比例，解析 warning 不会计为应用错误
-
-这些指标都基于本地 Codex 会话数据派生。
-
-### 预算控制
-
-Budgets 页面用于同时控制 Token 消耗和预估费用：
-
-- 支持全局和项目级预算
-- 每个作用域均支持日、周、月自然周期
-- Token 与预估费用限额可独立设置，也可以同时启用
-- 默认在用量达到 80% 和 100% 时预警，两个全局阈值均可修改
-- 支持应用内预警、侧栏徽标和 Windows 系统通知
-- 相同预算在同一周期、同一阈值只发送一次系统通知
-- 可按状态、作用域、周期和指标筛选预算
-
-应用运行时每 60 秒刷新一次统计，窗口重新获得焦点时也会触发刷新。删除或修改预算只会更新应用配置，不会改动 `%USERPROFILE%\.codex\sessions`。
-
-### 模型价格与未计价数据
-
-应用内置 Codex 常用模型的输入、缓存输入和输出 Token 单价，也允许在 Model Pricing 中覆盖内置价格或为带有具体 Model ID 的新模型补充价格。价格覆盖保存后，预算状态和费用估算会立即重新计算。
-
-“未知模型兜底计价”用于日志完全缺少 Model ID 的情况。该规则默认关闭，只能由用户显式设置输入、缓存输入和输出单价；应用不会根据相近模型自动猜测。兜底规则不会应用于带有具体但未定价 Model ID 的用量，后者仍需按真实 ID 单独补价。
-
-启用兜底规则后，相应费用会参与汇总、预算、异常和预测，但界面始终标记为“包含未知模型假设”，并分别展示精确覆盖率与假设占比。缺失模型身份的数据不会成为模型替换建议的来源，也不会生成模型费用主导诊断。停用规则后，相关历史 Token 会立即恢复为未计价，原始会话数据不会被修改。
-
-没有任何价格规则覆盖的 Token 会正常计入总量与 Token 预算，但不会计入已计价费用。界面会显示 `Pricing incomplete` 和未计价 Token 数量，并提供进入价格编辑页的入口。
-
-预估费用基于本地 Codex 日志和模型价格表，不代表 OpenAI 实际账单。当前日志无法完整表达长上下文倍率、缓存写入费等账单条件，因此这类附加计价不会被推断。
-
-### 刷新与本地配置
-
-预算规则、全局阈值、模型价格覆盖和通知去重记录由 Electron 主进程写入版本化 JSON 配置：
-
-```text
-<Electron userData>\budget-config.json
-```
-
-配置写入采用临时文件替换方式；配置损坏时会保留备份并恢复默认值。会话扫描使用文件指纹缓存，只重新解析新增或发生变化的日志文件。
-
-### 本地隐私边界
-
-系统设计为本地只读工具：
-
-- 不上传数据
-- 不编辑 Codex 会话文件
-- 不删除任何 Codex 数据
-- Renderer 不直接访问文件系统
-- 文件扫描只在 Electron 主进程中执行
-
-## 界面结构
-
-应用界面包含 7 个主要入口：
-
-- Overview：整体统计、趋势图、活跃度热力图
-- Sessions：会话级明细
-- Projects（项目）：项目级统计
-- Performance：缓存、成本、高峰和错误率分析
-- Budgets：预算状态、预警、规则编辑和模型价格维护
-- Cost Optimization：成本分析、异常、预测、节省建议和会话诊断
-- Settings（设置）：数据路径、隐私说明和扫描 warning
-
-界面采用 Quiet Pro · Signature 视觉体系，以深墨绿品牌侧栏、克制的状态色和高信息密度布局保持专业、低干扰的桌面体验。所有会话数据均在本地以只读方式扫描；界面显示的费用来自本地日志与模型价格表估算，不代表 OpenAI 实际账单。
-
-## 技术栈
-
-- Electron
-- React
-- TypeScript
-- Vite
-- electron-vite
-- electron-builder
-- Vitest
-- lucide-react
+应用默认读取 `%USERPROFILE%\.codex\sessions`，也可以在设置中选择其他 Codex 会话目录。会话数据不会被修改或上传；所有费用均由本地日志和模型价格表估算，不代表 OpenAI 实际账单。
 
 ## 开发运行
+
+环境要求：Windows、Node.js 和 npm。
 
 安装依赖：
 
 ```powershell
-& 'C:\Program Files\nodejs\npm.cmd' install
+npm install
 ```
 
 启动开发模式：
 
 ```powershell
-& 'C:\Program Files\nodejs\npm.cmd' run dev
+npm run dev
 ```
 
-## 构建
-
-构建 Electron/Vite 产物：
+构建 Electron/Vite 运行产物：
 
 ```powershell
-& 'C:\Program Files\nodejs\npm.cmd' run build
+npm run build
 ```
 
-构建后的运行产物位于：
+构建结果位于 `out\`。
 
-```text
-out\
-```
+> 如果 `npm` 未加入 `PATH`，可在 PowerShell 中将上述命令的 `npm` 替换为 `& 'C:\Program Files\nodejs\npm.cmd'`。
 
 ## Windows 打包
 
 生成 Windows 安装包：
 
 ```powershell
-& 'C:\Program Files\nodejs\npm.cmd' run build:win
+npm run build:win
 ```
 
-安装包输出目录：
+该命令会先执行完整构建，再调用 electron-builder 打包。安装包输出到 `dist\`，典型文件名为：
 
 ```text
-dist\
+dist\codex-token-usage Setup <version>.exe
 ```
 
-典型输出文件：
-
-```text
-dist\codex-token-usage Setup 0.1.0.exe
-```
-
-## 测试
+## 测试与质量检查
 
 运行单元测试：
 
 ```powershell
-& 'C:\Program Files\nodejs\npm.cmd' test
+npm test
 ```
 
-运行类型检查：
+运行 TypeScript 类型检查：
 
 ```powershell
-& 'C:\Program Files\nodejs\npm.cmd' run typecheck
+npm run typecheck
 ```
 
-当前测试覆盖：
+运行 ESLint 和 Prettier 检查：
 
-- Token 字段累加
-- 按日期和项目聚合
-- Codex JSONL 会话解析
-- `last_token_usage` 增量统计
-- `total_token_usage` 兜底统计
-- 损坏 JSONL 行的 warning 处理
-- 日、周、月自然周期计算
-- 全局与项目预算评估
-- Token 和费用阈值预警
-- 模型计价、价格覆盖与未知模型处理
-- 配置持久化、扫描缓存和通知去重
-- 会话诊断候选排名、五类原因、详情状态、时间线和跨页面导航
+```powershell
+npm run lint
+```
 
-## 数据解析说明
+提交前建议依次完成：
 
-系统主要读取两类数据：
+```powershell
+npm test
+npm run typecheck
+npm run lint
+```
 
-### session_meta
+当前测试覆盖的主要领域包括：
 
-用于识别：
+- Codex JSONL 解析、损坏行容错和扫描缓存
+- `last_token_usage` 增量累加与 `total_token_usage` 快照兜底
+- 按日期、项目和会话聚合 Token 用量
+- 日、周、月预算周期，Token/费用阈值和通知去重
+- 模型计价、价格覆盖和未知模型处理
+- 成本异常、趋势预测、节省建议和会话诊断
+- Renderer 视图、交互、国际化与可访问性
+- Electron 主进程、IPC、窗口行为和本地配置持久化
 
-- 会话 ID
-- 工作目录
-- 会话开始时间
-- Codex 来源信息
+## 核心功能
 
-### token_count
+### 本地会话扫描
 
-用于提取：
+应用会递归扫描 `rollout-*.jsonl` 文件，并解析 `session_meta` 与 `token_count` 事件：
 
-- `last_token_usage`
-- `total_token_usage`
-- 输入、缓存、输出、推理输出和总 Token
+- `session_meta`：识别会话 ID、工作目录、开始时间和 Codex 来源信息
+- `token_count`：提取输入、缓存输入、输出、推理输出和总 Token
 
-如果同时存在 `last_token_usage` 和 `total_token_usage`，系统以 `last_token_usage` 累加结果为准。
+统计优先累加 `last_token_usage`；会话缺少增量数据时，使用最大的 `total_token_usage` 快照兜底。部分 JSONL 行损坏不会中断整次扫描，可用数据会被保留并产生 warning。
+
+扫描结果包含总 Token、输入 Token、缓存输入 Token、输出 Token、推理输出 Token、会话数和项目数。应用运行期间每 60 秒刷新一次，窗口重新获得焦点时也会触发刷新；文件指纹缓存只重新解析新增或发生变化的日志。
+
+### 用量与性能分析
+
+- **Overview**：总量、费用估算、缓存命中占比、会话数、每日趋势和活跃度热力图
+- **Sessions**：会话级输入、缓存、输出、总量、所属项目和解析状态
+- **Projects**：按工作目录聚合项目用量、Token 占比、会话数和最后活跃时间
+- **Performance**：缓存命中率、成本效率、使用高峰和应用级错误率
+
+无法识别价格的模型仍会保留 Token 统计，并明确标记为未计价，不会静默套用统一费率。
+
+### 预算与模型价格
+
+Budgets 支持：
+
+- 全局和项目级预算
+- 日、周、月自然周期
+- 独立或同时设置 Token 与预估费用限额
+- 可配置的预警阈值（默认 80% 和 100%）
+- 应用内提示、侧栏徽标和 Windows 系统通知
+- 按状态、作用域、周期和指标筛选预算
+- 覆盖内置模型价格，或为具体 Model ID 补充价格
+
+相同预算在同一周期、同一阈值只发送一次系统通知。修改预算或价格只会更新应用配置，不会改动 Codex 会话数据。
+
+没有价格规则覆盖的 Token 会计入总量和 Token 预算，但不会计入已计价费用。界面会显示 `Pricing incomplete`、定价覆盖率和未计价 Token 数量。
+
+“未知模型兜底计价”仅用于日志完全缺少 Model ID 的情况，默认关闭且必须由用户显式配置。它不会应用于已有具体但尚未定价的 Model ID，也不会根据相近模型自动猜测价格。启用后，界面会持续标记费用包含未知模型假设；停用后，相关历史 Token 会立即恢复为未计价。
+
+### 成本优化
+
+Cost Optimization 是独立的分析工作台，可按全局周期和项目筛选本地用量，包含六个标签：
+
+- **总览**：当前费用、定价覆盖率、期末预测、异常数量和保守节省额
+- **模型对比**：比较相同 Token 用量下实际模型与候选模型的价格情景
+- **异常消耗**：按日、项目、模型和会话检测异常，并展示基线与贡献证据
+- **会话诊断**：定位输入增长、缓存复用下降、生成占比集中、模型成本主导和交互累积
+- **趋势预测**：展示预测值、80% 经验区间和预计预算穿越日期
+- **节省建议**：展示金额、计算依据、置信度、风险和去重后的保守总额
+
+模型对比只反映价格差异，不代表质量、速度或能力等价，应用建议前应结合实际工作负载验证。
+
+#### 会话高消耗诊断
+
+会话诊断默认展示需要关注的高影响会话，也可以查看全部会话，并按主要原因、严重程度和置信度筛选。详情包含主要原因、关键证据、输入/输出/推理与缓存率时间线、其他发现，以及五类检测器的完整结果。从 Sessions 页点击原因徽标可直接打开对应诊断。
+
+每个检测器会明确标记为“已发现”“未发现”“数据不足”或“不适用”。诊断只使用会话 ID、时间、项目、模型、Token 数量、事件数量和本地估算费用等元数据，不读取或展示提示词、回复正文。
+
+异常检测默认使用 28 个历史观察且至少需要 7 个样本。趋势预测至少需要 7 天历史数据；达到 28 天后，会在数据允许时加入星期周期。定价覆盖率低于默认安全阈值 80% 时，不会生成完整费用预测、汇总节省金额或模型成本主导结论。
+
+## 界面结构
+
+侧栏包含七个主要入口：
+
+- Overview：整体统计、趋势图和活跃度热力图
+- Sessions：会话级用量明细与诊断入口
+- Projects（项目）：项目级聚合统计
+- Performance：缓存、成本、高峰和错误率分析
+- Cost Optimization：异常、预测、节省建议和会话诊断
+- Budgets：预算状态、规则编辑、预警和模型价格维护
+- Settings（设置）：会话数据路径、隐私说明和扫描 warning
+
+界面支持英文和简体中文，并使用本地 locale 格式化金额、百分比和日期。
+
+## 数据与隐私
+
+系统遵循本地只读边界：
+
+- 不上传统计结果或会话数据
+- 不编辑、删除 Codex 会话文件
+- Renderer 不直接访问文件系统
+- 文件扫描和配置读写由 Electron 主进程负责
+- 自定义会话目录只改变扫描来源，不改变原始数据
+
+默认数据源为：
+
+```text
+%USERPROFILE%\.codex\sessions
+%USERPROFILE%\.codex\session_index.jsonl
+```
+
+在 Electron `userData` 目录中，应用维护以下版本化配置和可重建缓存：
+
+```text
+<Electron userData>\budget-config.json
+<Electron userData>\cost-optimization-config.json
+<Electron userData>\cost-optimization-cache.json
+<Electron userData>\locale-preferences.json
+<Electron userData>\usage-data-path.json
+```
+
+预算、成本优化参数、语言和自定义数据路径保存在配置文件中；成本优化缓存损坏时可由现有会话日志重新构建。
+
+## 技术栈
+
+- Electron
+- React
+- TypeScript
+- Vite / electron-vite
+- electron-builder
+- Vitest / Testing Library
+- i18next
+- lucide-react
 
 ## 注意事项
 
-- 如果 `%USERPROFILE%\.codex\sessions` 不存在，应用会显示空状态。
-- 如果部分 JSONL 行损坏，应用不会崩溃，会跳过损坏行并记录 warning。
-- GitHub 发布或安装依赖时，如果遇到网络重置，可以检查本机代理和 Git/npm 网络配置。
-- 费用估算是基于本地日志与价格表的派生值，不代表实际账单。
+- 默认会话目录不存在或没有可解析会话时，应用会显示空状态。
+- 部分 JSONL 行损坏时，应用会跳过损坏行、保留可用数据并记录 warning。
+- 预估费用不代表 OpenAI 实际账单，也不会推断日志中无法完整表达的长上下文倍率、缓存写入费等附加计价条件。
+- 安装依赖或访问 GitHub 时遇到网络重置，请检查本机代理以及 Git/npm 网络配置。
