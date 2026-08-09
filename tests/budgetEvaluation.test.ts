@@ -222,6 +222,7 @@ const makeSession = (projectPath: string, usageSlices: UsageSlice[]): UsageSessi
     endedAt: usageSlices.at(-1)?.occurredAt ?? '2026-07-20T00:00:00.000Z',
     projectPath,
     projectName: getProjectName(projectPath),
+    turnOutcomes: [],
     usageSlices,
     ...totals,
     eventCount: usageSlices.length,

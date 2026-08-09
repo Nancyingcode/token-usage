@@ -220,6 +220,7 @@ const makeScanResult = (
     endedAt: timestamp,
     projectPath: 'C:\\repo',
     projectName: 'repo',
+    turnOutcomes: [],
     usageSlices: [
       {
         occurredAt: timestamp,

@@ -22,6 +22,7 @@ const makeSession = (): UsageSession => {
     endedAt: occurredAt,
     projectPath: 'C:\\repo',
     projectName: 'repo',
+    turnOutcomes: [],
     usageSlices: [
       {
         occurredAt,

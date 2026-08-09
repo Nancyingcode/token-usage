@@ -109,6 +109,7 @@ export const makeDiagnosisSourceChange = (
     endedAt: slices.at(-1)?.occurredAt ?? startedAt,
     projectPath,
     projectName: projectPath.split('\\').pop() || 'Unknown Project',
+    turnOutcomes: [],
     usageSlices: slices.map((slice) => ({ ...slice })),
     ...sumSlices(slices),
     eventCount: slices.length,

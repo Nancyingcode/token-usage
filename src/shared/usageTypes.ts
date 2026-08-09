@@ -26,6 +26,21 @@ export interface UsageSlice extends TokenUsage {
   modelId?: string;
 }
 
+export type UsageTurnStatus = 'completed' | 'failed' | 'interrupted';
+
+export interface UsageTurnError {
+  code?: string;
+  message: string;
+}
+
+export interface UsageTurnOutcome {
+  turnId?: string;
+  occurredAt: string;
+  status: UsageTurnStatus;
+  interruptReason?: string;
+  error?: UsageTurnError;
+}
+
 export interface UsageSession extends TokenUsage {
   sessionId: string;
   startedAt: string;
@@ -34,6 +49,7 @@ export interface UsageSession extends TokenUsage {
   projectName: string;
   threadName?: string;
   usageSlices: UsageSlice[];
+  turnOutcomes: UsageTurnOutcome[];
   eventCount: number;
   sourceFile: string;
   warnings: UsageWarning[];

@@ -130,6 +130,7 @@ const makeSession = (
   endedAt: startedAt,
   projectPath,
   projectName: projectPath.split('\\').pop() ?? projectPath,
+  turnOutcomes: [],
   usageSlices: [],
   inputTokens: totalTokens,
   cachedInputTokens: 0,

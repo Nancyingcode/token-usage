@@ -30,6 +30,7 @@ const makeSession = (
   endedAt: startedAt,
   projectPath: 'C:\\repo',
   projectName: 'repo',
+  turnOutcomes: [],
   usageSlices,
   inputTokens: totalTokens,
   cachedInputTokens: 0,

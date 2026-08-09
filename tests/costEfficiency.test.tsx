@@ -148,6 +148,7 @@ const makeSession = (sessionId: string, usageSlices: UsageSlice[]): UsageSession
   endedAt: usageSlices.at(-1)?.occurredAt ?? '2026-08-04T00:00:00.000Z',
   projectPath: 'C:\\repo',
   projectName: 'repo',
+  turnOutcomes: [],
   usageSlices,
   inputTokens: usageSlices.reduce((total, slice) => total + slice.inputTokens, 0),
   cachedInputTokens: usageSlices.reduce((total, slice) => total + slice.cachedInputTokens, 0),

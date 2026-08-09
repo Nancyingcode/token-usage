@@ -221,6 +221,7 @@ const toSourceChange = (
         reasoningOutputTokens: contribution.reasoningOutputTokens,
         totalTokens: contribution.totalTokens,
       })),
+      turnOutcomes: [],
       ...totals,
       eventCount: metadata.eventCount,
       sourceFile: metadata.sourceFile,

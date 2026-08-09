@@ -88,6 +88,7 @@ export const makeSourceChange = (
     endedAt: '2026-07-24T12:00:00.000Z',
     projectPath: 'C:\\repo',
     projectName: 'repo',
+    turnOutcomes: [],
     usageSlices: [
       {
         occurredAt: '2026-07-24T12:00:00.000Z',

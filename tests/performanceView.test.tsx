@@ -13,6 +13,7 @@ const makeSession = (warningCount: number): UsageSession => ({
   projectPath: 'C:\\repo',
   projectName: 'repo',
   usageSlices: [],
+  turnOutcomes: [],
   inputTokens: 10,
   cachedInputTokens: 0,
   outputTokens: 0,
@@ -50,16 +51,55 @@ const makeHourlySession = (hour: number, totalTokens: number): UsageSession => {
 };
 
 describe('PerformanceView', () => {
-  it('keeps application error rate at zero when scan warnings exist', () => {
+  it('keeps scan warnings separate from turn errors', () => {
     const summary = buildUsageSummary([makeSession(3), makeSession(1)]);
     const markup = renderWithI18n(<PerformanceView summary={summary} pricing={PRICING} />);
 
-    expect(markup).toContain('0.00% (0/2)');
-    expect(markup).not.toContain('stroke-dasharray="-');
+    expect(markup).toContain('No assessable turn outcomes');
+    expect(markup).not.toContain('0.00% (0/2)');
     expect(markup).toContain('Pricing incomplete');
     expect(markup).toContain('class="page-header"');
     expect(markup).toContain('class="page-stack"');
     expect(markup).toContain('performance-card-grid');
+  });
+
+  it('renders real completed, failed, and interrupted turn details', () => {
+    const summary = buildUsageSummary([
+      {
+        ...makeSession(0),
+        sessionId: 'turn-outcomes',
+        threadName: 'Turn outcome details',
+        turnOutcomes: [
+          {
+            occurredAt: '2026-08-09T10:00:00.000Z',
+            status: 'completed',
+          },
+          {
+            occurredAt: '2026-08-09T11:00:00.000Z',
+            status: 'failed',
+            error: {
+              code: 'response_stream_disconnected',
+              message: 'Stream disconnected.',
+            },
+          },
+          {
+            occurredAt: '2026-08-09T12:00:00.000Z',
+            status: 'interrupted',
+            interruptReason: 'interrupted',
+          },
+        ],
+      },
+    ]);
+    const markup = renderWithI18n(<PerformanceView summary={summary} pricing={PRICING} />);
+
+    expect(markup).toContain('error-rate-card');
+    expect(markup).toContain('Turn Error Rate');
+    expect(markup).toContain('50%');
+    expect(markup).toContain('Completed turns');
+    expect(markup).toContain('Failed turns');
+    expect(markup).toContain('Interrupted turns');
+    expect(markup).toContain('Stream disconnected.');
+    expect(markup).not.toContain('class="donut"');
   });
 
   it('renders performance metrics in Chinese', () => {

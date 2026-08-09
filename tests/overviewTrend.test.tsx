@@ -112,6 +112,7 @@ const makeSession = (sessionId: string, modelId: string | undefined): UsageSessi
   endedAt: '2026-07-20T10:00:00.000Z',
   projectPath: 'C:\\repo',
   projectName: 'repo',
+  turnOutcomes: [],
   usageSlices: [
     {
       occurredAt: '2026-07-20T10:00:00.000Z',

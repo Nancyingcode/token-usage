@@ -11,7 +11,14 @@ import {
   getProjectIdentity,
   getProjectName,
 } from '../shared/usageMath';
-import type { TokenUsage, UsageSession, UsageSlice, UsageWarning } from '../shared/usageTypes';
+import type {
+  TokenUsage,
+  UsageSession,
+  UsageSlice,
+  UsageTurnError,
+  UsageTurnOutcome,
+  UsageWarning,
+} from '../shared/usageTypes';
 
 interface ParsedLine {
   timestamp?: string;
@@ -28,6 +35,17 @@ const TOKEN_USAGE_KEYS = [
 ] as const;
 
 type TokenUsageRecord = Record<(typeof TOKEN_USAGE_KEYS)[number], number | undefined>;
+
+interface ActiveTurn {
+  key: string;
+  turnId?: string;
+  pendingError?: UsageTurnError;
+}
+
+const TURN_STARTED_EVENT_TYPES = new Set(['task_started', 'turn_started']);
+const TURN_COMPLETE_EVENT_TYPES = new Set(['task_complete', 'turn_complete']);
+const NON_TERMINAL_ERROR_CODES = new Set(['active_turn_not_steerable', 'thread_rollback_failed']);
+const MILLISECONDS_PER_SECOND = 1_000;
 
 const isOptionalString = (value: unknown): value is string | undefined =>
   value === undefined || typeof value === 'string';
@@ -64,6 +82,48 @@ const toTokenUsage = (raw: unknown): TokenUsage | undefined => {
   };
 };
 
+const getOptionalString = (value: unknown): string | undefined =>
+  typeof value === 'string' && value.trim() ? value : undefined;
+
+const getErrorCode = (value: unknown): string | undefined => {
+  const directCode = getOptionalString(value);
+
+  if (directCode) {
+    return directCode;
+  }
+
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  return Object.keys(value)[0];
+};
+
+const toTurnError = (value: unknown): UsageTurnError | undefined => {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const message = typeof value.message === 'string' ? value.message : '';
+  const code = getErrorCode(value.codex_error_info);
+
+  return {
+    ...(code ? { code } : {}),
+    message,
+  };
+};
+
+const errorAffectsTurnStatus = (error: UsageTurnError): boolean =>
+  !error.code || !NON_TERMINAL_ERROR_CODES.has(error.code);
+
+const getTurnEventTimestamp = (record: ParsedLine, field: unknown): string => {
+  if (typeof field === 'number' && Number.isFinite(field)) {
+    return new Date(field * MILLISECONDS_PER_SECOND).toISOString();
+  }
+
+  return record.timestamp || new Date(0).toISOString();
+};
+
 export const parseSessionJsonl = (
   sourceFile: string,
   content: string,
@@ -79,10 +139,42 @@ export const parseSessionJsonl = (
   let eventCount = 0;
   let hasIncrementalUsage = false;
   let activeModelId: string | undefined;
+  let activeTurn: ActiveTurn | undefined;
+  let anonymousTurnSequence = 0;
   let summedUsage = emptyTokenUsage();
   let largestTotalUsage = emptyTokenUsage();
   let largestTotalSlice: UsageSlice | undefined;
   const incrementalSlices: UsageSlice[] = [];
+  const turnOutcomes: UsageTurnOutcome[] = [];
+  const turnOutcomeIndexes = new Map<string, number>();
+
+  const nextAnonymousTurnKey = (): string => {
+    anonymousTurnSequence += 1;
+    return `anonymous-turn-${anonymousTurnSequence}`;
+  };
+  const saveTurnOutcome = (key: string, outcome: UsageTurnOutcome): void => {
+    const existingIndex = turnOutcomeIndexes.get(key);
+
+    if (existingIndex === undefined) {
+      turnOutcomeIndexes.set(key, turnOutcomes.length);
+      turnOutcomes.push(outcome);
+      return;
+    }
+
+    turnOutcomes[existingIndex] = outcome;
+  };
+  const resolveTurnIdentity = (turnId?: string): { key: string; turnId?: string } => {
+    const matchingActiveTurn =
+      activeTurn && (!turnId || !activeTurn.turnId || activeTurn.turnId === turnId)
+        ? activeTurn
+        : undefined;
+    const outcomeTurnId = turnId ?? matchingActiveTurn?.turnId;
+
+    return {
+      key: matchingActiveTurn?.key ?? turnId ?? nextAnonymousTurnKey(),
+      ...(outcomeTurnId ? { turnId: outcomeTurnId } : {}),
+    };
+  };
 
   lines.forEach((line, index) => {
     const trimmed = line.trim();
@@ -140,6 +232,64 @@ export const parseSessionJsonl = (
         projectPath = projectPathValue;
       }
 
+      return;
+    }
+
+    const eventType =
+      record.type === 'event_msg' ? getOptionalString(record.payload?.type) : undefined;
+
+    if (eventType && TURN_STARTED_EVENT_TYPES.has(eventType)) {
+      const turnId = getOptionalString(record.payload?.turn_id);
+      activeTurn = {
+        key: turnId ?? nextAnonymousTurnKey(),
+        ...(turnId ? { turnId } : {}),
+      };
+      return;
+    }
+
+    if (eventType === 'error' && activeTurn) {
+      const error = toTurnError(record.payload);
+
+      if (error && errorAffectsTurnStatus(error)) {
+        activeTurn.pendingError = error;
+      }
+      return;
+    }
+
+    if (eventType && TURN_COMPLETE_EVENT_TYPES.has(eventType)) {
+      const turnId = getOptionalString(record.payload?.turn_id);
+      const identity = resolveTurnIdentity(turnId);
+      const terminalError = toTurnError(record.payload?.error);
+      const error =
+        terminalError && errorAffectsTurnStatus(terminalError)
+          ? terminalError
+          : activeTurn?.key === identity.key
+            ? activeTurn.pendingError
+            : undefined;
+      const outcome: UsageTurnOutcome = {
+        ...(identity.turnId ? { turnId: identity.turnId } : {}),
+        occurredAt: getTurnEventTimestamp(record, record.payload?.completed_at),
+        status: error ? 'failed' : 'completed',
+        ...(error ? { error } : {}),
+      };
+
+      saveTurnOutcome(identity.key, outcome);
+      activeTurn = undefined;
+      return;
+    }
+
+    if (eventType === 'turn_aborted') {
+      const turnId = getOptionalString(record.payload?.turn_id);
+      const identity = resolveTurnIdentity(turnId);
+      const interruptReason = getOptionalString(record.payload?.reason);
+
+      saveTurnOutcome(identity.key, {
+        ...(identity.turnId ? { turnId: identity.turnId } : {}),
+        occurredAt: getTurnEventTimestamp(record, record.payload?.completed_at),
+        status: 'interrupted',
+        ...(interruptReason ? { interruptReason } : {}),
+      });
+      activeTurn = undefined;
       return;
     }
 
@@ -208,6 +358,7 @@ export const parseSessionJsonl = (
     projectName: getProjectName(safeProjectPath),
     threadName,
     usageSlices,
+    turnOutcomes,
     ...usage,
     eventCount,
     sourceFile,

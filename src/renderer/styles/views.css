@@ -5016,6 +5016,275 @@ code {
   }
 }
 
+.error-rate-card {
+  grid-column: 1 / -1;
+  min-height: 0;
+  display: grid;
+  gap: var(--space-4);
+}
+
+.error-rate-summary {
+  display: grid;
+  grid-template-columns: minmax(14rem, 0.7fr) minmax(24rem, 1.3fr);
+  align-items: end;
+  gap: var(--space-5);
+}
+
+.error-rate-heading {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.error-rate-heading h3,
+.error-section-heading strong {
+  margin: 0;
+}
+
+.error-rate-value {
+  color: var(--color-danger-text);
+  font-size: var(--font-size-metric);
+  line-height: 1;
+}
+
+.error-rate-stats {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.error-rate-stats div {
+  min-width: 0;
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-1);
+  background: var(--color-surface-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.error-rate-stats dt,
+.error-trend-tooltip dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-label);
+}
+
+.error-rate-stats dd,
+.error-trend-tooltip dd {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-body);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.error-trend {
+  min-width: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.error-section-heading {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.error-section-heading span,
+.error-rate-empty,
+.error-rate-empty-state p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-body-small);
+}
+
+.error-trend-scroll {
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.error-trend-plot {
+  position: relative;
+  min-width: 34rem;
+  padding-top: var(--space-2);
+}
+
+.error-trend-bars {
+  height: 10rem;
+  padding: 0 var(--space-2);
+  display: grid;
+  grid-auto-columns: minmax(0.75rem, 1fr);
+  grid-auto-flow: column;
+  align-items: end;
+  gap: var(--space-1);
+  background-image: linear-gradient(to top, var(--color-border) 1px, transparent 1px);
+  background-size: 100% 25%;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.error-trend-column {
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.error-trend-target {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  border-radius: var(--radius-control);
+  outline-offset: 2px;
+}
+
+.error-trend-bar {
+  width: 100%;
+  min-height: 0.1875rem;
+  display: block;
+  background: var(--color-danger-accent);
+  border-radius: var(--radius-control) var(--radius-control) 0 0;
+  transition:
+    height var(--duration-fast) ease,
+    opacity var(--duration-fast) ease;
+}
+
+.error-trend-target.unavailable .error-trend-bar {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--color-text-muted),
+    var(--color-text-muted) 0.125rem,
+    transparent 0.125rem,
+    transparent 0.25rem
+  );
+}
+
+.error-trend-target:hover .error-trend-bar,
+.error-trend-target:focus-visible .error-trend-bar {
+  opacity: 0.7;
+}
+
+.error-trend-axis {
+  padding-top: var(--space-1);
+  display: flex;
+  justify-content: space-between;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-label);
+}
+
+.error-trend-tooltip {
+  position: absolute;
+  z-index: 2;
+  top: var(--space-3);
+  right: var(--space-3);
+  max-width: 18rem;
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-overlay);
+  pointer-events: none;
+}
+
+.error-trend-tooltip > span {
+  color: var(--color-danger-text);
+  font-size: var(--font-size-title);
+  font-weight: 700;
+}
+
+.error-trend-tooltip dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.error-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(15rem, 0.7fr) minmax(22rem, 1.3fr);
+  gap: var(--space-4);
+}
+
+.error-category-section,
+.recent-error-section {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+}
+
+.error-category-list,
+.recent-error-list {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+}
+
+.error-category-list li {
+  padding: var(--space-2) var(--space-3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  background: var(--color-surface-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  font-size: var(--font-size-body-small);
+}
+
+.error-category-list strong {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.recent-error-list li {
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-2);
+  background: var(--color-danger-surface);
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-control);
+}
+
+.recent-error-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-label);
+}
+
+.recent-error-list code {
+  width: fit-content;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: var(--color-danger-text);
+}
+
+.recent-error-list p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--color-text);
+  font-size: var(--font-size-body-small);
+}
+
+.error-rate-empty,
+.error-rate-empty-state {
+  padding: var(--space-4);
+  background: var(--color-surface-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.error-rate-empty-state {
+  display: grid;
+  gap: var(--space-1);
+}
+
 @media (max-width: 980px) {
   .project-donut-layout {
     grid-template-columns: minmax(0, 38rem);
@@ -5045,14 +5314,21 @@ code {
     grid-column: auto;
   }
 
+  .error-rate-card {
+    grid-column: auto;
+  }
+
   .cache-efficiency-summary,
-  .cost-efficiency-summary {
+  .cost-efficiency-summary,
+  .error-rate-summary,
+  .error-detail-grid {
     grid-template-columns: 1fr;
     align-items: stretch;
   }
 
   .cache-efficiency-stats,
-  .cost-efficiency-stats {
+  .cost-efficiency-stats,
+  .error-rate-stats {
     grid-template-columns: 1fr;
   }
 
@@ -5106,7 +5382,8 @@ code {
   .cache-composition-cached,
   .cache-composition-uncached,
   .cost-segment-track > span,
-  .cost-trend-bar {
+  .cost-trend-bar,
+  .error-trend-bar {
     transition: none;
   }
 }

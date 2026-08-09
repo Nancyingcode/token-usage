@@ -183,6 +183,7 @@ const makeSession = (usageSlices: UsageSlice[]) => ({
   endedAt: usageSlices.at(-1)?.occurredAt ?? new Date(0).toISOString(),
   projectPath: 'C:\\repo',
   projectName: 'repo',
+  turnOutcomes: [],
   usageSlices,
   inputTokens: usageSlices.reduce((total, slice) => total + slice.inputTokens, 0),
   cachedInputTokens: usageSlices.reduce((total, slice) => total + slice.cachedInputTokens, 0),
