@@ -84,9 +84,21 @@ describe('ErrorRateCard', () => {
     expect(screen.queryByRole('tooltip')).toBeNull();
 
     fireEvent.mouseEnter(point);
-    expect(screen.getByRole('tooltip').textContent).toContain('50%');
+    const firstTooltip = screen.getByRole('tooltip');
+    expect(firstTooltip.textContent).toContain('50%');
+    expect(firstTooltip.getAttribute('data-anchor-date')).toBe('2026-08-09');
+    expect(firstTooltip.getAttribute('style')).toContain('left: 25%');
+    expect(firstTooltip.classList.contains('align-start')).toBe(true);
     fireEvent.mouseLeave(point);
     expect(screen.queryByRole('tooltip')).toBeNull();
+
+    const lastPoint = screen.getByTestId('error-day-2026-08-10');
+    fireEvent.mouseEnter(lastPoint);
+    const lastTooltip = screen.getByRole('tooltip');
+    expect(lastTooltip.getAttribute('data-anchor-date')).toBe('2026-08-10');
+    expect(lastTooltip.getAttribute('style')).toContain('left: 75%');
+    expect(lastTooltip.classList.contains('align-end')).toBe(true);
+    fireEvent.mouseLeave(lastPoint);
 
     fireEvent.focus(point);
     expect(screen.getByRole('tooltip').textContent).toContain('1');

@@ -16,6 +16,8 @@ interface ErrorRateCardProps {
 const PERCENT_SCALE = 100;
 const MINIMUM_VISIBLE_BAR_PERCENTAGE = 3;
 const DATE_PART_COUNT = 3;
+const COLUMN_CENTER_OFFSET = 0.5;
+const EDGE_ALIGNMENT_MINIMUM_DAY_COUNT = 2;
 
 const formatDateKey = (value: string, locale: SupportedLocale): string => {
   const dateParts = value.split('-').map(Number);
@@ -40,6 +42,24 @@ const ErrorRateCard: React.FC<ErrorRateCardProps> = ({ detail }) => {
   const trendDescriptionId = useId();
   const [activeDate, setActiveDate] = useState<string | null>(null);
   const activeDay = detail.days.find(({ date }) => date === activeDate) ?? null;
+  const activeDayIndex = activeDay
+    ? detail.days.findIndex(({ date }) => date === activeDay.date)
+    : -1;
+  const activeTooltipX =
+    activeDayIndex >= 0
+      ? ((activeDayIndex + COLUMN_CENTER_OFFSET) / detail.days.length) * PERCENT_SCALE
+      : null;
+  const activeTooltip =
+    activeDay && activeTooltipX !== null ? { day: activeDay, left: activeTooltipX } : null;
+  let tooltipAlignmentClass = '';
+
+  if (detail.days.length >= EDGE_ALIGNMENT_MINIMUM_DAY_COUNT) {
+    if (activeDayIndex === 0) {
+      tooltipAlignmentClass = ' align-start';
+    } else if (activeDayIndex === detail.days.length - 1) {
+      tooltipAlignmentClass = ' align-end';
+    }
+  }
   const hasAnyOutcome = detail.completedCount + detail.failedCount + detail.interruptedCount > 0;
   const hasErrors = detail.failedCount > 0;
   const firstDay = detail.days[0];
@@ -159,22 +179,27 @@ const ErrorRateCard: React.FC<ErrorRateCardProps> = ({ detail }) => {
                   {showLastDayLabel ? <span>{formatDateKey(lastDay.date, locale)}</span> : null}
                 </div>
 
-                {activeDay ? (
-                  <div className="error-trend-tooltip" role="tooltip">
-                    <strong>{formatDateKey(activeDay.date, locale)}</strong>
-                    <span>{formatRate(activeDay.errorRate)}</span>
+                {activeTooltip ? (
+                  <div
+                    className={`error-trend-tooltip${tooltipAlignmentClass}`}
+                    role="tooltip"
+                    data-anchor-date={activeTooltip.day.date}
+                    style={{ left: `${activeTooltip.left}%` }}
+                  >
+                    <strong>{formatDateKey(activeTooltip.day.date, locale)}</strong>
+                    <span>{formatRate(activeTooltip.day.errorRate)}</span>
                     <dl>
                       <div>
                         <dt>{t('performance.completedTurns')}</dt>
-                        <dd>{formatNumber(activeDay.completedCount, locale)}</dd>
+                        <dd>{formatNumber(activeTooltip.day.completedCount, locale)}</dd>
                       </div>
                       <div>
                         <dt>{t('performance.failedTurns')}</dt>
-                        <dd>{formatNumber(activeDay.failedCount, locale)}</dd>
+                        <dd>{formatNumber(activeTooltip.day.failedCount, locale)}</dd>
                       </div>
                       <div>
                         <dt>{t('performance.interruptedTurns')}</dt>
-                        <dd>{formatNumber(activeDay.interruptedCount, locale)}</dd>
+                        <dd>{formatNumber(activeTooltip.day.interruptedCount, locale)}</dd>
                       </div>
                     </dl>
                   </div>
