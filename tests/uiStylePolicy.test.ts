@@ -75,4 +75,14 @@ describe('UI style policy', () => {
     expect(disabledActionRule).toContain('cursor: not-allowed;');
     expect(disabledActionRule).not.toContain('cursor: wait;');
   });
+
+  it('keeps the navigation sidebar visible while page content scrolls', () => {
+    const shell = readRendererStyle('styles/shell.css');
+    const sidebarRule = shell.match(/\.sidebar\s*\{([^}]*)\}/)?.[1] ?? '';
+
+    expect(sidebarRule).toContain('position: sticky;');
+    expect(sidebarRule).toContain('top: 0;');
+    expect(sidebarRule).toContain('height: 100vh;');
+    expect(sidebarRule).toContain('overflow-y: auto;');
+  });
 });
