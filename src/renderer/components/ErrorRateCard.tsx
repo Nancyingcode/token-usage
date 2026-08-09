@@ -17,7 +17,6 @@ const PERCENT_SCALE = 100;
 const MINIMUM_VISIBLE_BAR_PERCENTAGE = 3;
 const DATE_PART_COUNT = 3;
 const COLUMN_CENTER_OFFSET = 0.5;
-const EDGE_ALIGNMENT_MINIMUM_DAY_COUNT = 2;
 
 const formatDateKey = (value: string, locale: SupportedLocale): string => {
   const dateParts = value.split('-').map(Number);
@@ -51,15 +50,6 @@ const ErrorRateCard: React.FC<ErrorRateCardProps> = ({ detail }) => {
       : null;
   const activeTooltip =
     activeDay && activeTooltipX !== null ? { day: activeDay, left: activeTooltipX } : null;
-  let tooltipAlignmentClass = '';
-
-  if (detail.days.length >= EDGE_ALIGNMENT_MINIMUM_DAY_COUNT) {
-    if (activeDayIndex === 0) {
-      tooltipAlignmentClass = ' align-start';
-    } else if (activeDayIndex === detail.days.length - 1) {
-      tooltipAlignmentClass = ' align-end';
-    }
-  }
   const hasAnyOutcome = detail.completedCount + detail.failedCount + detail.interruptedCount > 0;
   const hasErrors = detail.failedCount > 0;
   const firstDay = detail.days[0];
@@ -181,10 +171,12 @@ const ErrorRateCard: React.FC<ErrorRateCardProps> = ({ detail }) => {
 
                 {activeTooltip ? (
                   <div
-                    className={`error-trend-tooltip${tooltipAlignmentClass}`}
+                    className="error-trend-tooltip"
                     role="tooltip"
                     data-anchor-date={activeTooltip.day.date}
-                    style={{ left: `${activeTooltip.left}%` }}
+                    style={{
+                      left: `clamp(var(--error-trend-tooltip-half-width), ${activeTooltip.left}%, calc(100% - var(--error-trend-tooltip-half-width)))`,
+                    }}
                   >
                     <strong>{formatDateKey(activeTooltip.day.date, locale)}</strong>
                     <span>{formatRate(activeTooltip.day.errorRate)}</span>

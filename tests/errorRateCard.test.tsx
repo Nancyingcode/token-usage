@@ -87,8 +87,7 @@ describe('ErrorRateCard', () => {
     const firstTooltip = screen.getByRole('tooltip');
     expect(firstTooltip.textContent).toContain('50%');
     expect(firstTooltip.getAttribute('data-anchor-date')).toBe('2026-08-09');
-    expect(firstTooltip.getAttribute('style')).toContain('left: 25%');
-    expect(firstTooltip.classList.contains('align-start')).toBe(true);
+    expect(firstTooltip.getAttribute('style')).toContain('25%');
     fireEvent.mouseLeave(point);
     expect(screen.queryByRole('tooltip')).toBeNull();
 
@@ -96,14 +95,30 @@ describe('ErrorRateCard', () => {
     fireEvent.mouseEnter(lastPoint);
     const lastTooltip = screen.getByRole('tooltip');
     expect(lastTooltip.getAttribute('data-anchor-date')).toBe('2026-08-10');
-    expect(lastTooltip.getAttribute('style')).toContain('left: 75%');
-    expect(lastTooltip.classList.contains('align-end')).toBe(true);
+    expect(lastTooltip.getAttribute('style')).toContain('75%');
     fireEvent.mouseLeave(lastPoint);
 
     fireEvent.focus(point);
     expect(screen.getByRole('tooltip').textContent).toContain('1');
     fireEvent.blur(point);
     expect(screen.queryByRole('tooltip')).toBeNull();
+  });
+
+  it('clamps a near-right tooltip inside the trend plot', () => {
+    const trendDayCount = 6;
+    const days = Array.from({ length: trendDayCount }, (_, index) => ({
+      ...DETAIL.days[0],
+      date: `2026-08-0${index + 1}`,
+    }));
+    renderCard({ ...DETAIL, days });
+
+    fireEvent.mouseEnter(screen.getByTestId('error-day-2026-08-05'));
+
+    const tooltipStyle = screen.getByRole('tooltip').getAttribute('style');
+    expect(tooltipStyle).toContain('75%');
+    expect(tooltipStyle).toContain(
+      'clamp(var(--error-trend-tooltip-half-width), 75%, calc(100% - var(--error-trend-tooltip-half-width)))'
+    );
   });
 
   it('distinguishes missing terminal data from a real zero error rate', () => {

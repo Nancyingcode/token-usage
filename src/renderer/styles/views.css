@@ -5110,6 +5110,8 @@ code {
 }
 
 .error-trend-plot {
+  --error-trend-tooltip-width: 18rem;
+  --error-trend-tooltip-half-width: 9rem;
   position: relative;
   min-width: 34rem;
   padding-top: var(--space-2);
@@ -5181,8 +5183,8 @@ code {
   position: absolute;
   z-index: 2;
   top: var(--space-3);
-  width: 18rem;
-  max-width: 18rem;
+  width: var(--error-trend-tooltip-width);
+  max-width: var(--error-trend-tooltip-width);
   padding: var(--space-3);
   display: grid;
   gap: var(--space-2);
@@ -5192,14 +5194,6 @@ code {
   box-shadow: var(--shadow-overlay);
   transform: translateX(-50%);
   pointer-events: none;
-}
-
-.error-trend-tooltip.align-start {
-  transform: translateX(0);
-}
-
-.error-trend-tooltip.align-end {
-  transform: translateX(-100%);
 }
 
 .error-trend-tooltip > span {
