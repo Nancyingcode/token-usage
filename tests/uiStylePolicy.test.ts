@@ -101,6 +101,13 @@ describe('UI style policy', () => {
     expect(views).toContain('@media (max-height: 740px) and (min-width: 761px)');
   });
 
+  it('uses a full-width GitHub-style year for the overview activity calendar', () => {
+    const views = readRendererStyle('styles/views.css');
+
+    expect(views).toContain('grid-template-columns: repeat(53, var(--activity-cell-size));');
+    expect(views).not.toContain('grid-template-columns: repeat(12, var(--activity-cell-size));');
+  });
+
   it('defines draggable title bar space without making controls draggable', () => {
     const shell = readRendererStyle('styles/shell.css');
     const titleBarRule = shell.match(/\.title-bar\s*\{([^}]*)\}/)?.[1] ?? '';

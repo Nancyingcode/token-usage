@@ -2803,10 +2803,6 @@ code {
     grid-template-columns: repeat(2, minmax(90px, 1fr));
   }
 
-  .activity-grid {
-    grid-template-columns: repeat(14, 10px);
-  }
-
   .budget-page-heading,
   .budget-filter-bar {
     align-items: stretch;
@@ -4982,41 +4978,99 @@ code {
 }
 
 .activity-panel {
-  min-height: 10.5rem;
+  min-height: 13.5rem;
+  overflow: visible;
+}
+
+.activity-calendar-scroll {
+  min-width: 0;
+  padding-top: 3.25rem;
+  margin-top: -3.25rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+}
+
+.activity-calendar {
+  --activity-cell-size: 0.6875rem;
+  --activity-cell-gap: var(--space-1);
+  width: max-content;
+  min-width: min(100%, 15rem);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.activity-months {
+  margin-left: 3.375rem;
+  display: grid;
+  grid-template-columns: repeat(53, var(--activity-cell-size));
+  gap: var(--activity-cell-gap);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-label);
+  line-height: 1;
+}
+
+.activity-months span {
+  overflow: visible;
+  white-space: nowrap;
 }
 
 .activity-wrap {
   display: grid;
-  grid-template-columns: 2.75rem minmax(0, 1fr);
-  align-items: center;
+  grid-template-columns: 2.75rem max-content;
+  align-items: start;
   gap: 0.625rem;
 }
 
 .activity-labels {
   display: grid;
-  gap: 0.5625rem;
+  grid-template-rows: repeat(7, var(--activity-cell-size));
+  gap: var(--activity-cell-gap);
   color: var(--color-text-muted);
   font-size: var(--font-size-label);
+  line-height: var(--activity-cell-size);
   text-align: right;
+}
+
+.activity-labels .monday {
+  grid-row: 2;
+}
+
+.activity-labels .wednesday {
+  grid-row: 4;
+}
+
+.activity-labels .friday {
+  grid-row: 6;
 }
 
 .activity-grid {
   display: grid;
-  grid-template-columns: repeat(28, 0.625rem);
-  grid-auto-rows: 0.625rem;
-  gap: var(--space-1);
+  grid-template-columns: repeat(53, var(--activity-cell-size));
+  grid-template-rows: repeat(7, var(--activity-cell-size));
+  grid-auto-flow: column;
+  gap: var(--activity-cell-gap);
   align-content: start;
 }
 
+.activity-cell-slot {
+  position: relative;
+  width: var(--activity-cell-size);
+  height: var(--activity-cell-size);
+  display: block;
+}
+
 .activity-cell {
-  width: 0.625rem;
-  height: 0.625rem;
+  width: var(--activity-cell-size);
+  height: var(--activity-cell-size);
+  display: block;
   background: var(--color-brand-surface);
   border-radius: 0.125rem;
 }
 
+.activity-cell.active,
 .activity-cell:focus-visible {
-  outline: 2px solid var(--color-brand-700);
+  outline: 2px solid var(--color-brand-950);
   outline-offset: 2px;
 }
 
@@ -5031,12 +5085,16 @@ code {
   );
 }
 
+.activity-cell.future {
+  visibility: hidden;
+}
+
 .activity-cell.level-1 {
   background: var(--color-brand-border);
 }
 
 .activity-cell.level-2 {
-  background: var(--color-brand-500);
+  background: var(--color-brand-300);
 }
 
 .activity-cell.level-3 {
@@ -5045,6 +5103,52 @@ code {
 
 .activity-cell.level-4 {
   background: var(--color-brand-700);
+}
+
+.activity-tooltip {
+  --activity-tooltip-shift: -50%;
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  bottom: calc(100% + 0.5rem);
+  min-width: 9.5rem;
+  padding: var(--space-2) var(--space-3);
+  display: grid;
+  gap: var(--space-1);
+  color: var(--color-text);
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-overlay);
+  font-size: var(--font-size-label);
+  pointer-events: none;
+  transform: translateX(var(--activity-tooltip-shift));
+  white-space: nowrap;
+}
+
+.activity-tooltip.left {
+  --activity-tooltip-shift: -8%;
+}
+
+.activity-tooltip.right {
+  --activity-tooltip-shift: -92%;
+}
+
+.activity-tooltip strong {
+  font-size: var(--font-size-body-small);
+}
+
+.activity-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-label);
+}
+
+.activity-legend .activity-cell {
+  flex: 0 0 var(--activity-cell-size);
 }
 
 [data-motion='overview-story'] .metric-card {
@@ -5419,10 +5523,6 @@ code {
   .cost-efficiency-stats,
   .error-rate-stats {
     grid-template-columns: 1fr;
-  }
-
-  .activity-grid {
-    grid-template-columns: repeat(14, 0.625rem);
   }
 
   .project-donut-panel {

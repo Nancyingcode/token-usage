@@ -11,11 +11,18 @@ import type {
   ModelPricingEntry,
   UnknownModelPricing,
 } from '../../shared/budgetTypes';
+import type { SupportedLocale } from '../../shared/i18n/locale';
 import { buildDailyCostEstimates, getSummaryCostEstimate } from '../../shared/pricing';
 import { getCachePercentage } from '../../shared/usageMetrics';
 import type { UsageDay, UsagePeriod, UsageSummary } from '../../shared/usageTypes';
 import { resolveRendererLocale } from '../i18n';
-import { buildActivityCells } from '../utils/activityGrid';
+import {
+  ACTIVITY_CELL_COUNT,
+  ACTIVITY_WEEK_COUNT,
+  buildActivityCells,
+  buildActivityMonthLabels,
+  type ActivityCell,
+} from '../utils/activityGrid';
 import { formatCompactNumber, formatNumber, formatUsd } from '../utils/formatters';
 import MetricCard from './MetricCard';
 import PageHeader from './PageHeader';
@@ -61,6 +68,9 @@ const TREND_HIT_RADIUS = 12;
 const ACTIVE_POINT_RADIUS = 4.8;
 const INACTIVE_POINT_RADIUS = 2.4;
 const PERCENT_SCALE = 100;
+const DATE_PART_COUNT = 3;
+const ACTIVITY_LEFT_TOOLTIP_WEEK = 1;
+const ACTIVITY_RIGHT_TOOLTIP_WEEK = ACTIVITY_WEEK_COUNT - 2;
 
 export type TooltipPlacement = 'left' | 'center' | 'right';
 
@@ -119,6 +129,50 @@ const getTooltipStyle = (point: TrendPoint): React.CSSProperties => {
     '--tooltip-x': `${(point.x / CHART_VIEWBOX_WIDTH) * PERCENT_SCALE}%`,
     '--tooltip-y': `${(point.y / CHART_VIEWBOX_HEIGHT) * PERCENT_SCALE}%`,
   } as React.CSSProperties;
+};
+
+const parseActivityDate = (value: string): Date | null => {
+  const parts = value.split('-').map(Number);
+
+  if (parts.length !== DATE_PART_COUNT || parts.some((part) => !Number.isInteger(part))) {
+    return null;
+  }
+
+  const [year, month, day] = parts;
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const formatActivityDate = (value: string, locale: SupportedLocale): string => {
+  const date = parseActivityDate(value);
+  return date
+    ? new Intl.DateTimeFormat(locale, {
+        dateStyle: 'long',
+        timeZone: 'UTC',
+      }).format(date)
+    : value;
+};
+
+const formatActivityMonth = (value: string, locale: SupportedLocale): string => {
+  const date = parseActivityDate(value);
+  return date
+    ? new Intl.DateTimeFormat(locale, {
+        month: 'short',
+        timeZone: 'UTC',
+      }).format(date)
+    : value;
+};
+
+const getActivityTooltipPlacement = (cell: ActivityCell): TooltipPlacement => {
+  if (cell.weekIndex <= ACTIVITY_LEFT_TOOLTIP_WEEK) {
+    return 'left';
+  }
+
+  if (cell.weekIndex >= ACTIVITY_RIGHT_TOOLTIP_WEEK) {
+    return 'right';
+  }
+
+  return 'center';
 };
 
 const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
@@ -250,32 +304,82 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
 const ActivityGrid: React.FC<ActivityGridProps> = ({ days, period, anchorDate }) => {
   const { t, i18n } = useTranslation('analytics');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
+  const [activeDate, setActiveDate] = useState<string | null>(null);
   const cells = buildActivityCells(days, period, anchorDate);
+  const monthLabels = new Map(
+    buildActivityMonthLabels(cells).map(({ date, weekIndex }) => [weekIndex, date])
+  );
 
   return (
-    <div className="activity-wrap">
-      <div className="activity-labels">
-        <span>{t('overview.weekday.monday')}</span>
-        <span>{t('overview.weekday.wednesday')}</span>
-        <span>{t('overview.weekday.friday')}</span>
-      </div>
-      <div className="activity-grid">
-        {cells.map((cell) =>
-          cell.inPeriod ? (
-            <span
-              key={cell.date}
-              className={`activity-cell level-${cell.level}`}
-              role="img"
-              tabIndex={0}
-              aria-label={t('overview.activityDay', {
-                date: cell.date,
-                tokens: formatNumber(cell.tokens, locale),
-              })}
-            />
-          ) : (
-            <span key={cell.date} className="activity-cell outside-period" aria-hidden="true" />
-          )
-        )}
+    <div className="activity-calendar-scroll">
+      <div className="activity-calendar">
+        <div className="activity-months" aria-hidden="true">
+          {Array.from({ length: ACTIVITY_WEEK_COUNT }, (_, weekIndex) => {
+            const monthDate = monthLabels.get(weekIndex);
+            return (
+              <span key={weekIndex}>{monthDate ? formatActivityMonth(monthDate, locale) : ''}</span>
+            );
+          })}
+        </div>
+        <div className="activity-wrap">
+          <div className="activity-labels" aria-hidden="true">
+            <span className="monday">{t('overview.weekday.monday')}</span>
+            <span className="wednesday">{t('overview.weekday.wednesday')}</span>
+            <span className="friday">{t('overview.weekday.friday')}</span>
+          </div>
+          <div
+            className="activity-grid"
+            role="group"
+            aria-label={t('overview.activityCalendar')}
+            data-day-count={ACTIVITY_CELL_COUNT}
+            data-week-count={ACTIVITY_WEEK_COUNT}
+          >
+            {cells.map((cell) => {
+              const active = activeDate === cell.date;
+              const placement = getActivityTooltipPlacement(cell);
+              const formattedDate = formatActivityDate(cell.date, locale);
+              const formattedTokens = formatNumber(cell.tokens, locale);
+
+              return (
+                <span key={cell.date} className="activity-cell-slot">
+                  {cell.isFuture ? (
+                    <span className="activity-cell future" aria-hidden="true" />
+                  ) : cell.inPeriod ? (
+                    <span
+                      className={`activity-cell level-${cell.level}${active ? ' active' : ''}`}
+                      role="img"
+                      tabIndex={0}
+                      aria-label={t('overview.activityDay', {
+                        date: formattedDate,
+                        tokens: formattedTokens,
+                      })}
+                      data-testid={`activity-day-${cell.date}`}
+                      onMouseEnter={() => setActiveDate(cell.date)}
+                      onMouseLeave={() => setActiveDate(null)}
+                      onFocus={() => setActiveDate(cell.date)}
+                      onBlur={() => setActiveDate(null)}
+                    />
+                  ) : (
+                    <span className="activity-cell outside-period" aria-hidden="true" />
+                  )}
+                  {active ? (
+                    <span className={`activity-tooltip ${placement}`} role="tooltip">
+                      <strong>{formattedDate}</strong>
+                      <span>{t('overview.activityTokens', { tokens: formattedTokens })}</span>
+                    </span>
+                  ) : null}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+        <div className="activity-legend" aria-label={t('overview.activityLegend')}>
+          <span>{t('overview.activityLess')}</span>
+          {Array.from({ length: 5 }, (_, level) => (
+            <i key={level} className={`activity-cell level-${level}`} aria-hidden="true" />
+          ))}
+          <span>{t('overview.activityMore')}</span>
+        </div>
       </div>
     </div>
   );

@@ -1,4 +1,12 @@
+// @vitest-environment jsdom
+/**
+ * @file Overview trend and activity tests
+ * @description Verifies overview pricing, trend geometry, and accessible calendar interaction.
+ */
+
 import React from 'react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { I18nextProvider } from 'react-i18next';
 import { describe, expect, it } from 'vitest';
 import Overview, {
   buildOverviewMotionKey,
@@ -7,7 +15,7 @@ import Overview, {
 import type { CostEstimate, ModelPricingEntry } from '../src/shared/budgetTypes';
 import { buildUsageSummary } from '../src/shared/usageMath';
 import type { UsageDay, UsageSession } from '../src/shared/usageTypes';
-import { renderWithI18n } from './helpers/renderWithI18n';
+import { createTestI18n, renderWithI18n } from './helpers/renderWithI18n';
 
 describe('buildTrendPoints', () => {
   it('maps boundaries, cost, and placement for chart points', () => {
@@ -64,8 +72,14 @@ describe('buildTrendPoints', () => {
     expect(markup).not.toContain('>Input<');
     expect(markup).toContain('data-motion="overview-story"');
     expect(markup).toContain('pathLength="1"');
-    expect(markup).toContain('role="img" tabindex="0" aria-label="2026-07-20, 220 tokens"');
+    expect(markup).toContain('role="img" tabindex="0" aria-label="July 20, 2026, 220 tokens"');
     expect(markup).toContain('class="activity-cell outside-period" aria-hidden="true"');
+    expect(markup).toContain('class="activity-months"');
+    expect(markup).toContain('data-week-count="53"');
+    expect(markup).toContain('data-day-count="371"');
+    expect(markup).toContain('class="activity-cell future" aria-hidden="true"');
+    expect(markup).toContain('Less');
+    expect(markup).toContain('More');
   });
 
   it('renders Chinese labels and locale-aware currency', () => {
@@ -91,6 +105,53 @@ describe('buildTrendPoints', () => {
     expect(buildOverviewMotionKey(summary, 'week')).not.toBe(
       buildOverviewMotionKey(summary, 'month')
     );
+  });
+
+  it('shows the same activity tooltip on mouse hover and keyboard focus', () => {
+    render(
+      <I18nextProvider i18n={createTestI18n('en')}>
+        <Overview
+          summary={buildUsageSummary([PRICED_SESSION, UNKNOWN_SESSION])}
+          pricing={PRICING}
+          period="month"
+          scannedAt="2026-07-20T12:00:00.000Z"
+        />
+      </I18nextProvider>
+    );
+    const day = screen.getByTestId('activity-day-2026-07-20');
+
+    expect(screen.queryByRole('tooltip')).toBeNull();
+    fireEvent.mouseEnter(day);
+    expect(screen.getByRole('tooltip').textContent).toContain('July 20, 2026');
+    expect(screen.getByRole('tooltip').textContent).toContain('220 tokens');
+
+    fireEvent.mouseLeave(day);
+    expect(screen.queryByRole('tooltip')).toBeNull();
+
+    fireEvent.focus(day);
+    expect(screen.getByRole('tooltip').textContent).toContain('July 20, 2026');
+
+    fireEvent.blur(day);
+    expect(screen.queryByRole('tooltip')).toBeNull();
+  });
+
+  it('localizes the activity calendar labels and tooltip in Chinese', () => {
+    render(
+      <I18nextProvider i18n={createTestI18n('zh-CN')}>
+        <Overview
+          summary={buildUsageSummary([PRICED_SESSION])}
+          pricing={PRICING}
+          period="month"
+          scannedAt="2026-07-20T12:00:00.000Z"
+        />
+      </I18nextProvider>
+    );
+
+    expect(screen.getByText('少')).toBeTruthy();
+    expect(screen.getByText('多')).toBeTruthy();
+    fireEvent.focus(screen.getByTestId('activity-day-2026-07-20'));
+    expect(screen.getByRole('tooltip').textContent).toContain('2026年7月20日');
+    expect(screen.getByRole('tooltip').textContent).toContain('110 Token');
   });
 });
 
