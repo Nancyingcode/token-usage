@@ -1,3 +1,7 @@
+/**
+ * @file 窗口控制 IPC
+ * @description 将最小化、最大化和关闭操作限制到发起请求的有效 BrowserWindow。
+ */
 import { BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron';
 import {
   WINDOW_CLOSE_CHANNEL,

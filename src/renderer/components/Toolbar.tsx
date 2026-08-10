@@ -1,3 +1,7 @@
+/**
+ * @file 应用工具栏
+ * @description 组合时间范围、语言、扫描状态和刷新操作，并保持键盘与辅助技术可用性。
+ */
 import React from 'react';
 import { RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';

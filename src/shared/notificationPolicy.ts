@@ -1,3 +1,7 @@
+/**
+ * @file 预算通知去重策略
+ * @description 根据策略、周期、指标和阈值生成回执键，并筛选与记录待发送通知。
+ */
 import type { BudgetAlert, NotificationReceipt } from './budgetTypes';
 
 export const getNotificationReceiptKey = (alert: BudgetAlert): string =>

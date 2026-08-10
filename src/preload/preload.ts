@@ -1,3 +1,7 @@
+/**
+ * @file Renderer 预加载桥接
+ * @description 通过 contextBridge 暴露类型化 IPC API，不向 Renderer 提供直接文件系统访问能力。
+ */
 import { contextBridge, ipcRenderer } from 'electron';
 import {
   BUDGET_DELETE_POLICY_CHANNEL,

@@ -1,3 +1,7 @@
+/**
+ * @file 设置视图
+ * @description 管理只读用量数据路径的选择、校验反馈、重置和相关警告展示。
+ */
 import React, { useEffect, useState } from 'react';
 import { Folder, ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';

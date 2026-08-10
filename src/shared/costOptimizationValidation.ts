@@ -1,3 +1,7 @@
+/**
+ * @file 成本优化配置校验
+ * @description 校验成本优化查询与设置边界，并提供安全的默认配置和规范化结果。
+ */
 import type {
   CostOptimizationQuery,
   CostOptimizationSettings,

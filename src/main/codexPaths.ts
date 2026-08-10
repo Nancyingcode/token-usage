@@ -1,3 +1,7 @@
+/**
+ * @file Codex 数据路径解析
+ * @description 统一计算默认会话目录和索引路径，仅返回路径，不执行文件系统写操作。
+ */
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 

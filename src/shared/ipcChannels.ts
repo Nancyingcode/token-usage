@@ -1,3 +1,7 @@
+/**
+ * @file IPC 通道目录
+ * @description 集中定义主进程、preload 与 Renderer 共用的稳定通道名称。
+ */
 export const USAGE_SCAN_CHANNEL = 'usage:scan';
 export const USAGE_UPDATED_CHANNEL = 'usage:updated';
 export const USAGE_DATA_PATH_GET_CHANNEL = 'usage-data-path:get';

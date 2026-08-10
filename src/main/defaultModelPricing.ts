@@ -1,3 +1,7 @@
+/**
+ * @file 内置模型定价目录
+ * @description 维护带来源与生效日期的本地估算价格，不将估算结果描述为实际账单。
+ */
 import type { ModelPricingEntry } from '../shared/budgetTypes';
 
 const PRICING_EFFECTIVE_AT = '2026-07-20';

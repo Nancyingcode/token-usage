@@ -1,3 +1,7 @@
+/**
+ * @file 预算模型目标解析
+ * @description 规范化全部、未知和指定模型目标，并根据定价别名解析稳定目标键。
+ */
 import type { BudgetModelTarget, ModelPricingEntry } from './budgetTypes';
 import { normalizeModelId } from './pricing';
 

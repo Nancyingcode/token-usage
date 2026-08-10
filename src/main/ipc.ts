@@ -1,3 +1,7 @@
+/**
+ * @file 主进程 IPC 注册
+ * @description 在类型化通道上连接 Renderer 与主进程运行时，集中注册处理器并应用外部链接策略。
+ */
 import { ipcMain, shell, type BrowserWindow } from 'electron';
 import type {
   BudgetPolicyInput,

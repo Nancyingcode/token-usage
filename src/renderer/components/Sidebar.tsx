@@ -1,3 +1,7 @@
+/**
+ * @file 应用侧边导航
+ * @description 展示分组导航、当前视图和告警计数，并提供可访问的视图切换入口。
+ */
 import React from 'react';
 import {
   BarChart3,

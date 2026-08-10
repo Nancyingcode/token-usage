@@ -1,3 +1,7 @@
+/**
+ * @file 应用内容编排
+ * @description 根据扫描、预算和成本优化状态组织顶层页面模型及互斥内容分支。
+ */
 import React from 'react';
 import type { TFunction } from 'i18next';
 import { AlertCircle } from 'lucide-react';

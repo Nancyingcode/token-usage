@@ -1,3 +1,7 @@
+/**
+ * @file 系统预算通知服务
+ * @description 将预算告警转换为本地化系统通知，并在点击后触发应用内导航。
+ */
 import type { i18n } from 'i18next';
 import type { BudgetAlert } from '../shared/budgetTypes';
 

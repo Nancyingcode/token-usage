@@ -1,3 +1,7 @@
+/**
+ * @file 会话 ID 解析
+ * @description 从 rollout JSONL 文件名或普通数据路径中提取稳定的会话标识。
+ */
 const ROLLOUT_SESSION_FILE_PATTERN = /^rollout-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-(.+)\.jsonl$/;
 const JSONL_EXTENSION_PATTERN = /\.jsonl$/;
 

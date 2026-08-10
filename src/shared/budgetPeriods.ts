@@ -1,3 +1,7 @@
+/**
+ * @file 预算自然周期
+ * @description 计算周与月的自然时间范围，并规范化项目路径和预算策略标识。
+ */
 import type { BudgetPeriod, BudgetPolicyInput, NaturalPeriodRange } from './budgetTypes';
 import { getBudgetModelTargetKey } from './budgetModelTarget';
 

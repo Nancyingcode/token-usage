@@ -1,3 +1,7 @@
+/**
+ * @file 用量比例指标
+ * @description 计算并约束缓存 Token 百分比，统一处理无输入 Token 的空值语义。
+ */
 const PERCENT_SCALE = 100;
 
 export const getCachePercentageOrNull = (

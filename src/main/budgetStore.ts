@@ -1,3 +1,7 @@
+/**
+ * @file 预算配置持久化
+ * @description 负责预算配置的读取、校验、迁移和原子写入，不操作只读的 Codex 会话数据源。
+ */
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import type { PersistedBudgetConfig } from '../shared/budgetTypes';

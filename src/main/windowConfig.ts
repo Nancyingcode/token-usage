@@ -1,3 +1,7 @@
+/**
+ * @file 主窗口配置
+ * @description 集中生成窗口尺寸、外观和 WebPreferences 安全选项。
+ */
 import type { BrowserWindowConstructorOptions } from 'electron';
 
 const DEFAULT_WINDOW_WIDTH = 1280;

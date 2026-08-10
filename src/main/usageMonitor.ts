@@ -1,3 +1,7 @@
+/**
+ * @file 用量扫描调度器
+ * @description 串行协调定时、聚焦和手动刷新，避免并发扫描并统一分发结果与错误。
+ */
 import type { UsageScanResult } from '../shared/usageTypes';
 
 export const USAGE_SCAN_INTERVAL_MS = 60_000;
