@@ -131,4 +131,4 @@ if (isLogin) {
 // const oldData = getOldData();// handleOldData(oldData);
 ```
 
-废弃代码应该直接删除，Git 已经保存了历史记录
+确认代码已经废弃后，不应继续通过注释长期保留；需要删除时，先遵循根 `AGENTS.md` 的注释删除规则并取得用户确认。删除完成后，可通过 Git 历史查询原实现。
