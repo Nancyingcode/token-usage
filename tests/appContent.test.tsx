@@ -279,7 +279,8 @@ describe('AppContent', () => {
     expect(markup).toContain('project-donut-chart');
     expect(markup).toContain('project-donut-legend');
     expect(markup).toContain('role="button"');
-    expect(markup).not.toContain('project-table-row');
+    expect(markup).toContain('project-summary-grid');
+    expect(markup).toContain('project-table');
   });
 
   it('passes the active project filter to Sessions', () => {

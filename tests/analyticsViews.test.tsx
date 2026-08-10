@@ -99,8 +99,105 @@ describe('analytics tables', () => {
     expect(markup).toContain('project-donut-chart');
     expect(markup).toContain('aria-label=');
     expect(markup).toContain('1,300');
-    expect(markup).not.toContain('project-table-row');
-    expect(markup).not.toContain('data-table');
+    expect(markup).toContain('project-summary-grid');
+    expect(markup).toContain('project-table');
+    expect(markup).toContain('table-cell--numeric');
+  });
+
+  it('localizes the unknown project identity in the project workspace', () => {
+    const markup = renderWithI18n(
+      <ProjectsView
+        projects={[
+          {
+            ...PROJECT,
+            projectPath: UNKNOWN_PROJECT_KEY,
+            projectName: UNKNOWN_PROJECT_KEY,
+          },
+        ]}
+        onProjectSelect={vi.fn()}
+      />,
+      'zh-CN'
+    );
+
+    expect(markup).toContain('未知项目');
+    expect(markup).not.toContain('>Unknown Project<');
+  });
+
+  it('renders project summary metrics and an explicit session action', () => {
+    const onSelect = vi.fn();
+    const i18n = createTestI18n('en');
+    render(
+      <I18nextProvider i18n={i18n}>
+        <ProjectsView
+          projects={[PROJECT, { ...OTHER_PROJECT, totalTokens: 700 }]}
+          onProjectSelect={onSelect}
+        />
+      </I18nextProvider>
+    );
+
+    expect(screen.getByRole('region', { name: 'Project overview' }).textContent).toContain(
+      '2 projects'
+    );
+    expect(screen.getByRole('table', { name: 'Project list' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'View sessions for repo' }));
+    expect(onSelect).toHaveBeenCalledWith('C:\\repo');
+  });
+
+  it('searches by project path and clears a no-results state', () => {
+    const i18n = createTestI18n('en');
+    render(
+      <I18nextProvider i18n={i18n}>
+        <ProjectsView projects={[PROJECT, OTHER_PROJECT]} onProjectSelect={vi.fn()} />
+      </I18nextProvider>
+    );
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search projects' }), {
+      target: { value: 'other' },
+    });
+    expect(screen.getByRole('button', { name: 'View sessions for other' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'View sessions for repo' })).toBeNull();
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search projects' }), {
+      target: { value: 'missing' },
+    });
+    expect(screen.getByText('No matching projects')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }));
+    expect(screen.getByRole('button', { name: 'View sessions for repo' })).toBeTruthy();
+  });
+
+  it('sorts the complete project list by project name', () => {
+    const i18n = createTestI18n('en');
+    render(
+      <I18nextProvider i18n={i18n}>
+        <ProjectsView projects={[PROJECT, OTHER_PROJECT]} onProjectSelect={vi.fn()} />
+      </I18nextProvider>
+    );
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Sort projects' }), {
+      target: { value: 'name' },
+    });
+    const rows = within(screen.getByRole('table', { name: 'Project list' })).getAllByRole('row');
+    expect(rows[1].textContent).toContain('other');
+    expect(rows[2].textContent).toContain('repo');
+  });
+
+  it('combines projects beyond the top seven into a non-navigable chart entry', () => {
+    const projects = Array.from({ length: 9 }, (_, index) => ({
+      ...PROJECT,
+      projectPath: `C:\\project-${index + 1}`,
+      projectName: `project-${index + 1}`,
+      totalTokens: 1_000 - index * 50,
+    }));
+    const i18n = createTestI18n('en');
+    render(
+      <I18nextProvider i18n={i18n}>
+        <ProjectsView projects={projects} onProjectSelect={vi.fn()} />
+      </I18nextProvider>
+    );
+
+    expect(screen.getByText('Other projects')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /View sessions for Other projects/i })).toBeNull();
   });
 
   it('shows project details on hover and focus, then hides them on exit', () => {
