@@ -423,6 +423,103 @@ code {
   background: var(--color-brand-700);
 }
 
+.performance-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.performance-summary-card {
+  min-width: 0;
+  min-height: 8.25rem;
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+}
+
+.performance-summary-card h3,
+.performance-summary-card p {
+  margin: 0;
+}
+
+.performance-summary-card h3 {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-body-small);
+  font-weight: 500;
+}
+
+.performance-summary-card p {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-label);
+  line-height: 1.5;
+}
+
+.performance-summary-value {
+  min-width: 0;
+  color: var(--color-brand-700);
+  font-size: var(--font-size-metric);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.performance-summary-status {
+  width: fit-content;
+  max-width: 100%;
+  color: var(--color-text);
+  font-size: var(--font-size-label);
+  font-weight: 500;
+}
+
+.performance-summary-card.is-warning {
+  border-color: var(--color-warning-border);
+}
+
+.performance-summary-card.is-warning .performance-summary-status {
+  color: var(--color-warning-text);
+}
+
+.performance-summary-card.is-danger {
+  border-color: var(--color-danger-border);
+}
+
+.performance-summary-card.is-danger .performance-summary-value,
+.performance-summary-card.is-danger .performance-summary-status {
+  color: var(--color-danger-text);
+}
+
+.performance-detail {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.performance-detail > .accessible-tabs {
+  padding: var(--space-2) var(--space-2) 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.performance-detail-panel {
+  min-width: 0;
+}
+
+.performance-detail-panel > .perf-card {
+  width: 100%;
+}
+
+.performance-activity-detail {
+  min-height: 0;
+}
+
+@media (max-width: 1050px) {
+  .performance-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .performance-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(260px, 1fr));
@@ -5494,6 +5591,10 @@ code {
 }
 
 @media (max-width: 760px) {
+  .performance-summary {
+    grid-template-columns: 1fr;
+  }
+
   .performance-grid,
   .settings-grid {
     grid-template-columns: 1fr;
