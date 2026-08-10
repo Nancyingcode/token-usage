@@ -67,6 +67,7 @@ describe('AccessibleTabs', () => {
     expect(pricing.id).toBe('demo-tab-pricing');
     expect(pricing.getAttribute('aria-controls')).toBe('demo-panel-pricing');
     expect(pricing.getAttribute('aria-selected')).toBe('true');
+    expect(pricing.className).toContain('active');
 
     fireEvent.click(screen.getByRole('tab', { name: 'Alerts' }));
     expect(onChange).toHaveBeenCalledWith('alerts');

@@ -11,6 +11,7 @@ import type {
   CostOptimizationValidationIssue,
 } from '../../shared/costOptimizationTypes';
 import { ICON_SIZE_SMALL } from '../constants/ui';
+import { useExitTransition } from '../hooks/useExitTransition';
 import { useOverlayFocus } from '../hooks/useOverlayFocus';
 import {
   createCostOptimizationSettingsForm,
@@ -135,7 +136,8 @@ const CostOptimizationSettingsDrawer: React.FC<CostOptimizationSettingsDrawerPro
   const [issues, setIssues] = useState<CostOptimizationValidationIssue[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const dialogRef = useOverlayFocus<HTMLElement>(onClose);
+  const { state, requestExit, handleAnimationEnd } = useExitTransition(onClose);
+  const dialogRef = useOverlayFocus<HTMLElement>(requestExit);
   const availableCandidateIdSet = new Set(availableCandidateModelIds);
   const displayedModelIds = [
     ...availableCandidateModelIds,
@@ -162,7 +164,7 @@ const CostOptimizationSettingsDrawer: React.FC<CostOptimizationSettingsDrawerPro
     try {
       await onSave(toCostOptimizationSettings(form));
       onSaved?.();
-      onClose();
+      requestExit();
     } catch (error) {
       const ipcIssues = getCostOptimizationIpcIssues(error);
 
@@ -180,9 +182,11 @@ const CostOptimizationSettingsDrawer: React.FC<CostOptimizationSettingsDrawerPro
     <aside
       ref={dialogRef}
       className="drawer-shell budget-drawer cost-optimization-drawer"
+      data-state={state}
       role="dialog"
       aria-modal="true"
       aria-labelledby="cost-optimization-settings-title"
+      onAnimationEnd={handleAnimationEnd}
     >
       <form className="drawer-form" onSubmit={handleSubmit}>
         <div className="drawer-heading">
@@ -195,7 +199,7 @@ const CostOptimizationSettingsDrawer: React.FC<CostOptimizationSettingsDrawerPro
             className="icon-button"
             title={tCommon('action.close')}
             aria-label={tCommon('action.close')}
-            onClick={onClose}
+            onClick={requestExit}
           >
             <X size={ICON_SIZE_SMALL} />
           </button>
@@ -282,7 +286,7 @@ const CostOptimizationSettingsDrawer: React.FC<CostOptimizationSettingsDrawerPro
         {saveError ? <p className="form-error">{saveError}</p> : null}
 
         <div className="drawer-actions">
-          <button type="button" className="secondary-button" onClick={onClose}>
+          <button type="button" className="secondary-button" onClick={requestExit}>
             {tCommon('action.cancel')}
           </button>
           <button type="submit" className="primary-button" disabled={saving}>

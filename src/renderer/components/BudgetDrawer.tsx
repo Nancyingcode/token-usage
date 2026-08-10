@@ -22,6 +22,7 @@ import {
 import { isRecord } from '../../shared/runtimeTypes';
 import { ICON_SIZE_SMALL } from '../constants/ui';
 import type { BudgetActions } from '../hooks/useBudgetSnapshot';
+import { useExitTransition } from '../hooks/useExitTransition';
 import { useOverlayFocus } from '../hooks/useOverlayFocus';
 import { budgetFormReducer, createBudgetFormState, toBudgetPolicyInput } from '../utils/budgetForm';
 import { translateValidationIssue } from '../utils/validationIssues';
@@ -333,17 +334,24 @@ const ThresholdForm: React.FC<BudgetDrawerProps> = ({ thresholds, actions, onClo
 };
 
 const BudgetDrawer: React.FC<BudgetDrawerProps> = (props) => {
-  const drawerRef = useOverlayFocus<HTMLElement>(props.onClose);
+  const { state, requestExit, handleAnimationEnd } = useExitTransition(props.onClose);
+  const drawerRef = useOverlayFocus<HTMLElement>(requestExit);
   const content =
-    props.model.kind === 'policy' ? <PolicyForm {...props} /> : <ThresholdForm {...props} />;
+    props.model.kind === 'policy' ? (
+      <PolicyForm {...props} onClose={requestExit} />
+    ) : (
+      <ThresholdForm {...props} onClose={requestExit} />
+    );
 
   return (
     <aside
       ref={drawerRef}
       className="drawer-shell budget-drawer"
+      data-state={state}
       role="dialog"
       aria-modal="true"
       aria-labelledby="budget-drawer-title"
+      onAnimationEnd={handleAnimationEnd}
     >
       {content}
     </aside>

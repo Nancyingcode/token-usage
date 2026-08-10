@@ -62,6 +62,10 @@ describe('useOverlayFocus', () => {
 
   it('dismisses a toast after the configured duration', () => {
     vi.useFakeTimers();
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: vi.fn().mockReturnValue({ matches: false }),
+    });
     const onDismiss = vi.fn();
     render(
       <I18nextProvider i18n={testI18n}>
@@ -71,6 +75,9 @@ describe('useOverlayFocus', () => {
 
     expect(screen.getByRole('status').textContent).toContain('Budget saved');
     act(() => vi.advanceTimersByTime(1_000));
+    expect(screen.getByRole('status').getAttribute('data-state')).toBe('exiting');
+    expect(onDismiss).not.toHaveBeenCalled();
+    fireEvent.animationEnd(screen.getByRole('status'));
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 });

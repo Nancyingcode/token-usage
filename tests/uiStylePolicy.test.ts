@@ -11,6 +11,9 @@ import { describe, expect, it } from 'vitest';
 const readRendererStyle = (relativePath: string): string =>
   readFileSync(resolve(process.cwd(), 'src/renderer', relativePath), 'utf8').replace(/\r\n/g, '\n');
 
+const readRendererFile = (relativePath: string): string =>
+  readFileSync(resolve(process.cwd(), 'src/renderer', relativePath), 'utf8').replace(/\r\n/g, '\n');
+
 describe('UI style policy', () => {
   it('loads layered styles in deterministic order', () => {
     expect(readRendererStyle('styles.css').trim()).toBe(
@@ -54,6 +57,45 @@ describe('UI style policy', () => {
     expect(tokens).toContain('--color-brand-300: #6ce0b5;');
     expect(tokens).toContain('--font-size-body: 0.8125rem;');
     expect(tokens).toContain('--control-height-compact: 2rem;');
+  });
+
+  it('defines reusable motion tokens for entering and exiting surfaces', () => {
+    const tokens = readRendererStyle('styles/tokens.css');
+
+    expect(tokens).toContain('--ease-motion-enter:');
+    expect(tokens).toContain('--ease-motion-exit:');
+    expect(tokens).toContain('--motion-distance-small:');
+    expect(tokens).toContain('--motion-distance-medium:');
+  });
+
+  it('animates view changes, overlay exits, and active control indicators', () => {
+    const app = readRendererFile('App.tsx');
+    const shell = readRendererStyle('styles/shell.css');
+    const components = readRendererStyle('styles/components.css');
+    const views = readRendererStyle('styles/views.css');
+
+    expect(app).toContain('key={activeView}');
+    expect(app).toContain('className="view-transition"');
+    expect(shell).toContain('.nav-item::before');
+    expect(components).toContain('.accessible-tab::after');
+    expect(components).toContain(".drawer-shell[data-state='exiting']");
+    expect(components).toContain(".toast-notice[data-state='exiting']");
+    expect(views).toContain('.view-transition > *');
+    expect(views).toContain(".dialog-backdrop[data-state='exiting']");
+    expect(views).toContain(".confirm-dialog[data-state='exiting']");
+  });
+
+  it('disables new movement and indicator transitions for reduced motion', () => {
+    const css = ['shell.css', 'components.css', 'views.css']
+      .map((file) => readRendererStyle(`styles/${file}`))
+      .join('\n');
+
+    expect(css).toContain('.view-transition > *');
+    expect(css).toContain('.nav-item::before');
+    expect(css).toContain('.accessible-tab::after');
+    expect(css.match(/@media \(prefers-reduced-motion: reduce\)/g)?.length).toBeGreaterThanOrEqual(
+      3
+    );
   });
 
   it('uses the brand accent for the featured overview metric value', () => {

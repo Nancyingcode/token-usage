@@ -105,6 +105,7 @@
 }
 
 .accessible-tab {
+  position: relative;
   min-width: max-content;
   min-height: var(--control-height-compact);
   padding: 0 var(--space-3);
@@ -116,8 +117,20 @@
   font-size: var(--font-size-body-small);
   transition:
     color var(--duration-fast) ease,
-    background-color var(--duration-fast) ease,
-    border-color var(--duration-fast) ease;
+    background-color var(--duration-fast) ease;
+}
+
+.accessible-tab::after {
+  position: absolute;
+  right: var(--space-2);
+  bottom: -1px;
+  left: var(--space-2);
+  height: 2px;
+  background: var(--color-brand-500);
+  content: '';
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform var(--duration-standard) var(--ease-motion-enter);
 }
 
 .accessible-tab:hover {
@@ -128,8 +141,11 @@
 .accessible-tab.active {
   color: var(--color-brand-950);
   background: var(--color-brand-surface);
-  border-bottom-color: var(--color-brand-500);
   font-weight: 700;
+}
+
+.accessible-tab.active::after {
+  transform: scaleX(1);
 }
 
 .metric-grid {
@@ -404,7 +420,12 @@
   background: var(--color-surface);
   border-left: 1px solid var(--color-border);
   box-shadow: var(--shadow-overlay);
-  animation: drawer-enter var(--duration-overlay) ease-out both;
+  animation: drawer-enter var(--duration-overlay) var(--ease-motion-enter) both;
+}
+
+.drawer-shell[data-state='exiting'] {
+  pointer-events: none;
+  animation: drawer-exit var(--duration-standard) var(--ease-motion-exit) both;
 }
 
 .toast-notice {
@@ -425,7 +446,12 @@
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-overlay);
   font-size: var(--font-size-body-small);
-  animation: toast-enter var(--duration-standard) ease-out both;
+  animation: toast-enter var(--duration-standard) var(--ease-motion-enter) both;
+}
+
+.toast-notice[data-state='exiting'] {
+  pointer-events: none;
+  animation: toast-exit var(--duration-fast) var(--ease-motion-exit) both;
 }
 
 .toast-notice > svg {
@@ -451,14 +477,28 @@
 @keyframes drawer-enter {
   from {
     opacity: 0;
-    transform: translateX(1rem);
+    transform: translateX(var(--motion-distance-medium));
+  }
+}
+
+@keyframes drawer-exit {
+  to {
+    opacity: 0;
+    transform: translateX(var(--motion-distance-medium));
   }
 }
 
 @keyframes toast-enter {
   from {
     opacity: 0;
-    transform: translateY(0.5rem);
+    transform: translateY(var(--motion-distance-small));
+  }
+}
+
+@keyframes toast-exit {
+  to {
+    opacity: 0;
+    transform: translateY(var(--motion-distance-small));
   }
 }
 
@@ -647,5 +687,9 @@
   .loader {
     animation: none;
     transform: none;
+  }
+
+  .accessible-tab::after {
+    transition: none;
   }
 }

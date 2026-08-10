@@ -163,6 +163,21 @@
     background-color var(--duration-fast) ease;
 }
 
+.nav-item::before {
+  position: absolute;
+  left: 0;
+  width: 0.1875rem;
+  height: 60%;
+  background: var(--color-brand-300);
+  border-radius: 999px;
+  content: '';
+  opacity: 0;
+  transform: scaleY(0.25);
+  transition:
+    opacity var(--duration-fast) var(--ease-motion-enter),
+    transform var(--duration-standard) var(--ease-motion-enter);
+}
+
 .nav-item:hover {
   color: var(--color-surface);
   background: var(--color-brand-sidebar-hover);
@@ -171,13 +186,23 @@
 .nav-item svg {
   flex: 0 0 auto;
   color: currentColor;
+  transition: transform var(--duration-fast) var(--ease-motion-enter);
+}
+
+.nav-item:hover svg,
+.nav-item.active svg {
+  transform: translateX(calc(var(--motion-distance-small) / 2));
 }
 
 .nav-item.active {
   color: var(--color-surface);
   background: var(--color-brand-sidebar-active);
-  box-shadow: inset 3px 0 var(--color-brand-300);
   font-weight: 700;
+}
+
+.nav-item.active::before {
+  opacity: 1;
+  transform: scaleY(1);
 }
 
 .nav-badge {
@@ -367,5 +392,17 @@
 
   .toolbar-actions {
     flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-item::before,
+  .nav-item svg {
+    transition: none;
+  }
+
+  .nav-item:hover svg,
+  .nav-item.active svg {
+    transform: none;
   }
 }

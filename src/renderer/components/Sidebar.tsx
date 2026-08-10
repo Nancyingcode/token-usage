@@ -88,6 +88,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 {group.items.map((item) => {
                   const Icon = item.icon;
                   const label = t(item.translationKey);
+                  const active = activeView === item.key;
                   const showWarningBadge = shouldShowWarningBadge(item.key, warningCount);
                   const showBudgetBadge = shouldShowBudgetBadge(item.key, budgetAlertCount);
                   const badgeCount = showWarningBadge ? warningCount : budgetAlertCount;
@@ -97,7 +98,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <button
                       key={item.key}
                       type="button"
-                      className={activeView === item.key ? 'nav-item active' : 'nav-item'}
+                      className={active ? 'nav-item active' : 'nav-item'}
+                      aria-current={active ? 'page' : undefined}
                       onClick={() => onChange(item.key)}
                       title={label}
                     >

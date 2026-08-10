@@ -260,35 +260,37 @@ const App: React.FC = () => {
           onPeriodChange={handlePeriodChange}
         />
 
-        <AppContent
-          activeView={activeView}
-          period={period}
-          model={contentModel}
-          onRefresh={refresh}
-          budgetModel={budgetModel}
-          budgetActions={budgetState.actions}
-          focusedPolicyId={focusedPolicyId}
-          onFocusedPolicyConsumed={clearFocusedPolicy}
-          onProjectSelect={handleProjectSelect}
-          selectedProjectPath={selectedProjectPath}
-          onClearProjectFilter={clearProjectFilter}
-          costOptimizationModel={costOptimizationModel}
-          costProjectOptions={costProjectOptions}
-          costProjectPath={costOptimizationState.projectPath}
-          costOptimizationTab={activeCostOptimizationTab}
-          diagnosisId={diagnosisId}
-          diagnosisDetailModel={diagnosisDetailModel}
-          globalDiagnostics={globalDiagnostics}
-          onCostOptimizationTabChange={handleCostOptimizationTabChange}
-          onDiagnosisOpen={handleDiagnosisOpen}
-          onDiagnosisClose={handleDiagnosisClose}
-          onCostProjectPathChange={costOptimizationState.setProjectPath}
-          onCostSettingsUpdate={costOptimizationState.updateSettings}
-          dataPathSettings={dataPathSettings ?? undefined}
-          onSelectDataPath={handleDataPathSelect}
-          onUpdateDataPath={handleDataPathUpdate}
-          onResetDataPath={handleDataPathReset}
-        />
+        <div key={activeView} className="view-transition">
+          <AppContent
+            activeView={activeView}
+            period={period}
+            model={contentModel}
+            onRefresh={refresh}
+            budgetModel={budgetModel}
+            budgetActions={budgetState.actions}
+            focusedPolicyId={focusedPolicyId}
+            onFocusedPolicyConsumed={clearFocusedPolicy}
+            onProjectSelect={handleProjectSelect}
+            selectedProjectPath={selectedProjectPath}
+            onClearProjectFilter={clearProjectFilter}
+            costOptimizationModel={costOptimizationModel}
+            costProjectOptions={costProjectOptions}
+            costProjectPath={costOptimizationState.projectPath}
+            costOptimizationTab={activeCostOptimizationTab}
+            diagnosisId={diagnosisId}
+            diagnosisDetailModel={diagnosisDetailModel}
+            globalDiagnostics={globalDiagnostics}
+            onCostOptimizationTabChange={handleCostOptimizationTabChange}
+            onDiagnosisOpen={handleDiagnosisOpen}
+            onDiagnosisClose={handleDiagnosisClose}
+            onCostProjectPathChange={costOptimizationState.setProjectPath}
+            onCostSettingsUpdate={costOptimizationState.updateSettings}
+            dataPathSettings={dataPathSettings ?? undefined}
+            onSelectDataPath={handleDataPathSelect}
+            onUpdateDataPath={handleDataPathUpdate}
+            onResetDataPath={handleDataPathReset}
+          />
+        </div>
       </main>
     </div>
   );

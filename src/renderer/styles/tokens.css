@@ -71,4 +71,8 @@
   --duration-fast: 140ms;
   --duration-standard: 180ms;
   --duration-overlay: 220ms;
+  --ease-motion-enter: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-motion-exit: cubic-bezier(0.4, 0, 1, 1);
+  --motion-distance-small: 0.25rem;
+  --motion-distance-medium: 0.75rem;
 }

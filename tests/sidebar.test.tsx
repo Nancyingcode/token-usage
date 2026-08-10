@@ -29,6 +29,14 @@ describe('Sidebar', () => {
     expect(markup).toContain('<em class="nav-badge">2</em>');
   });
 
+  it('identifies the active destination as the current page', () => {
+    const markup = renderWithI18n(
+      <Sidebar activeView="performance" warningCount={0} onChange={vi.fn()} />
+    );
+
+    expect(markup).toContain('class="nav-item active" aria-current="page"');
+  });
+
   it('renders the branded navigation groups in product order', () => {
     const markup = renderWithI18n(
       <Sidebar activeView="overview" warningCount={0} onChange={vi.fn()} />
