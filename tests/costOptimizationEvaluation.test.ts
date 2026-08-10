@@ -5,13 +5,23 @@ import {
 } from '../src/shared/costOptimizationIndex';
 import { evaluateCostOptimization } from '../src/shared/costOptimizationEvaluation';
 import type { CostOptimizationIndex, UsageSourceChange } from '../src/shared/costOptimizationTypes';
+import { DEFAULT_MODEL_PRICING } from '../src/main/defaultModelPricing';
 import { FIXED_NOW, PRICING, SETTINGS } from './helpers/costOptimizationFixtures';
-import type { BudgetPolicyStatus } from '../src/shared/budgetTypes';
+import type { BudgetPolicyStatus, ModelPricingEntry } from '../src/shared/budgetTypes';
 
 const BASE_INPUT_TOKENS = 200_000;
 const BASE_OUTPUT_TOKENS = 200_000;
 const SPIKE_OUTPUT_TOKENS = 1_200_000;
 const HISTORY_DAYS = 8;
+const LATEST_PRICING: ModelPricingEntry[] = PRICING.map((entry, index) => ({
+  ...entry,
+  modelId: index === 0 ? 'gpt-5.6-sol' : 'gpt-5.6-luna',
+  aliases: [entry.modelId, ...entry.aliases],
+}));
+const LATEST_SETTINGS = {
+  ...SETTINGS,
+  candidateModelIds: ['gpt-5.6-luna'],
+};
 
 describe('cost optimization evaluation', () => {
   it('combines comparison, anomalies, forecast and de-duplicated savings', () => {
@@ -22,6 +32,92 @@ describe('cost optimization evaluation', () => {
     expect(snapshot.forecast.kind).toBe('ready');
     expect(snapshot.recommendations).not.toHaveLength(0);
     expect(snapshot.conservativeSavingsUsd).toBeGreaterThan(0);
+  });
+
+  it('keeps historical costs but limits substitutions to the latest model series', () => {
+    const oldModel = makeSourceChange('old.jsonl', '2026-07-24', 'gpt-5.5', 1_000_000, 0);
+    const latestModel = makeSourceChange('latest.jsonl', '2026-07-24', 'gpt-5.6-sol', 1_000_000, 0);
+    const index = applyUsageChangeSet(
+      createEmptyCostOptimizationIndex('C:\\sessions', FIXED_NOW),
+      {
+        upserted: [oldModel, latestModel],
+        removedSourceFiles: [],
+        requiresFullRebuild: false,
+      },
+      FIXED_NOW
+    );
+    const snapshot = evaluateCostOptimization({
+      ...makeEvaluationInput(),
+      index,
+      settings: {
+        ...SETTINGS,
+        candidateModelIds: ['gpt-5.5', 'gpt-5.6-luna'],
+        minimumSavingsUsd: 0,
+      },
+      pricing: [
+        makePricing('gpt-5.5', 10),
+        makePricing('gpt-5.6-sol', 5),
+        makePricing('gpt-5.6-terra', 2.5),
+        makePricing('gpt-5.6-luna', 1),
+      ],
+    });
+
+    expect(snapshot.currentCostUsd).toBe(15);
+    expect(snapshot.modelRows.map(({ modelId }) => modelId)).toEqual(['gpt-5.5', 'gpt-5.6-sol']);
+    expect(snapshot.substitutionScenarios).toEqual([
+      expect.objectContaining({
+        sourceModelId: 'gpt-5.6-sol',
+        targetModelId: 'gpt-5.6-luna',
+        scenarioCostUsd: 1,
+        savingsUsd: 4,
+      }),
+    ]);
+    expect(snapshot.recommendations).toEqual([
+      expect.objectContaining({
+        type: 'cache-improvement',
+        scopeLabel: 'gpt-5.6-sol',
+      }),
+    ]);
+  });
+
+  it('excludes every legacy built-in target from model substitution recommendations', () => {
+    const latestSessions = Array.from({ length: 7 }, (_, index) =>
+      makeSourceChange(`latest-${index}.jsonl`, '2026-07-24', 'gpt-5.6-sol', 1_000_000, 0)
+    );
+    const index = applyUsageChangeSet(
+      createEmptyCostOptimizationIndex('C:\\sessions', FIXED_NOW),
+      {
+        upserted: latestSessions,
+        removedSourceFiles: [],
+        requiresFullRebuild: false,
+      },
+      FIXED_NOW
+    );
+    const snapshot = evaluateCostOptimization({
+      ...makeEvaluationInput(),
+      index,
+      pricing: DEFAULT_MODEL_PRICING,
+      settings: {
+        ...SETTINGS,
+        candidateModelIds: DEFAULT_MODEL_PRICING.map(({ modelId }) => modelId),
+        minimumSavingsUsd: 0,
+      },
+    });
+
+    expect(
+      snapshot.substitutionScenarios.map(({ sourceModelId, targetModelId }) => ({
+        sourceModelId,
+        targetModelId,
+      }))
+    ).toEqual([
+      { sourceModelId: 'gpt-5.6-sol', targetModelId: 'gpt-5.6-luna' },
+      { sourceModelId: 'gpt-5.6-sol', targetModelId: 'gpt-5.6-terra' },
+    ]);
+    expect(
+      snapshot.recommendations
+        .filter(({ type }) => type === 'model-substitution')
+        .map(({ scopeLabel }) => scopeLabel)
+    ).toEqual(['gpt-5.6-sol → gpt-5.6-luna', 'gpt-5.6-sol → gpt-5.6-terra']);
   });
 
   it('includes lightweight session diagnosis summaries without timeline data', () => {
@@ -206,8 +302,8 @@ describe('cost optimization evaluation', () => {
 const makeEvaluationInput = () => ({
   index: makeEvaluationIndex(false),
   query: { period: 'total' as const },
-  settings: SETTINGS,
-  pricing: PRICING,
+  settings: LATEST_SETTINGS,
+  pricing: LATEST_PRICING,
   budgets: [],
   now: FIXED_NOW,
   dataState: 'fresh' as const,
@@ -294,3 +390,13 @@ const makeSourceChange = (
     },
   };
 };
+
+const makePricing = (modelId: string, inputUsdPerMillion: number): ModelPricingEntry => ({
+  modelId,
+  aliases: [],
+  inputUsdPerMillion,
+  cachedInputUsdPerMillion: inputUsdPerMillion / 10,
+  outputUsdPerMillion: inputUsdPerMillion * 6,
+  effectiveAt: '2026-08-10',
+  sourceKind: 'built-in',
+});

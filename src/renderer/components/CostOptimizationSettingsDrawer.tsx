@@ -24,7 +24,7 @@ import {
 
 interface CostOptimizationSettingsDrawerProps {
   settings: CostOptimizationSettings;
-  pricedModelIds: string[];
+  availableCandidateModelIds: string[];
   onClose: () => void;
   onSave: (settings: CostOptimizationSettings) => Promise<unknown>;
   onSaved?: () => void;
@@ -122,7 +122,7 @@ const getErrorMessage = (error: unknown): string => {
 
 const CostOptimizationSettingsDrawer: React.FC<CostOptimizationSettingsDrawerProps> = ({
   settings,
-  pricedModelIds,
+  availableCandidateModelIds,
   onClose,
   onSave,
   onSaved,
@@ -136,10 +136,10 @@ const CostOptimizationSettingsDrawer: React.FC<CostOptimizationSettingsDrawerPro
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const dialogRef = useOverlayFocus<HTMLElement>(onClose);
-  const pricedModelIdSet = new Set(pricedModelIds);
+  const availableCandidateIdSet = new Set(availableCandidateModelIds);
   const displayedModelIds = [
-    ...pricedModelIds,
-    ...settings.candidateModelIds.filter((modelId) => !pricedModelIdSet.has(modelId)),
+    ...availableCandidateModelIds,
+    ...settings.candidateModelIds.filter((modelId) => !availableCandidateIdSet.has(modelId)),
   ];
 
   const updateField = (field: CostOptimizationSettingsFormField, value: string): void => {
@@ -150,7 +150,7 @@ const CostOptimizationSettingsDrawer: React.FC<CostOptimizationSettingsDrawerPro
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
-    const nextIssues = getCostOptimizationSettingsFormIssues(form, pricedModelIds);
+    const nextIssues = getCostOptimizationSettingsFormIssues(form, availableCandidateModelIds);
 
     if (nextIssues.length > 0) {
       setIssues(nextIssues);
@@ -259,7 +259,7 @@ const CostOptimizationSettingsDrawer: React.FC<CostOptimizationSettingsDrawerPro
           <legend>{t('drawer.candidateModels')}</legend>
           <div className="cost-optimization-model-options">
             {displayedModelIds.map((modelId) => {
-              const pricingUnavailable = !pricedModelIdSet.has(modelId);
+              const candidateUnavailable = !availableCandidateIdSet.has(modelId);
 
               return (
                 <label key={modelId}>
@@ -269,7 +269,7 @@ const CostOptimizationSettingsDrawer: React.FC<CostOptimizationSettingsDrawerPro
                     onChange={() => updateField('candidateModelIds', modelId)}
                   />
                   <span>{modelId}</span>
-                  {pricingUnavailable ? <small>{t('drawer.pricingUnavailable')}</small> : null}
+                  {candidateUnavailable ? <small>{t('drawer.candidateUnavailable')}</small> : null}
                 </label>
               );
             })}

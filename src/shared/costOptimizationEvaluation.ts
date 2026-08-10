@@ -26,7 +26,8 @@ import type {
   IndexedUsageBucket,
   IndexedUsageContribution,
 } from './costOptimizationTypes';
-import { calculateEstimatedCost } from './pricing';
+import { selectLatestModelSeriesPricing } from './latestModelSeries';
+import { calculateEstimatedCost, createPricingContext, normalizeModelId } from './pricing';
 import { evaluateSessionDiagnostics } from './sessionDiagnosisEvaluation';
 import type { UsageSlice } from './usageTypes';
 
@@ -132,11 +133,16 @@ export const evaluateCostOptimization = (
     input.unknownModelPricing
   );
   const currentCostUsd = modelRows.reduce((total, row) => total + row.pricedCostUsd, 0);
+  const latestModelPricing = selectLatestModelSeriesPricing(input.pricing);
+  const latestPricingById = createPricingContext(latestModelPricing).pricingById;
+  const latestCandidateModelIds = input.settings.candidateModelIds.filter((modelId) =>
+    latestPricingById.has(normalizeModelId(modelId))
+  );
   const substitutionScenarios = evaluateSubstitutionScenarios(
     input.index,
     input.query,
-    input.pricing,
-    input.settings.candidateModelIds,
+    latestModelPricing,
+    latestCandidateModelIds,
     input.settings.minimumSavingsUsd,
     input.now
   );
@@ -195,6 +201,17 @@ export const evaluateCostOptimization = (
     };
   }
   const contributions = selectQueryContributions(input.index, selectedBuckets);
+  const latestModelContributions = contributions.filter(
+    ({ modelId }) => modelId && latestPricingById.has(normalizeModelId(modelId))
+  );
+  const latestContributionIds = new Set(
+    latestModelContributions.map(({ id: contributionId }) => contributionId)
+  );
+  const latestModelAnomalies = anomalies.filter(
+    ({ contributionIds }) =>
+      contributionIds.length > 0 &&
+      contributionIds.every((contributionId) => latestContributionIds.has(contributionId))
+  );
   const diagnostics = evaluateSessionDiagnostics({
     index: input.index,
     query: input.query,
@@ -205,11 +222,11 @@ export const evaluateCostOptimization = (
   });
   const recommendations = pricingCoverageIsSafe
     ? buildSavingsRecommendations({
-        contributions,
+        contributions: latestModelContributions,
         substitutionScenarios,
-        anomalies,
+        anomalies: latestModelAnomalies,
         settings: input.settings,
-        pricing: input.pricing,
+        pricing: latestModelPricing,
         coverage,
       })
     : [];

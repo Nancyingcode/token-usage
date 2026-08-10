@@ -10,6 +10,7 @@ import {
 } from '../src/shared/pricing';
 import type { ModelPricingEntry, ModelPricingOverride } from '../src/shared/budgetTypes';
 import type { UsageSlice } from '../src/shared/usageTypes';
+import { getLatestModelSeriesIds } from '../src/shared/latestModelSeries';
 
 const TEST_PRICING: ModelPricingEntry = {
   modelId: 'gpt-test',
@@ -137,6 +138,32 @@ describe('pricing', () => {
     expect(
       DEFAULT_MODEL_PRICING.find(({ modelId }) => modelId === 'gpt-5.6-sol')?.aliases
     ).toContain('gpt-5.6');
+  });
+
+  it('limits the current optimization series to the built-in 5.6 variants', () => {
+    expect(getLatestModelSeriesIds(DEFAULT_MODEL_PRICING)).toEqual([
+      'gpt-5.6-sol',
+      'gpt-5.6-terra',
+      'gpt-5.6-luna',
+    ]);
+  });
+
+  it('keeps an overridden latest model in the latest optimization series', () => {
+    const override: ModelPricingOverride = {
+      modelId: 'GPT-5.6-SOL',
+      aliases: ['gpt-5.6'],
+      inputUsdPerMillion: 4,
+      cachedInputUsdPerMillion: 0.4,
+      outputUsdPerMillion: 24,
+      updatedAt: '2026-08-10T00:00:00.000Z',
+    };
+    const pricing = mergeModelPricing(DEFAULT_MODEL_PRICING, [override]);
+
+    expect(getLatestModelSeriesIds(pricing)).toEqual([
+      'GPT-5.6-SOL',
+      'gpt-5.6-terra',
+      'gpt-5.6-luna',
+    ]);
   });
 
   it('groups cost estimates by the slice local day', () => {
