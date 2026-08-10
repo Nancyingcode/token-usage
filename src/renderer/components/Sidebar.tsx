@@ -1,12 +1,12 @@
 import React from 'react';
 import {
   BarChart3,
+  FolderKanban,
   Gauge,
   MessageSquareText,
   Settings,
   TrendingDown,
   WalletCards,
-  Wrench,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ICON_SIZE_SMALL, NAV_ICON_STROKE_WIDTH } from '../constants/ui';
@@ -28,7 +28,7 @@ const NAV_GROUPS = [
     items: [
       { key: 'overview', translationKey: 'navigation.overview', icon: BarChart3 },
       { key: 'sessions', translationKey: 'navigation.sessions', icon: MessageSquareText },
-      { key: 'tools', translationKey: 'navigation.tools', icon: Wrench },
+      { key: 'tools', translationKey: 'navigation.tools', icon: FolderKanban },
       { key: 'performance', translationKey: 'navigation.performance', icon: Gauge },
     ],
   },

@@ -1,12 +1,20 @@
 /**
- * @file Project usage share chart
- * @description Displays project token shares as an accessible interactive donut chart.
+ * @file Project analytics workspace
+ * @description Presents project summary metrics, a compact usage-share chart, and a searchable project table.
  */
-import React, { useId, useState } from 'react';
+import React, { useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { UNKNOWN_PROJECT_KEY } from '../../shared/usageMath';
 import type { UsageProject } from '../../shared/usageTypes';
 import { resolveRendererLocale } from '../i18n';
 import { formatNumber, formatPercent, formatShortDateTime } from '../utils/formatters';
+import {
+  buildProjectChartEntries,
+  buildProjectRow,
+  filterAndSortProjects,
+  type ProjectChartEntry,
+  type ProjectSortKey,
+} from '../utils/projectViewModel';
 import PageHeader from './PageHeader';
 
 interface ProjectsViewProps {
@@ -14,8 +22,11 @@ interface ProjectsViewProps {
   onProjectSelect: (projectPath: string) => void;
 }
 
+type ProjectDonutDatum = UsageProject | ProjectChartEntry;
+
 export interface ProjectDonutSegment {
-  project: UsageProject;
+  project: ProjectDonutDatum;
+  key: string;
   percentage: number;
   startPercentage: number;
   toneIndex: number;
@@ -40,9 +51,21 @@ const DONUT_START_ANGLE = -90;
 const PROJECT_SHARE_FRACTION_DIGITS = 1;
 const PROJECT_COLOR_COUNT = 8;
 const ACTIVATION_KEYS = new Set(['Enter', ' ']);
+const OTHER_PROJECT_KEY = '__other-projects__';
+
+const isChartEntry = (project: ProjectDonutDatum): project is ProjectChartEntry =>
+  'kind' in project;
+
+const isNavigableProject = (project: ProjectDonutDatum): boolean =>
+  !isChartEntry(project) || project.kind === 'project';
+
+const getProjectKey = (project: ProjectDonutDatum): string =>
+  isChartEntry(project) && project.kind === 'other'
+    ? OTHER_PROJECT_KEY
+    : (project.projectPath ?? OTHER_PROJECT_KEY);
 
 export const buildProjectDonutSegments = (
-  projects: readonly UsageProject[]
+  projects: readonly ProjectDonutDatum[]
 ): ProjectDonutSegment[] => {
   const totalTokens = projects.reduce((total, project) => total + project.totalTokens, 0);
 
@@ -64,6 +87,7 @@ export const buildProjectDonutSegments = (
     const midpointRadians = (midpointAngle * Math.PI) / HALF_CIRCLE_DEGREES;
     const segment = {
       project,
+      key: getProjectKey(project),
       percentage,
       startPercentage,
       toneIndex: (index % PROJECT_COLOR_COUNT) + 1,
@@ -85,39 +109,104 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onProjectSelect }
   const { t: tCommon } = useTranslation('common');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const chartId = useId();
-  const [hoveredProjectPath, setHoveredProjectPath] = useState<string | null>(null);
-  const [focusedProjectPath, setFocusedProjectPath] = useState<string | null>(null);
-  const segments = buildProjectDonutSegments(projects);
+  const [hoveredProjectKey, setHoveredProjectKey] = useState<string | null>(null);
+  const [focusedProjectKey, setFocusedProjectKey] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [sortKey, setSortKey] = useState<ProjectSortKey>('tokens');
+  const chartEntries = useMemo(() => buildProjectChartEntries(projects), [projects]);
+  const segments = useMemo(() => buildProjectDonutSegments(chartEntries), [chartEntries]);
+  const visibleProjects = useMemo(
+    () => filterAndSortProjects(projects, query, sortKey),
+    [projects, query, sortKey]
+  );
   const totalTokens = projects.reduce((total, project) => total + project.totalTokens, 0);
-  const activeProjectPath = hoveredProjectPath ?? focusedProjectPath;
-  const activeSegment = segments.find(({ project }) => project.projectPath === activeProjectPath);
+  const totalSessions = projects.reduce((total, project) => total + project.sessionCount, 0);
+  const topProject = [...projects].sort((a, b) => b.totalTokens - a.totalTokens)[0];
+  const activeProjectKey = hoveredProjectKey ?? focusedProjectKey;
+  const activeSegment = segments.find(({ key }) => key === activeProjectKey);
   const unknownDateLabel = tCommon('value.unknownDate');
 
-  const activateProject = (projectPath: string): void => {
-    onProjectSelect(projectPath);
+  const getDisplayName = (project: ProjectDonutDatum): string => {
+    if (isChartEntry(project) && project.kind === 'other') {
+      return t('projects.otherProjects');
+    }
+
+    return project.projectName === UNKNOWN_PROJECT_KEY
+      ? t('projects.unknownProject')
+      : project.projectName;
+  };
+
+  const getDisplayPath = (project: ProjectDonutDatum): string | undefined =>
+    project.projectPath === UNKNOWN_PROJECT_KEY
+      ? t('projects.unknownProject')
+      : project.projectPath;
+
+  const activateProject = (project: ProjectDonutDatum): void => {
+    if (isNavigableProject(project) && project.projectPath) {
+      onProjectSelect(project.projectPath);
+    }
   };
 
   const handleSegmentKeyDown = (
     event: React.KeyboardEvent<SVGGElement>,
-    projectPath: string
+    project: ProjectDonutDatum
   ): void => {
-    if (!ACTIVATION_KEYS.has(event.key)) {
+    if (!ACTIVATION_KEYS.has(event.key) || !isNavigableProject(project)) {
       return;
     }
 
     event.preventDefault();
-    activateProject(projectPath);
+    activateProject(project);
   };
 
   return (
-    <section className="page-stack">
+    <section className="page-stack project-workspace">
       <PageHeader
         eyebrow={t('projects.eyebrow')}
         title={t('projects.title')}
         description={t('projects.description')}
         actions={<span>{t('projects.count', { count: projects.length })}</span>}
       />
-      <div className="panel project-donut-panel">
+
+      <section
+        className="project-summary-grid"
+        aria-label={t('projects.summary.label')}
+        role="region"
+      >
+        <article className="panel project-summary-card">
+          <span>{t('projects.summary.projectCount')}</span>
+          <strong>{t('projects.count', { count: projects.length })}</strong>
+        </article>
+        <article className="panel project-summary-card">
+          <span>{t('projects.summary.totalTokens')}</span>
+          <strong>{formatNumber(totalTokens, locale)}</strong>
+        </article>
+        <article className="panel project-summary-card">
+          <span>{t('projects.summary.totalSessions')}</span>
+          <strong>{formatNumber(totalSessions, locale)}</strong>
+        </article>
+        <article className="panel project-summary-card">
+          <span>{t('projects.summary.topProject')}</span>
+          <strong>{topProject ? getDisplayName(topProject) : tCommon('value.notSet')}</strong>
+          {topProject ? (
+            <small>
+              {formatPercent(
+                totalTokens > 0 ? (topProject.totalTokens / totalTokens) * PERCENT_SCALE : 0,
+                locale,
+                PROJECT_SHARE_FRACTION_DIGITS
+              )}
+            </small>
+          ) : null}
+        </article>
+      </section>
+
+      <article className="panel project-donut-panel">
+        <div className="panel-heading compact project-chart-heading">
+          <div>
+            <h2>{t('projects.chartTitle')}</h2>
+            <p>{t('projects.chartSummary')}</p>
+          </div>
+        </div>
         <div className="project-donut-layout">
           <div className="project-donut-stage">
             <svg
@@ -136,7 +225,7 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onProjectSelect }
                 pathLength={PERCENT_SCALE}
               />
               {segments.map((segment) => {
-                const { project, percentage, startPercentage, toneIndex } = segment;
+                const { project, key, percentage, startPercentage, toneIndex } = segment;
                 const share = formatPercent(percentage, locale, PROJECT_SHARE_FRACTION_DIGITS);
                 const tokens = formatNumber(project.totalTokens, locale);
                 const sessions = formatNumber(project.sessionCount, locale);
@@ -145,39 +234,49 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onProjectSelect }
                   locale,
                   unknownDateLabel
                 );
-                const isActive = activeProjectPath === project.projectPath;
-                const accessibleLabel = t('projects.segmentLabel', {
-                  project: project.projectName,
-                  share,
-                  tokens,
-                  count: project.sessionCount,
-                  sessions,
-                  lastActive,
-                });
+                const isActive = activeProjectKey === key;
+                const navigable = isNavigableProject(project);
+                const projectName = getDisplayName(project);
+                const accessibleLabel = navigable
+                  ? t('projects.segmentLabel', {
+                      project: projectName,
+                      share,
+                      tokens,
+                      count: project.sessionCount,
+                      sessions,
+                      lastActive,
+                    })
+                  : t('projects.otherSegmentLabel', {
+                      project: projectName,
+                      count: isChartEntry(project) ? project.projectCount : 0,
+                      share,
+                      tokens,
+                    });
 
                 return (
                   <g
-                    key={project.projectPath}
+                    key={key}
                     className={`project-donut-segment project-donut-tone-${toneIndex}${
                       isActive ? ' is-active' : ''
-                    }`}
-                    role="button"
-                    tabIndex={0}
+                    }${navigable ? '' : ' is-static'}`}
+                    role={navigable ? 'button' : 'img'}
+                    tabIndex={navigable ? 0 : undefined}
                     aria-label={accessibleLabel}
                     aria-describedby={isActive ? `${chartId}-tooltip` : undefined}
-                    onClick={() => activateProject(project.projectPath)}
-                    onKeyDown={(event) => handleSegmentKeyDown(event, project.projectPath)}
-                    onPointerEnter={() => setHoveredProjectPath(project.projectPath)}
-                    onPointerLeave={() =>
-                      setHoveredProjectPath((current) =>
-                        current === project.projectPath ? null : current
-                      )
+                    onClick={navigable ? () => activateProject(project) : undefined}
+                    onKeyDown={
+                      navigable ? (event) => handleSegmentKeyDown(event, project) : undefined
                     }
-                    onFocus={() => setFocusedProjectPath(project.projectPath)}
-                    onBlur={() =>
-                      setFocusedProjectPath((current) =>
-                        current === project.projectPath ? null : current
-                      )
+                    onPointerEnter={() => setHoveredProjectKey(key)}
+                    onPointerLeave={() =>
+                      setHoveredProjectKey((current) => (current === key ? null : current))
+                    }
+                    onFocus={navigable ? () => setFocusedProjectKey(key) : undefined}
+                    onBlur={
+                      navigable
+                        ? () =>
+                            setFocusedProjectKey((current) => (current === key ? null : current))
+                        : undefined
                     }
                   >
                     <circle
@@ -220,14 +319,16 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onProjectSelect }
                   } as ProjectTooltipStyle
                 }
               >
-                <strong>{activeSegment.project.projectName}</strong>
+                <strong>{getDisplayName(activeSegment.project)}</strong>
                 <dl>
-                  <div>
-                    <dt>{t('projects.path')}</dt>
-                    <dd title={activeSegment.project.projectPath}>
-                      {activeSegment.project.projectPath}
-                    </dd>
-                  </div>
+                  {getDisplayPath(activeSegment.project) ? (
+                    <div>
+                      <dt>{t('projects.path')}</dt>
+                      <dd title={getDisplayPath(activeSegment.project)}>
+                        {getDisplayPath(activeSegment.project)}
+                      </dd>
+                    </div>
+                  ) : null}
                   <div>
                     <dt>{t('projects.share')}</dt>
                     <dd>
@@ -261,51 +362,181 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onProjectSelect }
             ) : null}
           </div>
           <aside className="project-donut-legend">
-            <h2>{t('projects.legendLabel')}</h2>
+            <h3>{t('projects.legendLabel')}</h3>
             <ul aria-label={t('projects.legendLabel')}>
-              {segments.map(({ project, percentage, toneIndex }) => {
+              {segments.map(({ project, key, percentage, toneIndex }) => {
                 const share = formatPercent(percentage, locale, PROJECT_SHARE_FRACTION_DIGITS);
-                const isActive = activeProjectPath === project.projectPath;
+                const isActive = activeProjectKey === key;
+                const navigable = isNavigableProject(project);
+                const itemClassName = `project-donut-legend-item project-donut-tone-${toneIndex}${
+                  isActive ? ' is-active' : ''
+                }${navigable ? '' : ' is-static'}`;
+                const content = (
+                  <>
+                    <span className="project-donut-legend-swatch" aria-hidden="true" />
+                    <span className="project-donut-legend-name" title={getDisplayPath(project)}>
+                      {getDisplayName(project)}
+                    </span>
+                    <span className="project-donut-legend-share">{share}</span>
+                  </>
+                );
 
                 return (
-                  <li key={project.projectPath}>
-                    <button
-                      type="button"
-                      className={`project-donut-legend-item project-donut-tone-${toneIndex}${
-                        isActive ? ' is-active' : ''
-                      }`}
-                      aria-label={t('projects.legendItemLabel', {
-                        project: project.projectName,
-                        share,
-                      })}
-                      aria-describedby={isActive ? `${chartId}-tooltip` : undefined}
-                      onClick={() => activateProject(project.projectPath)}
-                      onPointerEnter={() => setHoveredProjectPath(project.projectPath)}
-                      onPointerLeave={() =>
-                        setHoveredProjectPath((current) =>
-                          current === project.projectPath ? null : current
-                        )
-                      }
-                      onFocus={() => setFocusedProjectPath(project.projectPath)}
-                      onBlur={() =>
-                        setFocusedProjectPath((current) =>
-                          current === project.projectPath ? null : current
-                        )
-                      }
-                    >
-                      <span className="project-donut-legend-swatch" aria-hidden="true" />
-                      <span className="project-donut-legend-name" title={project.projectPath}>
-                        {project.projectName}
-                      </span>
-                      <span className="project-donut-legend-share">{share}</span>
-                    </button>
+                  <li key={key}>
+                    {navigable ? (
+                      <button
+                        type="button"
+                        className={itemClassName}
+                        aria-label={t('projects.legendItemLabel', {
+                          project: getDisplayName(project),
+                          share,
+                        })}
+                        aria-describedby={isActive ? `${chartId}-tooltip` : undefined}
+                        onClick={() => activateProject(project)}
+                        onPointerEnter={() => setHoveredProjectKey(key)}
+                        onPointerLeave={() =>
+                          setHoveredProjectKey((current) => (current === key ? null : current))
+                        }
+                        onFocus={() => setFocusedProjectKey(key)}
+                        onBlur={() =>
+                          setFocusedProjectKey((current) => (current === key ? null : current))
+                        }
+                      >
+                        {content}
+                      </button>
+                    ) : (
+                      <div className={itemClassName}>{content}</div>
+                    )}
                   </li>
                 );
               })}
             </ul>
           </aside>
         </div>
-      </div>
+      </article>
+
+      <article className="panel project-list-panel">
+        <div className="project-list-heading">
+          <div>
+            <h2>{t('projects.list.title')}</h2>
+            <p>
+              {t('projects.list.filteredCount', {
+                visible: visibleProjects.length,
+                total: projects.length,
+              })}
+            </p>
+          </div>
+          <div className="project-list-controls">
+            <label>
+              <span>{t('projects.search.label')}</span>
+              <input
+                type="search"
+                value={query}
+                placeholder={t('projects.search.placeholder')}
+                aria-label={t('projects.search.label')}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>{t('projects.sort.label')}</span>
+              <select
+                value={sortKey}
+                aria-label={t('projects.sort.label')}
+                onChange={(event) => setSortKey(event.target.value as ProjectSortKey)}
+              >
+                <option value="tokens">{t('projects.sort.tokens')}</option>
+                <option value="sessions">{t('projects.sort.sessions')}</option>
+                <option value="activity">{t('projects.sort.activity')}</option>
+                <option value="name">{t('projects.sort.name')}</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        {visibleProjects.length > 0 ? (
+          <div className="project-table-scroll">
+            <table className="project-table" aria-label={t('projects.list.label')}>
+              <thead>
+                <tr>
+                  <th scope="col">{t('projects.project')}</th>
+                  <th scope="col" className="table-cell--numeric">
+                    {t('projects.tokens')}
+                  </th>
+                  <th scope="col" className="table-cell--numeric">
+                    {t('projects.share')}
+                  </th>
+                  <th scope="col" className="table-cell--numeric">
+                    {t('projects.sessions')}
+                  </th>
+                  <th scope="col" className="table-cell--numeric">
+                    {t('projects.averageTokens')}
+                  </th>
+                  <th scope="col" className="table-cell--numeric">
+                    {t('projects.cacheRatio')}
+                  </th>
+                  <th scope="col">{t('projects.lastActive')}</th>
+                  <th scope="col">{t('projects.action')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleProjects.map((project) => {
+                  const row = buildProjectRow(project);
+                  const projectName = getDisplayName(project);
+
+                  return (
+                    <tr key={project.projectPath}>
+                      <th scope="row" className="project-name-cell">
+                        <strong>{projectName}</strong>
+                        <small title={getDisplayPath(project)}>{getDisplayPath(project)}</small>
+                      </th>
+                      <td className="table-cell--numeric">
+                        {formatNumber(project.totalTokens, locale)}
+                      </td>
+                      <td className="table-cell--numeric">
+                        {formatPercent(
+                          totalTokens > 0 ? (project.totalTokens / totalTokens) * PERCENT_SCALE : 0,
+                          locale,
+                          PROJECT_SHARE_FRACTION_DIGITS
+                        )}
+                      </td>
+                      <td className="table-cell--numeric">
+                        {formatNumber(project.sessionCount, locale)}
+                      </td>
+                      <td className="table-cell--numeric">
+                        {formatNumber(Math.round(row.averageTokensPerSession), locale)}
+                      </td>
+                      <td className="table-cell--numeric">
+                        {formatPercent(row.cacheInputRatio * PERCENT_SCALE, locale)}
+                      </td>
+                      <td>
+                        {formatShortDateTime(project.lastActivityAt, locale, unknownDateLabel)}
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="secondary-button project-session-action"
+                          aria-label={t('projects.viewSessionsFor', { project: projectName })}
+                          onClick={() => activateProject(project)}
+                        >
+                          {t('projects.viewSessions')}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="project-search-empty">
+            <strong>{t('projects.search.emptyTitle')}</strong>
+            <p>{t('projects.search.emptyDescription')}</p>
+            <button type="button" className="secondary-button" onClick={() => setQuery('')}>
+              {t('projects.search.clear')}
+            </button>
+          </div>
+        )}
+      </article>
     </section>
   );
 };
