@@ -14,6 +14,7 @@ import type { UsageSession } from '../../shared/usageTypes';
 import { ICON_SIZE_SMALL } from '../constants/ui';
 import { resolveRendererLocale } from '../i18n';
 import { formatNumber, formatShortDateTime } from '../utils/formatters';
+import { getStaggeredMotionStyle } from '../utils/motion';
 import { selectProjectSessions } from '../utils/projectSessions';
 import PageHeader from './PageHeader';
 
@@ -94,6 +95,7 @@ const SessionsView: React.FC<SessionsViewProps> = ({
   const sessionCountLabel = hasProjectFilter
     ? t('sessions.filteredCount', { count: filteredSessions.length })
     : t('sessions.count', { count: filteredSessions.length });
+  const motionKey = selectedProjectPath ?? 'all-sessions';
 
   return (
     <section className="page-stack">
@@ -115,7 +117,11 @@ const SessionsView: React.FC<SessionsViewProps> = ({
           </>
         }
       />
-      <div className="panel table-panel data-table session-table">
+      <div
+        key={motionKey}
+        className="panel table-panel data-table session-table"
+        data-motion-key={motionKey}
+      >
         <div className="table-row table-head">
           <span>{t('sessions.session')}</span>
           <span>{t('sessions.project')}</span>
@@ -135,7 +141,7 @@ const SessionsView: React.FC<SessionsViewProps> = ({
             </button>
           </div>
         ) : (
-          filteredSessions.map((session) => {
+          filteredSessions.map((session, index) => {
             const diagnosis = diagnosisBySource.get(session.sourceFile);
             const finding = diagnosis?.primaryFinding;
             const diagnosisAction =
@@ -149,7 +155,11 @@ const SessionsView: React.FC<SessionsViewProps> = ({
                 : undefined;
 
             return (
-              <div className="table-row" key={session.sourceFile}>
+              <div
+                className="table-row motion-list-item"
+                key={session.sourceFile}
+                style={getStaggeredMotionStyle(index)}
+              >
                 <span className="primary-cell session-primary-cell" title={session.sessionId}>
                   <span>{session.threadName || shortId(session.sessionId)}</span>
                   {diagnosisAction ? (

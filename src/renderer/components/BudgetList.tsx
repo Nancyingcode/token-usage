@@ -16,6 +16,7 @@ import { ICON_SIZE_SMALL } from '../constants/ui';
 import { resolveRendererLocale } from '../i18n';
 import type { BudgetStatusGroup } from '../utils/budgetViewModel';
 import { formatNumber, formatPercent, formatUsd } from '../utils/formatters';
+import { getStaggeredMotionStyle } from '../utils/motion';
 
 const MAX_PROGRESS_PERCENT = 100;
 
@@ -132,9 +133,10 @@ const CostCell: React.FC<{ model: CostCellModel }> = ({ model }) => {
 
 const BudgetRow: React.FC<{
   status: BudgetPolicyStatus;
+  motionIndex: number;
   onEdit?: BudgetListProps['onEdit'];
   onDelete?: BudgetListProps['onDelete'];
-}> = ({ status, onEdit, onDelete }) => {
+}> = ({ status, motionIndex, onEdit, onDelete }) => {
   const { t } = useTranslation('budgets');
   const costModel = getCostCellModel(status);
   const severity = getStatusSeverity(status);
@@ -174,7 +176,7 @@ const BudgetRow: React.FC<{
   ) : null;
 
   return (
-    <div className="budget-table-row">
+    <div className="budget-table-row motion-list-item" style={getStaggeredMotionStyle(motionIndex)}>
       <div className="budget-scope-cell">
         <strong>{scopeLabel}</strong>
         <span>{t(`scope.${status.policy.scope}`)}</span>
@@ -196,6 +198,9 @@ const BudgetRow: React.FC<{
 
 const BudgetList: React.FC<BudgetListProps> = ({ groups, onEdit, onDelete }) => {
   const { t } = useTranslation('budgets');
+  const motionKey = groups
+    .flatMap((group) => group.statuses.map((status) => status.policy.id))
+    .join(':');
 
   if (groups.length === 0) {
     return (
@@ -207,7 +212,7 @@ const BudgetList: React.FC<BudgetListProps> = ({ groups, onEdit, onDelete }) => 
   }
 
   return (
-    <div className="budget-groups">
+    <div key={motionKey} className="budget-groups" data-motion-key={motionKey}>
       {groups.map((group) => (
         <section className="budget-group" key={group.key}>
           <div className="budget-group-heading">
@@ -224,10 +229,11 @@ const BudgetList: React.FC<BudgetListProps> = ({ groups, onEdit, onDelete }) => 
               <span>{t('list.status')}</span>
               <span>{t('list.actions')}</span>
             </div>
-            {group.statuses.map((status) => (
+            {group.statuses.map((status, index) => (
               <BudgetRow
                 key={status.policy.id}
                 status={status}
+                motionIndex={index}
                 onEdit={onEdit}
                 onDelete={onDelete}
               />

@@ -12,6 +12,7 @@ import type { CostEfficiency } from '../utils/costEfficiency';
 import type { ErrorRateDetail } from '../utils/errorRateDetail';
 import { formatCompactNumber, formatNumber, formatPercent, formatUsd } from '../utils/formatters';
 import type { HourlyActivity } from '../utils/hourlyActivity';
+import AnimatedValue from './AnimatedValue';
 
 interface PerformanceSummaryProps {
   cacheEfficiency: CacheEfficiency;
@@ -50,9 +51,7 @@ const PerformanceSummaryCard: React.FC<PerformanceSummaryCardProps> = ({
     data-testid="performance-summary-card"
   >
     <h3>{title}</h3>
-    <strong className="performance-summary-value" data-testid={valueTestId}>
-      {value}
-    </strong>
+    <AnimatedValue value={value} className="performance-summary-value" testId={valueTestId} />
     <p>{context}</p>
     {status ? <span className="performance-summary-status">{status}</span> : null}
   </article>

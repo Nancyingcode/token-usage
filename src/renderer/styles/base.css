@@ -32,6 +32,11 @@ select {
 
 button {
   cursor: pointer;
+  transition: transform var(--duration-fast) var(--ease-motion-enter);
+}
+
+button:not(:disabled):active {
+  transform: translateY(calc(var(--motion-distance-small) / 2)) scale(0.98);
 }
 
 button:focus-visible,
@@ -40,4 +45,14 @@ select:focus-visible,
 [tabindex]:focus-visible {
   outline: 2px solid var(--color-brand-300);
   outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button {
+    transition: none;
+  }
+
+  button:not(:disabled):active {
+    transform: none;
+  }
 }

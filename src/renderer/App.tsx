@@ -45,6 +45,23 @@ export const INITIAL_APP_NAVIGATION_STATE: AppNavigationState = {
   diagnosisId: null,
 };
 
+interface ViewTransitionStates {
+  usage: string;
+  budget: string;
+  costOptimization: string;
+}
+
+export const getViewTransitionKey = (activeView: ViewKey, states: ViewTransitionStates): string => {
+  switch (activeView) {
+    case 'budgets':
+      return `${activeView}:${states.budget}`;
+    case 'costOptimization':
+      return `${activeView}:${states.costOptimization}`;
+    default:
+      return `${activeView}:${states.usage}`;
+  }
+};
+
 export const reduceAppNavigationState = (
   state: AppNavigationState,
   action: AppNavigationAction
@@ -237,6 +254,11 @@ const App: React.FC = () => {
     filteredSummary,
     period,
   });
+  const viewTransitionKey = getViewTransitionKey(activeView, {
+    usage: contentModel.kind,
+    budget: budgetModel.kind,
+    costOptimization: costOptimizationModel.kind,
+  });
 
   return (
     <div className="app-frame">
@@ -260,7 +282,7 @@ const App: React.FC = () => {
           onPeriodChange={handlePeriodChange}
         />
 
-        <div key={activeView} className="view-transition">
+        <div key={viewTransitionKey} className="view-transition">
           <AppContent
             activeView={activeView}
             period={period}

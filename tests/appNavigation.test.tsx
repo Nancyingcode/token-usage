@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   INITIAL_APP_NAVIGATION_STATE,
+  getViewTransitionKey,
   reduceAppNavigationState,
   type AppNavigationState,
 } from '../src/renderer/App';
@@ -116,5 +117,19 @@ describe('reduceAppNavigationState', () => {
       activeCostOptimizationTab: 'diagnostics',
       diagnosisId: null,
     });
+  });
+});
+
+describe('getViewTransitionKey', () => {
+  const states = {
+    usage: 'ready',
+    budget: 'loading',
+    costOptimization: 'error',
+  };
+
+  it('uses the data state owned by the active page', () => {
+    expect(getViewTransitionKey('overview', states)).toBe('overview:ready');
+    expect(getViewTransitionKey('budgets', states)).toBe('budgets:loading');
+    expect(getViewTransitionKey('costOptimization', states)).toBe('costOptimization:error');
   });
 });

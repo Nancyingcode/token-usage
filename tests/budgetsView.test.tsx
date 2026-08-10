@@ -29,6 +29,9 @@ describe('BudgetsView', () => {
     expect(markup).toContain('All models');
     expect(markup).toContain('Unknown model');
     expect(markup).toContain('future-model');
+    expect(markup).toContain('data-motion-key=');
+    expect(markup).toContain('motion-list-item');
+    expect(markup).toContain('--motion-delay:0ms');
   });
 
   it('renders budget alerts and rows in Chinese', () => {

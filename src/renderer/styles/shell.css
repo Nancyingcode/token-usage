@@ -218,6 +218,7 @@
   font-size: var(--font-size-label);
   font-style: normal;
   font-weight: 800;
+  animation: badge-pop var(--duration-standard) var(--ease-motion-enter) both;
 }
 
 .toolbar {
@@ -268,6 +269,24 @@
 .scan-status--scanning i,
 .scan-status--synced i {
   background: var(--color-brand-500);
+}
+
+.scan-status--scanning i {
+  animation: scan-status-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes badge-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+}
+
+@keyframes scan-status-pulse {
+  50% {
+    opacity: 0.45;
+    transform: scale(0.78);
+  }
 }
 
 .scan-status--stale {
@@ -403,6 +422,12 @@
 
   .nav-item:hover svg,
   .nav-item.active svg {
+    transform: none;
+  }
+
+  .nav-badge,
+  .scan-status--scanning i {
+    animation: none;
     transform: none;
   }
 }

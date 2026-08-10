@@ -74,7 +74,7 @@ describe('UI style policy', () => {
     const components = readRendererStyle('styles/components.css');
     const views = readRendererStyle('styles/views.css');
 
-    expect(app).toContain('key={activeView}');
+    expect(app).toContain('key={viewTransitionKey}');
     expect(app).toContain('className="view-transition"');
     expect(shell).toContain('.nav-item::before');
     expect(components).toContain('.accessible-tab::after');
@@ -96,6 +96,40 @@ describe('UI style policy', () => {
     expect(css.match(/@media \(prefers-reduced-motion: reduce\)/g)?.length).toBeGreaterThanOrEqual(
       3
     );
+  });
+
+  it('adds bounded data feedback and lightweight microinteractions', () => {
+    const base = readRendererStyle('styles/base.css');
+    const shell = readRendererStyle('styles/shell.css');
+    const components = readRendererStyle('styles/components.css');
+    const views = readRendererStyle('styles/views.css');
+    const sidebar = readRendererFile('components/Sidebar.tsx');
+
+    expect(base).toContain('button:not(:disabled):active');
+    expect(components).toContain('.animated-value');
+    expect(components).toContain('@keyframes data-value-enter');
+    expect(components).toContain('.motion-list-item');
+    expect(components).toContain('@keyframes motion-list-item-enter');
+    expect(components).toContain('.metric-card:hover');
+    expect(components).toContain('.performance-summary-card:hover');
+    expect(shell).toContain('.scan-status--scanning i');
+    expect(shell).toContain('@keyframes scan-status-pulse');
+    expect(shell).toContain('@keyframes badge-pop');
+    expect(views).toContain('@keyframes tooltip-enter');
+    expect(sidebar).toContain('key={`${item.key}:${badgeCount}`}');
+  });
+
+  it('disables second-phase feedback animation for reduced motion', () => {
+    const css = ['base.css', 'shell.css', 'components.css', 'views.css']
+      .map((file) => readRendererStyle(`styles/${file}`))
+      .join('\n');
+
+    expect(css).toContain('.animated-value');
+    expect(css).toContain('.motion-list-item');
+    expect(css).toContain('.scan-status--scanning i');
+    expect(css).toContain('.nav-badge');
+    expect(css).toContain('.trend-tooltip');
+    expect(css).toContain('button:not(:disabled):active');
   });
 
   it('uses the brand accent for the featured overview metric value', () => {

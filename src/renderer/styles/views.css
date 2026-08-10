@@ -5938,6 +5938,22 @@ code {
   }
 }
 
+.trend-tooltip,
+.activity-tooltip,
+.project-donut-tooltip,
+.cache-trend-tooltip,
+.cost-trend-tooltip,
+.hourly-activity-tooltip,
+.error-trend-tooltip {
+  animation: tooltip-enter var(--duration-fast) var(--ease-motion-enter) both;
+}
+
+@keyframes tooltip-enter {
+  from {
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .view-transition > *,
   .dialog-backdrop,
@@ -5971,5 +5987,15 @@ code {
   .cost-trend-bar,
   .error-trend-bar {
     transition: none;
+  }
+
+  .trend-tooltip,
+  .activity-tooltip,
+  .project-donut-tooltip,
+  .cache-trend-tooltip,
+  .cost-trend-tooltip,
+  .hourly-activity-tooltip,
+  .error-trend-tooltip {
+    animation: none;
   }
 }

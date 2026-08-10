@@ -8,6 +8,7 @@ import { UNKNOWN_PROJECT_KEY } from '../../shared/usageMath';
 import type { UsageProject } from '../../shared/usageTypes';
 import { resolveRendererLocale } from '../i18n';
 import { formatNumber, formatPercent, formatShortDateTime } from '../utils/formatters';
+import { getStaggeredMotionStyle } from '../utils/motion';
 import {
   buildProjectChartEntries,
   buildProjectRow,
@@ -118,6 +119,15 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onProjectSelect }
   const visibleProjects = useMemo(
     () => filterAndSortProjects(projects, query, sortKey),
     [projects, query, sortKey]
+  );
+  const listMotionKey = useMemo(
+    () =>
+      [
+        sortKey,
+        query.trim().toLocaleLowerCase(),
+        ...visibleProjects.map(({ projectPath }) => projectPath),
+      ].join(':'),
+    [query, sortKey, visibleProjects]
   );
   const totalTokens = projects.reduce((total, project) => total + project.totalTokens, 0);
   const totalSessions = projects.reduce((total, project) => total + project.sessionCount, 0);
@@ -478,13 +488,17 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onProjectSelect }
                   <th scope="col">{t('projects.action')}</th>
                 </tr>
               </thead>
-              <tbody>
-                {visibleProjects.map((project) => {
+              <tbody key={listMotionKey} data-motion-key={listMotionKey}>
+                {visibleProjects.map((project, index) => {
                   const row = buildProjectRow(project);
                   const projectName = getDisplayName(project);
 
                   return (
-                    <tr key={project.projectPath}>
+                    <tr
+                      key={project.projectPath}
+                      className="motion-list-item"
+                      style={getStaggeredMotionStyle(index)}
+                    >
                       <th scope="row" className="project-name-cell">
                         <strong>{projectName}</strong>
                         <small title={getDisplayPath(project)}>{getDisplayPath(project)}</small>

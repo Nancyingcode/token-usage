@@ -106,6 +106,7 @@ describe('AppContent', () => {
     );
 
     expect(markup).toContain('Token Usage Trend');
+    expect(markup).toContain('animated-value');
   });
 
   it('updates the overview total cost after unknown-model fallback pricing is configured', () => {

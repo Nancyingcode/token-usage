@@ -25,6 +25,9 @@ describe('session diagnosis list', () => {
     expect(markup).toContain('Input footprint growth');
     expect(markup).toContain('type="button"');
     expect(markup).not.toContain('Full estimated cost');
+    expect(markup).toContain('data-motion-key=');
+    expect(markup).toContain('motion-list-item');
+    expect(markup).toContain('--motion-delay:0ms');
   });
 
   it('renders the relative baseline scope and sample count when available', () => {

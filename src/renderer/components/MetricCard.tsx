@@ -1,6 +1,7 @@
 import React from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { ICON_SIZE_SMALL } from '../constants/ui';
+import AnimatedValue from './AnimatedValue';
 
 interface MetricCardProps {
   label: string;
@@ -14,7 +15,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ label, value, detail, icon: Ico
   <article className={`metric-card metric-card--${emphasis}`}>
     <div className="metric-copy">
       <p>{label}</p>
-      <strong>{value}</strong>
+      <AnimatedValue value={value} />
       <span>{detail}</span>
     </div>
     <div className="metric-icon">

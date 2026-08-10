@@ -16,6 +16,7 @@ import type {
 import { ICON_SIZE_SMALL } from '../constants/ui';
 import { resolveRendererLocale } from '../i18n';
 import { formatNumber, formatPercent, formatShortDateTime, formatUsd } from '../utils/formatters';
+import { getStaggeredMotionStyle } from '../utils/motion';
 import {
   filterSessionDiagnosisSummaries,
   type SessionDiagnosisFilters,
@@ -80,6 +81,13 @@ const SessionDiagnosisList: React.FC<SessionDiagnosisListProps> = ({
     () => filterSessionDiagnosisSummaries({ summaries, ...filters }),
     [filters, summaries]
   );
+  const motionKey = [
+    filters.scope,
+    filters.cause,
+    filters.severity,
+    filters.confidence,
+    ...filteredSummaries.map(({ diagnosisId }) => diagnosisId),
+  ].join(':');
 
   return (
     <section className="session-diagnosis-list">
@@ -179,8 +187,8 @@ const SessionDiagnosisList: React.FC<SessionDiagnosisListProps> = ({
             <span>{t('diagnostics.list.severity')}</span>
             <span>{t('diagnostics.list.confidence')}</span>
           </div>
-          <div className="session-diagnosis-table-body">
-            {filteredSummaries.map((summary) => {
+          <div key={motionKey} className="session-diagnosis-table-body" data-motion-key={motionKey}>
+            {filteredSummaries.map((summary, index) => {
               const displayName = getSessionDisplayName(summary);
               const finding = summary.primaryFinding;
               const cause = finding
@@ -194,9 +202,10 @@ const SessionDiagnosisList: React.FC<SessionDiagnosisListProps> = ({
 
               return (
                 <button
-                  className={`session-diagnosis-row${finding ? ` ${finding.severity}` : ''}`}
+                  className={`session-diagnosis-row motion-list-item${finding ? ` ${finding.severity}` : ''}`}
                   key={summary.diagnosisId}
                   type="button"
+                  style={getStaggeredMotionStyle(index)}
                   aria-label={t('diagnostics.list.open', { session: displayName })}
                   onClick={() => onOpen(summary)}
                 >

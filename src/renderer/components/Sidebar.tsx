@@ -105,7 +105,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                     >
                       <Icon size={ICON_SIZE_SMALL} strokeWidth={NAV_ICON_STROKE_WIDTH} />
                       <span>{label}</span>
-                      {showBadge ? <em className="nav-badge">{badgeCount}</em> : null}
+                      {showBadge ? (
+                        <em key={`${item.key}:${badgeCount}`} className="nav-badge">
+                          {badgeCount}
+                        </em>
+                      ) : null}
                     </button>
                   );
                 })}

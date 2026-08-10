@@ -171,6 +171,31 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-3);
+  transition:
+    transform var(--duration-standard) var(--ease-motion-enter),
+    box-shadow var(--duration-standard) var(--ease-motion-enter);
+}
+
+.metric-card:hover,
+.performance-summary-card:hover {
+  box-shadow: var(--shadow-control);
+  transform: translateY(calc(var(--motion-distance-small) * -1));
+}
+
+.performance-summary-card {
+  transition:
+    transform var(--duration-standard) var(--ease-motion-enter),
+    box-shadow var(--duration-standard) var(--ease-motion-enter);
+}
+
+.animated-value {
+  display: inline-block;
+  animation: data-value-enter var(--duration-standard) var(--ease-motion-enter) both;
+}
+
+.motion-list-item {
+  animation: motion-list-item-enter var(--duration-standard) var(--ease-motion-enter) both;
+  animation-delay: var(--motion-delay, 0ms);
 }
 
 .metric-copy {
@@ -654,6 +679,20 @@
   }
 }
 
+@keyframes data-value-enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-distance-small));
+  }
+}
+
+@keyframes motion-list-item-enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-distance-small));
+  }
+}
+
 @media (max-width: 1050px) {
   .metric-grid,
   .loading-skeleton-metrics {
@@ -686,6 +725,22 @@
   .spinning,
   .loader {
     animation: none;
+    transform: none;
+  }
+
+  .animated-value,
+  .motion-list-item {
+    animation: none;
+    transform: none;
+  }
+
+  .metric-card,
+  .performance-summary-card {
+    transition: none;
+  }
+
+  .metric-card:hover,
+  .performance-summary-card:hover {
     transform: none;
   }
 

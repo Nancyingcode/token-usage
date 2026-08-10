@@ -148,6 +148,9 @@ describe('PerformanceView', () => {
 
     expect(screen.getByRole('region', { name: 'Performance overview' })).toBeTruthy();
     expect(screen.getAllByTestId('performance-summary-card')).toHaveLength(4);
+    expect(
+      screen.getAllByTestId('performance-summary-card')[0].querySelector('.animated-value')
+    ).toBeTruthy();
     expect(screen.getByTestId('performance-summary-cache-value').textContent).toBe('60%');
     expect(screen.getByTestId('performance-summary-cost-value').textContent).toBe('—');
     expect(screen.getByTestId('performance-summary-activity-value').textContent).toBe(

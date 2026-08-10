@@ -86,6 +86,9 @@ describe('analytics tables', () => {
     expect(markup).toContain('table-cell--numeric');
     expect(markup).toContain('状态');
     expect(markup).toContain('1 个警告');
+    expect(markup).toContain('data-motion-key="all-sessions"');
+    expect(markup).toContain('motion-list-item');
+    expect(markup).toContain('--motion-delay:0ms');
   });
 
   it('renders project labels in Chinese', () => {
@@ -102,6 +105,8 @@ describe('analytics tables', () => {
     expect(markup).toContain('project-summary-grid');
     expect(markup).toContain('project-table');
     expect(markup).toContain('table-cell--numeric');
+    expect(markup).toContain('motion-list-item');
+    expect(markup).toContain('--motion-delay:0ms');
   });
 
   it('localizes the unknown project identity in the project workspace', () => {
@@ -174,12 +179,19 @@ describe('analytics tables', () => {
       </I18nextProvider>
     );
 
+    const initialTableBody = screen
+      .getByRole('table', { name: 'Project list' })
+      .querySelector('tbody');
+
     fireEvent.change(screen.getByRole('combobox', { name: 'Sort projects' }), {
       target: { value: 'name' },
     });
-    const rows = within(screen.getByRole('table', { name: 'Project list' })).getAllByRole('row');
+    const table = screen.getByRole('table', { name: 'Project list' });
+    const rows = within(table).getAllByRole('row');
     expect(rows[1].textContent).toContain('other');
     expect(rows[2].textContent).toContain('repo');
+    expect(table.querySelector('tbody')).not.toBe(initialTableBody);
+    expect(rows[1].classList.contains('motion-list-item')).toBe(true);
   });
 
   it('combines projects beyond the top seven into a non-navigable chart entry', () => {
