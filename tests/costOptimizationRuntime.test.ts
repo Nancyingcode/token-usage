@@ -13,6 +13,26 @@ const UPDATED_COST_USD = 4;
 const SOURCE_TOKENS = 1_000_000;
 
 describe('cost optimization runtime', () => {
+  it('loads configuration with only the highest model series as candidates', async () => {
+    const dependencies = makeRuntimeDependencies({
+      defaultPricing: [
+        makeVersionedPricing('gpt-5.5'),
+        makeVersionedPricing('gpt-5.6-sol'),
+        makeVersionedPricing('gpt-5.6-terra'),
+        makeVersionedPricing('gpt-5.6-luna'),
+      ],
+    });
+    const runtime = createCostOptimizationRuntime(dependencies);
+
+    await runtime.initialize();
+
+    expect(dependencies.configStore.load).toHaveBeenCalledWith([
+      'gpt-5.6-sol',
+      'gpt-5.6-terra',
+      'gpt-5.6-luna',
+    ]);
+  });
+
   it('evaluates one diagnosis from the latest index without rescanning usage', async () => {
     const dependencies = makeRuntimeDependencies();
     const runtime = createCostOptimizationRuntime(dependencies);
@@ -186,19 +206,35 @@ describe('cost optimization runtime', () => {
     );
   });
 
-  it('retains unavailable candidates after a pricing change and allows removing them', async () => {
-    const dependencies = makeRuntimeDependencies();
+  it('retains candidates from the previous latest series and allows removing them', async () => {
+    const previousPricing = [
+      makeVersionedPricing('gpt-5.6-sol'),
+      makeVersionedPricing('gpt-5.6-luna'),
+    ];
+    const dependencies = makeRuntimeDependencies({
+      defaultPricing: previousPricing,
+      configStore: {
+        load: vi.fn(async () => ({
+          config: {
+            schemaVersion: 1,
+            settings: { ...SETTINGS, candidateModelIds: ['gpt-5.6-luna'] },
+          },
+          warning: undefined,
+        })),
+        save: vi.fn(async () => undefined),
+      },
+    });
     const runtime = createCostOptimizationRuntime(dependencies);
     await runtime.initialize();
 
     await runtime.applyBudgetSnapshot({
       ...makeBudgetSnapshotWithUpdatedPricing(),
-      pricing: PRICING.filter(({ modelId }) => modelId !== 'gpt-target'),
+      pricing: [makeVersionedPricing('gpt-5.7-sol'), makeVersionedPricing('gpt-5.7-luna')],
     });
     const snapshot = runtime.getSnapshot({ period: 'total' });
 
-    expect(snapshot.settings.candidateModelIds).toContain('gpt-target');
-    expect(snapshot.warnings).toContainEqual(expect.stringContaining('gpt-target'));
+    expect(snapshot.settings.candidateModelIds).toContain('gpt-5.6-luna');
+    expect(snapshot.warnings).toContainEqual(expect.stringContaining('gpt-5.6-luna'));
 
     await runtime.updateSettings({
       ...snapshot.settings,
@@ -208,8 +244,24 @@ describe('cost optimization runtime', () => {
       expect.objectContaining({
         settings: expect.objectContaining({ candidateModelIds: [] }),
       }),
-      ['gpt-source']
+      ['gpt-5.7-sol', 'gpt-5.7-luna']
     );
+  });
+
+  it('rejects candidate models outside the latest series', async () => {
+    const runtime = createCostOptimizationRuntime(
+      makeRuntimeDependencies({
+        defaultPricing: [makeVersionedPricing('gpt-5.5'), makeVersionedPricing('gpt-5.6-sol')],
+      })
+    );
+    await runtime.initialize();
+
+    await expect(
+      runtime.updateSettings({
+        ...SETTINGS,
+        candidateModelIds: ['gpt-5.5'],
+      })
+    ).rejects.toThrow('candidate-model-unpriced');
   });
 
   it('reuses active snapshots when a scan cycle has no index changes', async () => {
@@ -349,4 +401,14 @@ const makeEmptyRemovalCycle = (): UsageScanCycle => ({
     removedSourceFiles: ['usage.jsonl'],
     requiresFullRebuild: false,
   },
+});
+
+const makeVersionedPricing = (modelId: string): ModelPricingEntry => ({
+  modelId,
+  aliases: [],
+  inputUsdPerMillion: 2,
+  cachedInputUsdPerMillion: 0.5,
+  outputUsdPerMillion: 10,
+  effectiveAt: '2026-08-10',
+  sourceKind: 'built-in',
 });

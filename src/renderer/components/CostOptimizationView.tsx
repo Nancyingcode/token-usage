@@ -11,6 +11,7 @@ import type {
   CostOptimizationTab,
   SessionDiagnosisSummary,
 } from '../../shared/costOptimizationTypes';
+import { getLatestModelSeriesIds } from '../../shared/latestModelSeries';
 import { ICON_SIZE_LARGE, ICON_SIZE_SMALL } from '../constants/ui';
 import type { SessionDiagnosisDetailModel } from '../utils/sessionDiagnosisDetailState';
 import AccessibleTabs, { getTabId, getTabPanelId } from './AccessibleTabs';
@@ -119,6 +120,8 @@ const CostOptimizationView: React.FC<CostOptimizationViewProps> = ({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [dismissedWarnings, setDismissedWarnings] = useState<string[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const availableCandidateModelIds =
+    model.kind === 'ready' ? getLatestModelSeriesIds(model.snapshot.pricing) : [];
   const visibleWarnings = useMemo(
     () =>
       model.kind === 'ready'
@@ -230,7 +233,7 @@ const CostOptimizationView: React.FC<CostOptimizationViewProps> = ({
           {settingsOpen ? (
             <CostOptimizationSettingsDrawer
               settings={model.snapshot.settings}
-              pricedModelIds={model.snapshot.pricing.map(({ modelId }) => modelId)}
+              availableCandidateModelIds={availableCandidateModelIds}
               onClose={closeSettings}
               onSave={onUpdateSettings}
               onSaved={handleSettingsSaved}

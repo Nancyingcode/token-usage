@@ -34,6 +34,8 @@ import {
   getCostOptimizationQueryIssues,
   getCostOptimizationSettingsIssues,
 } from '../shared/costOptimizationValidation';
+import { getLatestModelSeriesIds } from '../shared/latestModelSeries';
+import { normalizeModelId } from '../shared/pricing';
 import { evaluateSessionDiagnosisDetail } from '../shared/sessionDiagnosisEvaluation';
 import type { CostOptimizationCacheStore } from './costOptimizationCacheStore';
 import type { CostOptimizationConfigStore } from './costOptimizationConfigStore';
@@ -117,6 +119,9 @@ const throwForIssues = (issues: CostOptimizationValidationIssue[]): void => {
   }
 };
 
+const getAvailableCandidateModelIds = (pricingEntries: ModelPricingEntry[]): string[] =>
+  getLatestModelSeriesIds(pricingEntries);
+
 export const createCostOptimizationRuntime = (
   dependencies: CostOptimizationRuntimeDependencies
 ): CostOptimizationRuntime => {
@@ -145,9 +150,9 @@ export const createCostOptimizationRuntime = (
     [...warnings]
       .filter((warning) => warning.startsWith(UNAVAILABLE_CANDIDATE_WARNING_PREFIX))
       .forEach((warning) => warnings.delete(warning));
-    const pricedModelIds = new Set(pricing.map(({ modelId }) => modelId));
+    const availableModelIds = new Set(getAvailableCandidateModelIds(pricing).map(normalizeModelId));
     const unavailableCandidates = settings.candidateModelIds.filter(
-      (modelId) => !pricedModelIds.has(modelId)
+      (modelId) => !availableModelIds.has(normalizeModelId(modelId))
     );
 
     if (unavailableCandidates.length > 0) {
@@ -205,7 +210,7 @@ export const createCostOptimizationRuntime = (
 
   const initialize = (): Promise<void> =>
     enqueue(async () => {
-      const pricedModelIds = dependencies.defaultPricing.map(({ modelId }) => modelId);
+      const pricedModelIds = getAvailableCandidateModelIds(dependencies.defaultPricing);
       const [configResult, cacheResult] = await Promise.all([
         dependencies.configStore.load(pricedModelIds),
         dependencies.cacheStore.load(),
@@ -356,7 +361,7 @@ export const createCostOptimizationRuntime = (
     nextSettings: CostOptimizationSettings
   ): Promise<CostOptimizationSnapshot> =>
     enqueue(async () => {
-      const pricedModelIds = pricing.map(({ modelId }) => modelId);
+      const pricedModelIds = getAvailableCandidateModelIds(pricing);
       throwForIssues(getCostOptimizationSettingsIssues(nextSettings, pricedModelIds));
       const config: PersistedCostOptimizationConfig = {
         schemaVersion: 1,
