@@ -9,11 +9,13 @@ const WINDOW_BACKGROUND_COLOR = '#f8f7f4';
 interface MainWindowOptionsInput {
   preloadPath: string;
   autoHideMenuBar: boolean;
+  useNativeFrame: boolean;
 }
 
 export const createMainWindowOptions = ({
   preloadPath,
   autoHideMenuBar,
+  useNativeFrame,
 }: MainWindowOptionsInput): BrowserWindowConstructorOptions => ({
   width: DEFAULT_WINDOW_WIDTH,
   height: DEFAULT_WINDOW_HEIGHT,
@@ -21,7 +23,7 @@ export const createMainWindowOptions = ({
   minHeight: MINIMUM_WINDOW_HEIGHT,
   backgroundColor: WINDOW_BACKGROUND_COLOR,
   autoHideMenuBar,
-  frame: false,
+  frame: useNativeFrame,
   webPreferences: {
     preload: preloadPath,
     contextIsolation: true,

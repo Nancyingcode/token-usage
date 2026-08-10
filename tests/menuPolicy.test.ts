@@ -6,6 +6,7 @@ describe('getApplicationMenuPolicy', () => {
     expect(getApplicationMenuPolicy(false)).toEqual({
       autoHideMenuBar: false,
       removeApplicationMenu: false,
+      useNativeFrame: true,
     });
   });
 
@@ -13,6 +14,7 @@ describe('getApplicationMenuPolicy', () => {
     expect(getApplicationMenuPolicy(true)).toEqual({
       autoHideMenuBar: true,
       removeApplicationMenu: true,
+      useNativeFrame: false,
     });
   });
 });

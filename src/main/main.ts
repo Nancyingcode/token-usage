@@ -75,6 +75,7 @@ const createWindow = (runtime: ApplicationRuntime): BrowserWindow => {
     createMainWindowOptions({
       preloadPath: join(CURRENT_DIRECTORY, '../preload/preload.mjs'),
       autoHideMenuBar: menuPolicy.autoHideMenuBar,
+      useNativeFrame: menuPolicy.useNativeFrame,
     })
   );
   const unregisterWindowStateListeners = registerWindowStateEvents(window);
