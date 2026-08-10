@@ -59,6 +59,23 @@ describe('UI style policy', () => {
     expect(tokens).toContain('--control-height-compact: 2rem;');
   });
 
+  it('uses a compact Codex-style scrollbar across light and dark surfaces', () => {
+    const tokens = readRendererStyle('styles/tokens.css');
+    const base = readRendererStyle('styles/base.css');
+    const shell = readRendererStyle('styles/shell.css');
+
+    expect(tokens).toContain('--scrollbar-size:');
+    expect(tokens).toContain('--color-scrollbar-thumb:');
+    expect(tokens).toContain('--color-scrollbar-thumb-hover:');
+    expect(tokens).toContain('--color-scrollbar-thumb-on-dark:');
+    expect(base).toContain('*::-webkit-scrollbar');
+    expect(base).toContain('*::-webkit-scrollbar-thumb');
+    expect(base).toContain('background-clip: content-box;');
+    expect(base).toContain('*::-webkit-scrollbar-track');
+    expect(base).toContain('scrollbar-width: thin;');
+    expect(shell).toContain('.sidebar::-webkit-scrollbar-thumb');
+  });
+
   it('defines reusable motion tokens for entering and exiting surfaces', () => {
     const tokens = readRendererStyle('styles/tokens.css');
 

@@ -47,6 +47,10 @@
   --color-shadow-soft: rgba(16, 43, 39, 0.1);
   --color-shadow-overlay: rgba(16, 43, 39, 0.16);
   --color-shadow-dialog: rgba(25, 28, 32, 0.22);
+  --color-scrollbar-thumb: rgba(113, 129, 123, 0.34);
+  --color-scrollbar-thumb-hover: rgba(113, 129, 123, 0.58);
+  --color-scrollbar-thumb-on-dark: rgba(255, 255, 255, 0.28);
+  --color-scrollbar-thumb-on-dark-hover: rgba(255, 255, 255, 0.46);
   --font-size-label: 0.625rem;
   --font-size-body-small: 0.75rem;
   --font-size-body: 0.8125rem;
@@ -64,6 +68,8 @@
   --control-height-compact: 2rem;
   --control-height-default: 2.25rem;
   --title-bar-height: 2.5rem;
+  --scrollbar-size: 0.75rem;
+  --scrollbar-thumb-inset: 0.25rem;
   --shadow-overlay: 0 1.25rem 3.5rem rgba(16, 43, 39, 0.16);
   --shadow-card: 0 0.0625rem 0.125rem rgba(16, 43, 39, 0.04);
   --shadow-control: 0 0.0625rem 0.25rem rgba(16, 43, 39, 0.1);
