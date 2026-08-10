@@ -2877,6 +2877,87 @@ code {
   gap: var(--space-4);
 }
 
+.main-panel--overview {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.main-panel--overview > .toolbar,
+.main-panel--overview > .status-banner {
+  flex: 0 0 auto;
+}
+
+.main-panel--overview > .page-stack {
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  flex: 1 1 auto;
+}
+
+.main-panel--overview .overview-grid {
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.main-panel--overview .chart-panel {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.main-panel--overview .trend-chart {
+  min-height: 0;
+  height: auto;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.main-panel--overview .trend-chart-plot {
+  min-height: 0;
+  height: auto;
+}
+
+@media (max-height: 740px) and (min-width: 761px) {
+  .main-panel--overview {
+    padding-top: var(--space-4);
+    padding-bottom: var(--space-3);
+  }
+
+  .main-panel--overview > .toolbar {
+    margin-bottom: var(--space-2);
+  }
+
+  .main-panel--overview > .page-stack,
+  .main-panel--overview .overview-grid {
+    gap: var(--space-3);
+  }
+
+  .main-panel--overview .page-header {
+    min-height: 3.5rem;
+  }
+
+  .main-panel--overview .metric-card {
+    min-height: 5rem;
+    padding: var(--space-3);
+  }
+
+  .main-panel--overview .chart-panel,
+  .main-panel--overview .activity-panel {
+    padding: var(--space-3);
+  }
+
+  .main-panel--overview .activity-panel {
+    min-height: 9.5rem;
+  }
+}
+
+@media (max-width: 760px) {
+  .main-panel--overview {
+    display: block;
+    overflow: auto;
+  }
+}
+
 .project-donut-panel {
   min-height: 32rem;
   display: grid;

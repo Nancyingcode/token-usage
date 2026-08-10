@@ -86,6 +86,21 @@ describe('UI style policy', () => {
     expect(sidebarRule).toContain('overflow-y: auto;');
   });
 
+  it('fits the overview into the first viewport without a content scrollbar', () => {
+    const views = readRendererStyle('styles/views.css');
+    const overviewPanelRule = views.match(/\.main-panel--overview\s*\{([^}]*)\}/)?.[1] ?? '';
+    const overviewGridRule =
+      views.match(/\.main-panel--overview \.overview-grid\s*\{([^}]*)\}/)?.[1] ?? '';
+    const overviewChartRule =
+      views.match(/\.main-panel--overview \.chart-panel\s*\{([^}]*)\}/)?.[1] ?? '';
+
+    expect(overviewPanelRule).toContain('overflow: hidden;');
+    expect(overviewPanelRule).toContain('flex-direction: column;');
+    expect(overviewGridRule).toContain('grid-template-rows: auto minmax(0, 1fr) auto;');
+    expect(overviewChartRule).toContain('min-height: 0;');
+    expect(views).toContain('@media (max-height: 740px) and (min-width: 761px)');
+  });
+
   it('defines draggable title bar space without making controls draggable', () => {
     const shell = readRendererStyle('styles/shell.css');
     const titleBarRule = shell.match(/\.title-bar\s*\{([^}]*)\}/)?.[1] ?? '';

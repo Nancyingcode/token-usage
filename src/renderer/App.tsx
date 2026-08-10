@@ -247,7 +247,9 @@ const App: React.FC = () => {
         budgetAlertCount={budgetAlertCount}
       />
       <TitleBar />
-      <main className="main-panel">
+      <main
+        className={activeView === 'overview' ? 'main-panel main-panel--overview' : 'main-panel'}
+      >
         <Toolbar
           activeView={activeView}
           loading={loading}
