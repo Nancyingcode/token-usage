@@ -16,6 +16,7 @@ describe('reduceAppNavigationState', () => {
     ).toEqual({
       activeView: 'sessions',
       selectedProjectPath: 'C:\\work\\repo',
+      activeBudgetTab: 'overview',
       activeCostOptimizationTab: 'overview',
       diagnosisId: null,
     });
@@ -25,6 +26,7 @@ describe('reduceAppNavigationState', () => {
     const state: AppNavigationState = {
       activeView: 'tools',
       selectedProjectPath: 'C:\\work\\repo',
+      activeBudgetTab: 'overview',
       activeCostOptimizationTab: 'overview',
       diagnosisId: null,
     };
@@ -32,6 +34,7 @@ describe('reduceAppNavigationState', () => {
     expect(reduceAppNavigationState(state, { type: 'select-view', view: 'sessions' })).toEqual({
       activeView: 'sessions',
       selectedProjectPath: null,
+      activeBudgetTab: 'overview',
       activeCostOptimizationTab: 'overview',
       diagnosisId: null,
     });
@@ -41,6 +44,7 @@ describe('reduceAppNavigationState', () => {
     const state: AppNavigationState = {
       activeView: 'sessions',
       selectedProjectPath: 'C:\\work\\repo',
+      activeBudgetTab: 'overview',
       activeCostOptimizationTab: 'overview',
       diagnosisId: null,
     };
@@ -48,6 +52,7 @@ describe('reduceAppNavigationState', () => {
     expect(reduceAppNavigationState(state, { type: 'select-view', view: 'performance' })).toEqual({
       activeView: 'performance',
       selectedProjectPath: 'C:\\work\\repo',
+      activeBudgetTab: 'overview',
       activeCostOptimizationTab: 'overview',
       diagnosisId: null,
     });
@@ -57,6 +62,7 @@ describe('reduceAppNavigationState', () => {
     const state: AppNavigationState = {
       activeView: 'overview',
       selectedProjectPath: null,
+      activeBudgetTab: 'overview',
       activeCostOptimizationTab: 'overview',
       diagnosisId: null,
     };
@@ -69,6 +75,7 @@ describe('reduceAppNavigationState', () => {
     ).toEqual({
       activeView: 'costOptimization',
       selectedProjectPath: null,
+      activeBudgetTab: 'overview',
       activeCostOptimizationTab: 'overview',
       diagnosisId: null,
     });
@@ -78,6 +85,7 @@ describe('reduceAppNavigationState', () => {
     const state: AppNavigationState = {
       activeView: 'sessions',
       selectedProjectPath: 'C:\\work\\repo',
+      activeBudgetTab: 'overview',
       activeCostOptimizationTab: 'overview',
       diagnosisId: null,
     };
@@ -85,6 +93,7 @@ describe('reduceAppNavigationState', () => {
     expect(reduceAppNavigationState(state, { type: 'clear-project' })).toEqual({
       activeView: 'sessions',
       selectedProjectPath: null,
+      activeBudgetTab: 'overview',
       activeCostOptimizationTab: 'overview',
       diagnosisId: null,
     });
@@ -99,6 +108,7 @@ describe('reduceAppNavigationState', () => {
     ).toEqual({
       activeView: 'costOptimization',
       selectedProjectPath: null,
+      activeBudgetTab: 'overview',
       activeCostOptimizationTab: 'diagnostics',
       diagnosisId: 'source\u001fsession',
     });
@@ -108,6 +118,7 @@ describe('reduceAppNavigationState', () => {
     const state: AppNavigationState = {
       activeView: 'costOptimization',
       selectedProjectPath: null,
+      activeBudgetTab: 'overview',
       activeCostOptimizationTab: 'diagnostics',
       diagnosisId: 'source\u001fsession',
     };
@@ -116,6 +127,27 @@ describe('reduceAppNavigationState', () => {
       activeView: 'costOptimization',
       activeCostOptimizationTab: 'diagnostics',
       diagnosisId: null,
+    });
+  });
+
+  it('controls the budget workspace tab without changing the active page', () => {
+    const state = reduceAppNavigationState(INITIAL_APP_NAVIGATION_STATE, {
+      type: 'select-view',
+      view: 'budgets',
+    });
+
+    expect(reduceAppNavigationState(state, { type: 'select-budget-tab', tab: 'pricing' })).toEqual({
+      ...state,
+      activeBudgetTab: 'pricing',
+    });
+  });
+
+  it('opens a budget policy from notification navigation', () => {
+    expect(
+      reduceAppNavigationState(INITIAL_APP_NAVIGATION_STATE, { type: 'open-budget-policy' })
+    ).toMatchObject({
+      activeView: 'budgets',
+      activeBudgetTab: 'policies',
     });
   });
 });

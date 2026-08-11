@@ -762,6 +762,13 @@ code {
   gap: 14px;
 }
 
+.budget-overview-workspace,
+.budget-policies-workspace {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+}
+
 .budget-page-heading {
   min-height: 48px;
   display: flex;
@@ -793,9 +800,11 @@ code {
   gap: 7px;
 }
 
-.budget-heading-actions {
+.budget-heading-actions,
+.budget-workspace-toolbar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 7px;
 }
 
@@ -859,7 +868,7 @@ code {
 
 .budget-summary-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(150px, 1fr));
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
   gap: 10px;
 }
 
@@ -4590,14 +4599,17 @@ code {
 
 .budgets-page,
 .model-pricing-view,
-.budget-groups {
+.budget-groups,
+.budget-overview-workspace,
+.budget-policies-workspace {
   min-width: 0;
   display: grid;
   gap: var(--space-4);
 }
 
 .budget-thresholds,
-.budget-heading-actions {
+.budget-heading-actions,
+.budget-workspace-toolbar {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -4615,7 +4627,7 @@ code {
 
 .budget-summary-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(9.375rem, 1fr));
+  grid-template-columns: repeat(4, minmax(9.375rem, 1fr));
   gap: var(--space-3);
 }
 
@@ -5135,14 +5147,16 @@ code {
 }
 
 @media (max-width: 1050px) {
-  .cost-optimization-metric-grid {
+  .cost-optimization-metric-grid,
+  .budget-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 760px) {
   .cost-optimization-toolbar,
-  .cost-detail-filter-bar {
+  .cost-detail-filter-bar,
+  .budget-workspace-toolbar {
     align-items: stretch;
     flex-direction: column;
   }

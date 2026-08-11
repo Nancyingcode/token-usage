@@ -145,6 +145,25 @@ describe('ModelPricingView', () => {
     expect(modelIdInput.readOnly).toBe(true);
     expect(screen.queryByRole('combobox', { name: 'Model ID' })).toBeNull();
   });
+
+  it('manages focus and Escape closing for the pricing drawer', () => {
+    renderInteractive(<ModelPricingView pricing={PRICING} unpricedModels={[]} actions={ACTIONS} />);
+
+    const trigger = screen.getAllByRole('button', { name: 'Add price' })[0];
+    trigger.focus();
+    fireEvent.click(trigger);
+    const dialog = screen.getByRole('dialog');
+
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Close' }));
+
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    expect(dialog.getAttribute('data-state')).toBe('exiting');
+    fireEvent.animationEnd(dialog);
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
 });
 
 const renderInteractive = (node: React.ReactNode): void => {

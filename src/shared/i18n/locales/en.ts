@@ -405,13 +405,16 @@ export const en = {
       saved: 'Budget settings saved',
     },
     page: {
+      eyebrow: 'Spending controls',
       title: 'Budget center',
       description: 'Natural-period controls for tokens and estimated cost.',
       stale: 'Showing the last successful scan. {{reason}}',
       staleDefault: 'Usage data is stale.',
       views: 'Budget views',
-      overview: 'Budget overview',
+      overview: 'Overview',
+      policies: 'Budget policies',
       pricing: 'Model pricing',
+      settings: 'Budget settings',
       thresholds: 'Thresholds',
       addBudget: 'Add budget',
       alertThresholds: 'Alert thresholds',
@@ -420,9 +423,15 @@ export const en = {
     },
     summary: {
       label: 'Budget summary',
+      configured: 'Configured budgets',
       approaching: 'Approaching limit',
       over: 'Over budget',
       unpriced: 'Unpriced models',
+    },
+    state: {
+      loadingTitle: 'Loading budgets',
+      unavailable: 'Budget data unavailable',
+      actionsUnavailable: 'Budget actions are unavailable.',
     },
     alerts: {
       label: 'Budget alerts',

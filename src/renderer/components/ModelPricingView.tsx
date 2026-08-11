@@ -18,6 +18,8 @@ import { getUnknownModelPricingIssues, isValidationIssue } from '../../shared/bu
 import { isRecord } from '../../shared/runtimeTypes';
 import { ICON_SIZE_SMALL } from '../constants/ui';
 import type { BudgetActions } from '../hooks/useBudgetSnapshot';
+import { useExitTransition } from '../hooks/useExitTransition';
+import { useOverlayFocus } from '../hooks/useOverlayFocus';
 import { resolveRendererLocale } from '../i18n';
 import { buildPricingModelOptions, type PricingModelOption } from '../utils/pricingModelOptions';
 import {
@@ -79,6 +81,8 @@ const PricingEditor: React.FC<{
   );
   const [issues, setIssues] = useState<ValidationIssue[]>([]);
   const [saving, setSaving] = useState(false);
+  const { state: exitState, requestExit, handleAnimationEnd } = useExitTransition(onClose);
+  const drawerRef = useOverlayFocus<HTMLElement>(requestExit);
   const modelIdLocked = Boolean(model.entry);
 
   const updateField = (field: keyof PricingFormState, value: string): void => {
@@ -98,7 +102,7 @@ const PricingEditor: React.FC<{
     setSaving(true);
     try {
       await actions.savePricingOverride(toPricingOverride(state));
-      onClose();
+      requestExit();
     } catch (error) {
       setIssues(getActionIssues(error));
     } finally {
@@ -110,11 +114,21 @@ const PricingEditor: React.FC<{
   const modelIdIssue = getIssueMessage(issues, 'modelId', t);
 
   return (
-    <aside className="budget-drawer">
+    <aside
+      ref={drawerRef}
+      className="drawer-shell budget-drawer"
+      data-state={exitState}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pricing-editor-title"
+      onAnimationEnd={handleAnimationEnd}
+    >
       <form className="drawer-form" onSubmit={handleSubmit}>
         <div className="drawer-heading">
           <div>
-            <h2>{model.entry ? t('pricing.edit') : t('pricing.editorAdd')}</h2>
+            <h2 id="pricing-editor-title">
+              {model.entry ? t('pricing.edit') : t('pricing.editorAdd')}
+            </h2>
             <p>{t('pricing.editorDescription')}</p>
           </div>
           <button
@@ -122,7 +136,7 @@ const PricingEditor: React.FC<{
             className="icon-button"
             title={t('drawer.close')}
             aria-label={t('drawer.close')}
-            onClick={onClose}
+            onClick={requestExit}
           >
             <X size={ICON_SIZE_SMALL} />
           </button>
@@ -178,7 +192,7 @@ const PricingEditor: React.FC<{
 
         {formIssue ? <p className="form-error">{formIssue}</p> : null}
         <div className="drawer-actions">
-          <button type="button" className="secondary-button" onClick={onClose}>
+          <button type="button" className="secondary-button" onClick={requestExit}>
             {tCommon('action.cancel')}
           </button>
           <button type="submit" className="primary-button" disabled={saving}>
@@ -255,6 +269,8 @@ const UnknownPricingEditor: React.FC<{
   );
   const [issues, setIssues] = useState<ValidationIssue[]>([]);
   const [saving, setSaving] = useState(false);
+  const { state: exitState, requestExit, handleAnimationEnd } = useExitTransition(onClose);
+  const drawerRef = useOverlayFocus<HTMLElement>(requestExit);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
@@ -275,7 +291,7 @@ const UnknownPricingEditor: React.FC<{
     setSaving(true);
     try {
       await actions.saveUnknownModelPricing(input);
-      onClose();
+      requestExit();
     } catch (error) {
       setIssues(getActionIssues(error));
     } finally {
@@ -286,11 +302,21 @@ const UnknownPricingEditor: React.FC<{
   const formIssue = getIssueMessage(issues, 'form', t);
 
   return (
-    <aside className="budget-drawer">
+    <aside
+      ref={drawerRef}
+      className="drawer-shell budget-drawer"
+      data-state={exitState}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="unknown-pricing-editor-title"
+      onAnimationEnd={handleAnimationEnd}
+    >
       <form className="drawer-form" onSubmit={handleSubmit}>
         <div className="drawer-heading">
           <div>
-            <h2>{pricing ? t('pricing.editFallback') : t('pricing.setFallback')}</h2>
+            <h2 id="unknown-pricing-editor-title">
+              {pricing ? t('pricing.editFallback') : t('pricing.setFallback')}
+            </h2>
             <p>{t('pricing.fallbackEditorDescription')}</p>
           </div>
           <button
@@ -298,7 +324,7 @@ const UnknownPricingEditor: React.FC<{
             className="icon-button"
             title={t('drawer.close')}
             aria-label={t('drawer.close')}
-            onClick={onClose}
+            onClick={requestExit}
           >
             <X size={ICON_SIZE_SMALL} />
           </button>
@@ -329,7 +355,7 @@ const UnknownPricingEditor: React.FC<{
 
         {formIssue ? <p className="form-error">{formIssue}</p> : null}
         <div className="drawer-actions">
-          <button type="button" className="secondary-button" onClick={onClose}>
+          <button type="button" className="secondary-button" onClick={requestExit}>
             {tCommon('action.cancel')}
           </button>
           <button type="submit" className="primary-button" disabled={saving}>

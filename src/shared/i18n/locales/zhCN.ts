@@ -397,13 +397,16 @@ export const zhCN = {
       saved: '预算设置已保存',
     },
     page: {
+      eyebrow: '支出控制',
       title: '预算中心',
       description: '按自然周期管理 Token 和估算费用。',
       stale: '正在显示上次成功扫描的数据。{{reason}}',
       staleDefault: '用量数据已过期。',
       views: '预算视图',
-      overview: '预算概览',
+      overview: '总览',
+      policies: '预算策略',
       pricing: '模型价格',
+      settings: '预算设置',
       thresholds: '阈值',
       addBudget: '添加预算',
       alertThresholds: '提醒阈值',
@@ -412,9 +415,15 @@ export const zhCN = {
     },
     summary: {
       label: '预算汇总',
+      configured: '已配置预算',
       approaching: '接近上限',
       over: '超出预算',
       unpriced: '未计价模型',
+    },
+    state: {
+      loadingTitle: '正在加载预算',
+      unavailable: '预算数据不可用',
+      actionsUnavailable: '预算操作当前不可用。',
     },
     alerts: {
       label: '预算提醒',

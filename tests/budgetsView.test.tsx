@@ -1,21 +1,36 @@
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import BudgetsView from '../src/renderer/components/BudgetsView';
+import BudgetsView, {
+  type BudgetContentModel,
+  type BudgetTab,
+} from '../src/renderer/components/BudgetsView';
 import type { BudgetActions } from '../src/renderer/hooks/useBudgetSnapshot';
 import type { BudgetSnapshot } from '../src/shared/budgetTypes';
 import { renderWithI18n } from './helpers/renderWithI18n';
 
 describe('BudgetsView', () => {
-  it('renders actual percentages, incomplete cost, summaries, and alerts', () => {
-    const markup = renderWithI18n(<BudgetsView snapshot={SNAPSHOT} actions={ACTIONS} />);
+  const renderBudgetView = (
+    activeTab: BudgetTab,
+    locale: 'en' | 'zh-CN' = 'en',
+    model: BudgetContentModel = { kind: 'ready', snapshot: SNAPSHOT }
+  ): string =>
+    renderWithI18n(
+      <BudgetsView
+        model={model}
+        actions={ACTIONS}
+        activeTab={activeTab}
+        onActiveTabChange={vi.fn()}
+      />,
+      locale
+    );
 
-    expect(markup).toContain('112%');
-    expect(markup).toContain('Pricing incomplete');
-    expect(markup).toContain('Includes 120 tokens priced by the unknown-model assumption');
+  it('renders actual percentages, incomplete cost, summaries, and alerts', () => {
+    const markup = renderBudgetView('overview');
+
+    expect(markup).toContain('Configured budgets');
+    expect(markup).toContain('>3<');
     expect(markup).toContain('Unpriced models');
     expect(markup).toContain('Token budget reached 100%');
-    expect(markup).toContain('Global budgets');
-    expect(markup).toContain('Project budgets');
     expect(markup).toContain('id="budget-tab-overview"');
     expect(markup).toContain('aria-controls="budget-panel-overview"');
     expect(markup).toContain('id="budget-panel-overview"');
@@ -23,29 +38,71 @@ describe('BudgetsView', () => {
     expect(markup).toContain('class="page-header"');
     expect(markup).toContain('class="accessible-tabs"');
     expect(markup).toContain('summary-card');
+    expect(markup).toContain('future-model');
+    expect(markup).not.toContain('Global budgets');
+    expect(markup).not.toContain('budget-filter-bar');
+  });
+
+  it('renders policy filters and rows only in the policies tab', () => {
+    const markup = renderBudgetView('policies');
+
+    expect(markup).toContain('112%');
+    expect(markup).toContain('Pricing incomplete');
+    expect(markup).toContain('Includes 120 tokens priced by the unknown-model assumption');
+    expect(markup).toContain('Global budgets');
+    expect(markup).toContain('Project budgets');
     expect(markup).toContain('budget-status-label');
     expect(markup).toContain('On track');
     expect(markup).toContain('>Model<');
     expect(markup).toContain('All models');
     expect(markup).toContain('Unknown model');
-    expect(markup).toContain('future-model');
     expect(markup).toContain('data-motion-key=');
     expect(markup).toContain('motion-list-item');
     expect(markup).toContain('--motion-delay:0ms');
+    expect(markup).not.toContain('Configured budgets');
   });
 
   it('renders budget alerts and rows in Chinese', () => {
-    const markup = renderWithI18n(<BudgetsView snapshot={SNAPSHOT} actions={ACTIONS} />, 'zh-CN');
+    const overviewMarkup = renderBudgetView('overview', 'zh-CN');
+    const policiesMarkup = renderBudgetView('policies', 'zh-CN');
 
-    expect(markup).toContain('预算中心');
-    expect(markup).toContain('Token 预算已达到 100%');
-    expect(markup).toContain('计价不完整');
-    expect(markup).toContain('包含 120 个按未知模型假设计价的 Token');
-    expect(markup).toContain('全局预算');
-    expect(markup).toContain('项目预算');
-    expect(markup).toContain('模型');
-    expect(markup).toContain('所有模型');
-    expect(markup).toContain('未知模型');
+    expect(overviewMarkup).toContain('预算中心');
+    expect(overviewMarkup).toContain('已配置预算');
+    expect(overviewMarkup).toContain('Token 预算已达到 100%');
+    expect(policiesMarkup).toContain('计价不完整');
+    expect(policiesMarkup).toContain('包含 120 个按未知模型假设计价的 Token');
+    expect(policiesMarkup).toContain('全局预算');
+    expect(policiesMarkup).toContain('项目预算');
+    expect(policiesMarkup).toContain('模型');
+    expect(policiesMarkup).toContain('所有模型');
+    expect(policiesMarkup).toContain('未知模型');
+  });
+
+  it('keeps the workspace header visible while loading or unavailable', () => {
+    const loadingMarkup = renderBudgetView('overview', 'en', { kind: 'loading' });
+    const errorMarkup = renderBudgetView('overview', 'en', {
+      kind: 'error',
+      message: 'budget unavailable',
+    });
+
+    expect(loadingMarkup).toContain('Budget center');
+    expect(loadingMarkup).toContain('Loading budgets');
+    expect(loadingMarkup).toContain('class="loading-skeleton"');
+    expect(errorMarkup).toContain('Budget center');
+    expect(errorMarkup).toContain('Budget data unavailable');
+    expect(errorMarkup).toContain('budget unavailable');
+  });
+
+  it('renders all three controlled tabs with accessible selection state', () => {
+    const markup = renderBudgetView('policies');
+
+    expect(markup).toContain('Overview');
+    expect(markup).toContain('Budget policies');
+    expect(markup).toContain('Model pricing');
+    expect(markup).toContain('id="budget-tab-policies"');
+    expect(markup).toContain('aria-controls="budget-panel-policies"');
+    expect(markup).toContain('id="budget-panel-policies"');
+    expect(markup).toContain('aria-labelledby="budget-tab-policies"');
   });
 });
 

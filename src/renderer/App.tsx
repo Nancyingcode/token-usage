@@ -11,6 +11,7 @@ import type {
   UsageDataPathUpdateResult,
 } from '../shared/usageDataPathTypes';
 import AppContent from './components/AppContent';
+import type { BudgetTab } from './components/BudgetsView';
 import Sidebar, { type ViewKey } from './components/Sidebar';
 import Toolbar from './components/Toolbar';
 import TitleBar from './components/TitleBar';
@@ -26,6 +27,7 @@ import {
 export interface AppNavigationState {
   activeView: ViewKey;
   selectedProjectPath: string | null;
+  activeBudgetTab: BudgetTab;
   activeCostOptimizationTab: CostOptimizationTab;
   diagnosisId: string | null;
 }
@@ -34,6 +36,8 @@ export type AppNavigationAction =
   | { type: 'select-view'; view: ViewKey }
   | { type: 'select-project'; projectPath: string }
   | { type: 'clear-project' }
+  | { type: 'select-budget-tab'; tab: BudgetTab }
+  | { type: 'open-budget-policy' }
   | { type: 'select-cost-tab'; tab: CostOptimizationTab }
   | { type: 'open-diagnosis'; diagnosisId: string }
   | { type: 'close-diagnosis' };
@@ -41,6 +45,7 @@ export type AppNavigationAction =
 export const INITIAL_APP_NAVIGATION_STATE: AppNavigationState = {
   activeView: 'overview',
   selectedProjectPath: null,
+  activeBudgetTab: 'overview',
   activeCostOptimizationTab: 'overview',
   diagnosisId: null,
 };
@@ -84,6 +89,17 @@ export const reduceAppNavigationState = (
         ...state,
         selectedProjectPath: null,
       };
+    case 'select-budget-tab':
+      return {
+        ...state,
+        activeBudgetTab: action.tab,
+      };
+    case 'open-budget-policy':
+      return {
+        ...state,
+        activeView: 'budgets',
+        activeBudgetTab: 'policies',
+      };
     case 'select-cost-tab':
       return {
         ...state,
@@ -110,7 +126,13 @@ const App: React.FC = () => {
     reduceAppNavigationState,
     INITIAL_APP_NAVIGATION_STATE
   );
-  const { activeView, selectedProjectPath, activeCostOptimizationTab, diagnosisId } = navigation;
+  const {
+    activeView,
+    selectedProjectPath,
+    activeBudgetTab,
+    activeCostOptimizationTab,
+    diagnosisId,
+  } = navigation;
   const [period, setPeriod] = useState<UsagePeriod>(() =>
     loadUsagePeriodPreference(window.localStorage)
   );
@@ -174,6 +196,9 @@ const App: React.FC = () => {
   const clearProjectFilter = useCallback((): void => {
     dispatchNavigation({ type: 'clear-project' });
   }, []);
+  const handleBudgetTabChange = useCallback((tab: BudgetTab): void => {
+    dispatchNavigation({ type: 'select-budget-tab', tab });
+  }, []);
   const handleCostOptimizationTabChange = useCallback((tab: CostOptimizationTab): void => {
     dispatchNavigation({ type: 'select-cost-tab', tab });
   }, []);
@@ -214,7 +239,7 @@ const App: React.FC = () => {
   useEffect(
     () =>
       window.codexUsage.budgets.onNavigate((policyId) => {
-        dispatchNavigation({ type: 'select-view', view: 'budgets' });
+        dispatchNavigation({ type: 'open-budget-policy' });
         setFocusedPolicyId(policyId);
       }),
     []
@@ -290,6 +315,8 @@ const App: React.FC = () => {
             onRefresh={refresh}
             budgetModel={budgetModel}
             budgetActions={budgetState.actions}
+            budgetTab={activeBudgetTab}
+            onBudgetTabChange={handleBudgetTabChange}
             focusedPolicyId={focusedPolicyId}
             onFocusedPolicyConsumed={clearFocusedPolicy}
             onProjectSelect={handleProjectSelect}

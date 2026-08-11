@@ -1,6 +1,7 @@
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import AppContent from '../src/renderer/components/AppContent';
+import type { BudgetActions } from '../src/renderer/hooks/useBudgetSnapshot';
 import type { AppContentModel } from '../src/renderer/utils/appContentModel';
 import type { BudgetSnapshot } from '../src/shared/budgetTypes';
 import { buildUsageSummary } from '../src/shared/usageMath';
@@ -48,6 +49,16 @@ const makeBudgetSnapshot = (
   ...(unknownModelPricing ? { unknownModelPricing } : {}),
   unpricedModels: [],
 });
+
+const BUDGET_ACTIONS: BudgetActions = {
+  savePolicy: vi.fn(async () => makeBudgetSnapshot()),
+  deletePolicy: vi.fn(async () => makeBudgetSnapshot()),
+  updateThresholds: vi.fn(async () => makeBudgetSnapshot()),
+  savePricingOverride: vi.fn(async () => makeBudgetSnapshot()),
+  resetPricingOverride: vi.fn(async () => makeBudgetSnapshot()),
+  saveUnknownModelPricing: vi.fn(async () => makeBudgetSnapshot()),
+  deleteUnknownModelPricing: vi.fn(async () => makeBudgetSnapshot()),
+};
 
 const STATE_CASES: Array<{ model: AppContentModel; expectedText: string }> = [
   { model: { kind: 'error', message: 'Disk unavailable' }, expectedText: 'Scan failed' },
@@ -213,10 +224,37 @@ describe('AppContent', () => {
             unpricedModels: [],
           },
         }}
+        budgetActions={BUDGET_ACTIONS}
+        budgetTab="policies"
+        onBudgetTabChange={vi.fn()}
       />
     );
 
     expect(markup).toContain('Budget center');
+    expect(markup).toContain('aria-labelledby="budget-tab-policies"');
+    expect(markup).not.toContain('Scan failed');
+  });
+
+  it('keeps the budget workspace visible while its snapshot is loading', () => {
+    const markup = renderWithI18n(
+      <AppContent
+        activeView="budgets"
+        period="month"
+        model={{ kind: 'error', message: 'Disk unavailable' }}
+        onRefresh={vi.fn()}
+        onProjectSelect={vi.fn()}
+        selectedProjectPath={null}
+        onClearProjectFilter={vi.fn()}
+        budgetModel={{ kind: 'loading' }}
+        budgetActions={BUDGET_ACTIONS}
+        budgetTab="overview"
+        onBudgetTabChange={vi.fn()}
+      />
+    );
+
+    expect(markup).toContain('Budget center');
+    expect(markup).toContain('Loading budgets');
+    expect(markup).toContain('class="loading-skeleton"');
     expect(markup).not.toContain('Scan failed');
   });
 

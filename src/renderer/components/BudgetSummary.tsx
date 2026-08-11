@@ -1,18 +1,26 @@
 import React from 'react';
-import { BadgeAlert, CircleDollarSign, TriangleAlert } from 'lucide-react';
+import { BadgeAlert, CircleDollarSign, TriangleAlert, WalletCards } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { BudgetSnapshotSummary } from '../../shared/budgetTypes';
 import { ICON_SIZE_MEDIUM } from '../constants/ui';
 
 interface BudgetSummaryProps {
   summary: BudgetSnapshotSummary;
+  policyCount: number;
 }
 
-const BudgetSummary: React.FC<BudgetSummaryProps> = ({ summary }) => {
+const BudgetSummary: React.FC<BudgetSummaryProps> = ({ summary, policyCount }) => {
   const { t } = useTranslation('budgets');
 
   return (
     <section className="budget-summary-grid" aria-label={t('summary.label')}>
+      <article className="summary-card budget-summary-item tone-neutral">
+        <WalletCards size={ICON_SIZE_MEDIUM} />
+        <div>
+          <span>{t('summary.configured')}</span>
+          <strong>{policyCount}</strong>
+        </div>
+      </article>
       <article className="summary-card budget-summary-item tone-warning">
         <TriangleAlert size={ICON_SIZE_MEDIUM} />
         <div>

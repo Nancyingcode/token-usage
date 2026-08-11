@@ -16,13 +16,12 @@ import type {
   SessionDiagnosisSummary,
 } from '../../shared/costOptimizationTypes';
 import { ICON_SIZE_LARGE } from '../constants/ui';
-import type { BudgetSnapshot } from '../../shared/budgetTypes';
 import type { BudgetActions } from '../hooks/useBudgetSnapshot';
 import { resolveRendererLocale } from '../i18n';
 import type { AppContentModel, AppFreshness } from '../utils/appContentModel';
 import { formatShortDateTime } from '../utils/formatters';
 import type { SessionDiagnosisDetailModel } from '../utils/sessionDiagnosisDetailState';
-import BudgetsView from './BudgetsView';
+import BudgetsView, { type BudgetContentModel, type BudgetTab } from './BudgetsView';
 import CostOptimizationView, { type CostOptimizationContentModel } from './CostOptimizationView';
 import EmptyState from './EmptyState';
 import LoadingSkeleton from './LoadingSkeleton';
@@ -45,6 +44,8 @@ interface AppContentProps {
   onClearProjectFilter: () => void;
   budgetModel?: BudgetContentModel;
   budgetActions?: BudgetActions;
+  budgetTab?: BudgetTab;
+  onBudgetTabChange?: (tab: BudgetTab) => void;
   focusedPolicyId?: string | null;
   onFocusedPolicyConsumed?: () => void;
   costOptimizationModel?: CostOptimizationContentModel;
@@ -65,13 +66,9 @@ interface AppContentProps {
   onResetDataPath?: () => Promise<unknown>;
 }
 
-export type BudgetContentModel =
-  | { kind: 'loading' }
-  | { kind: 'error'; message: string }
-  | { kind: 'ready'; snapshot: BudgetSnapshot };
-
 const IDLE_DIAGNOSIS_DETAIL_MODEL: SessionDiagnosisDetailModel = { kind: 'idle' };
 const EMPTY_DIAGNOSTICS: SessionDiagnosisSummary[] = [];
+const ignoreBudgetTab = (): void => undefined;
 const ignoreCostOptimizationTab = (): void => undefined;
 const ignoreDiagnosis = (): void => undefined;
 const ignoreDataPathUpdate = async (): Promise<void> => undefined;
@@ -114,52 +111,6 @@ const renderFreshnessBanner = (
   );
 };
 
-const renderBudgetContent = (
-  model: BudgetContentModel | undefined,
-  actions: BudgetActions | undefined,
-  focusedPolicyId: string | null | undefined,
-  onFocusedPolicyConsumed: (() => void) | undefined,
-  t: TFunction<'common'>
-): React.ReactNode => {
-  if (!model || model.kind === 'loading') {
-    return (
-      <section className="state-panel">
-        <div className="loader" />
-        <div>
-          <h2>{t('state.budgetLoadingTitle')}</h2>
-          <p>{t('state.budgetLoadingDescription')}</p>
-        </div>
-      </section>
-    );
-  }
-
-  if (model.kind === 'error') {
-    return (
-      <section className="state-panel">
-        <AlertCircle size={ICON_SIZE_LARGE} />
-        <div>
-          <h2>{t('state.budgetUnavailable')}</h2>
-          <p>{model.message}</p>
-        </div>
-      </section>
-    );
-  }
-
-  return actions ? (
-    <BudgetsView
-      snapshot={model.snapshot}
-      actions={actions}
-      focusedPolicyId={focusedPolicyId}
-      onFocusedPolicyConsumed={onFocusedPolicyConsumed}
-    />
-  ) : (
-    <section className="panel budget-placeholder">
-      <h3>{t('state.budgetCenter')}</h3>
-      <p>{t('item.budgetPolicies', { count: model.snapshot.statuses.length })}</p>
-    </section>
-  );
-};
-
 const AppContent: React.FC<AppContentProps> = ({
   activeView,
   period,
@@ -170,6 +121,8 @@ const AppContent: React.FC<AppContentProps> = ({
   onClearProjectFilter,
   budgetModel,
   budgetActions,
+  budgetTab = 'overview',
+  onBudgetTabChange = ignoreBudgetTab,
   focusedPolicyId,
   onFocusedPolicyConsumed,
   costOptimizationModel,
@@ -193,12 +146,15 @@ const AppContent: React.FC<AppContentProps> = ({
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
 
   if (activeView === 'budgets') {
-    return renderBudgetContent(
-      budgetModel,
-      budgetActions,
-      focusedPolicyId,
-      onFocusedPolicyConsumed,
-      t
+    return (
+      <BudgetsView
+        model={budgetModel ?? { kind: 'loading' }}
+        actions={budgetActions}
+        activeTab={budgetTab}
+        onActiveTabChange={onBudgetTabChange}
+        focusedPolicyId={focusedPolicyId}
+        onFocusedPolicyConsumed={onFocusedPolicyConsumed}
+      />
     );
   }
 
