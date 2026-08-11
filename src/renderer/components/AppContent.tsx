@@ -9,6 +9,8 @@ import { useTranslation } from 'react-i18next';
 import type { SupportedLocale } from '../../shared/i18n/locale';
 import type { UsagePeriod } from '../../shared/usageTypes';
 import type { UsageDataPathSettings } from '../../shared/usageDataPathTypes';
+import type { ThemePreference, ThemeSnapshot } from '../../shared/theme';
+import type { ThemeFeedback } from '../hooks/useTheme';
 import type {
   CostOptimizationSettings,
   CostOptimizationSnapshot,
@@ -64,6 +66,10 @@ interface AppContentProps {
   onSelectDataPath?: () => Promise<string | null>;
   onUpdateDataPath?: (sessionsDir: string) => Promise<unknown>;
   onResetDataPath?: () => Promise<unknown>;
+  themeSnapshot?: ThemeSnapshot;
+  themePending?: boolean;
+  themeFeedback?: ThemeFeedback;
+  onThemeChange?: (preference: ThemePreference) => Promise<void>;
 }
 
 const IDLE_DIAGNOSIS_DETAIL_MODEL: SessionDiagnosisDetailModel = { kind: 'idle' };
@@ -73,6 +79,11 @@ const ignoreCostOptimizationTab = (): void => undefined;
 const ignoreDiagnosis = (): void => undefined;
 const ignoreDataPathUpdate = async (): Promise<void> => undefined;
 const ignoreDataPathSelect = async (): Promise<null> => null;
+const ignoreThemeChange = async (): Promise<void> => undefined;
+const DEFAULT_THEME_SNAPSHOT: ThemeSnapshot = {
+  preference: 'system',
+  resolvedTheme: 'mint-light',
+};
 
 const renderFreshnessBanner = (
   freshness: AppFreshness,
@@ -141,6 +152,10 @@ const AppContent: React.FC<AppContentProps> = ({
   onSelectDataPath = ignoreDataPathSelect,
   onUpdateDataPath = ignoreDataPathUpdate,
   onResetDataPath = ignoreDataPathUpdate,
+  themeSnapshot = DEFAULT_THEME_SNAPSHOT,
+  themePending = false,
+  themeFeedback = null,
+  onThemeChange = ignoreThemeChange,
 }) => {
   const { t, i18n } = useTranslation('common');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
@@ -207,6 +222,10 @@ const AppContent: React.FC<AppContentProps> = ({
         onSelectDataPath={onSelectDataPath}
         onUpdateDataPath={onUpdateDataPath}
         onResetDataPath={onResetDataPath}
+        themeSnapshot={themeSnapshot}
+        themePending={themePending}
+        themeFeedback={themeFeedback}
+        onThemeChange={onThemeChange}
       />
     );
   }

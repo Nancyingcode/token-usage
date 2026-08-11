@@ -6,6 +6,7 @@ import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import SettingsView from '../src/renderer/components/SettingsView';
 import type { UsageScanResult } from '../src/shared/usageTypes';
+import type { ThemeSnapshot } from '../src/shared/theme';
 import { createTestI18n, renderWithI18n } from './helpers/renderWithI18n';
 
 const RESULT: UsageScanResult = {
@@ -36,6 +37,16 @@ const DATA_PATH_SETTINGS = {
   defaultSessionsDir: 'C:\\Users\\tester\\.codex\\sessions',
   usingDefault: false,
 };
+const THEME_SNAPSHOT: ThemeSnapshot = {
+  preference: 'system',
+  resolvedTheme: 'mint-light',
+};
+const THEME_PROPS = {
+  themeSnapshot: THEME_SNAPSHOT,
+  themePending: false,
+  themeFeedback: null,
+  onThemeChange: vi.fn(async () => undefined),
+} as const;
 
 describe('SettingsView', () => {
   it.each([
@@ -44,6 +55,7 @@ describe('SettingsView', () => {
   ])('renders settings and semantic warnings in %s', (locale, heading, warning) => {
     const markup = renderWithI18n(
       <SettingsView
+        {...THEME_PROPS}
         result={RESULT}
         dataPathSettings={DATA_PATH_SETTINGS}
         onSelectDataPath={vi.fn()}
@@ -74,6 +86,7 @@ describe('SettingsView', () => {
     render(
       <I18nextProvider i18n={createTestI18n('en')}>
         <SettingsView
+          {...THEME_PROPS}
           result={RESULT}
           dataPathSettings={DATA_PATH_SETTINGS}
           onSelectDataPath={onSelectDataPath}
@@ -103,6 +116,7 @@ describe('SettingsView', () => {
     render(
       <I18nextProvider i18n={createTestI18n('en')}>
         <SettingsView
+          {...THEME_PROPS}
           result={RESULT}
           dataPathSettings={DATA_PATH_SETTINGS}
           onSelectDataPath={vi.fn().mockResolvedValue(null)}
@@ -128,6 +142,7 @@ describe('SettingsView', () => {
     render(
       <I18nextProvider i18n={createTestI18n('en')}>
         <SettingsView
+          {...THEME_PROPS}
           result={RESULT}
           dataPathSettings={DATA_PATH_SETTINGS}
           onSelectDataPath={vi.fn().mockRejectedValue(new TypeError('select is not a function'))}
@@ -142,5 +157,62 @@ describe('SettingsView', () => {
     expect((await screen.findByRole('alert')).textContent).toContain(
       'Unable to open the folder picker. Restart the app and try again.'
     );
+  });
+
+  it('renders an accessible theme chooser and saves a selected theme', async () => {
+    const onThemeChange = vi.fn(async () => undefined);
+    render(
+      <I18nextProvider i18n={createTestI18n('en')}>
+        <SettingsView
+          {...THEME_PROPS}
+          dataPathSettings={DATA_PATH_SETTINGS}
+          onSelectDataPath={vi.fn()}
+          onUpdateDataPath={vi.fn()}
+          onResetDataPath={vi.fn()}
+          onThemeChange={onThemeChange}
+        />
+      </I18nextProvider>
+    );
+
+    expect(screen.getByRole('radiogroup', { name: 'Theme' })).toBeTruthy();
+    expect(screen.getAllByRole('radio')).toHaveLength(5);
+    expect((screen.getByRole('radio', { name: /Follow system/ }) as HTMLInputElement).checked).toBe(
+      true
+    );
+
+    fireEvent.click(screen.getByRole('radio', { name: /Deep Ocean/ }));
+    await waitFor(() => expect(onThemeChange).toHaveBeenCalledWith('ocean-dark'));
+  });
+
+  it('announces saved and failed theme changes without relying on color', () => {
+    const { rerender } = render(
+      <I18nextProvider i18n={createTestI18n('en')}>
+        <SettingsView
+          {...THEME_PROPS}
+          dataPathSettings={DATA_PATH_SETTINGS}
+          onSelectDataPath={vi.fn()}
+          onUpdateDataPath={vi.fn()}
+          onResetDataPath={vi.fn()}
+          themeFeedback="saved"
+        />
+      </I18nextProvider>
+    );
+
+    expect(screen.getByRole('status').textContent).toContain('Theme saved');
+
+    rerender(
+      <I18nextProvider i18n={createTestI18n('en')}>
+        <SettingsView
+          {...THEME_PROPS}
+          dataPathSettings={DATA_PATH_SETTINGS}
+          onSelectDataPath={vi.fn()}
+          onUpdateDataPath={vi.fn()}
+          onResetDataPath={vi.fn()}
+          themeFeedback="error"
+        />
+      </I18nextProvider>
+    );
+
+    expect(screen.getByRole('alert').textContent).toContain('Unable to save the theme');
   });
 });

@@ -19,6 +19,7 @@ import type {
   UsageDataPathUpdateResult,
 } from '../shared/usageDataPathTypes';
 import type { WindowState } from '../shared/windowTypes';
+import type { ThemePreference, ThemeSnapshot } from '../shared/theme';
 
 interface BudgetApi {
   getSnapshot: () => Promise<BudgetSnapshot>;
@@ -37,6 +38,12 @@ interface LocaleApi {
   get: () => Promise<SupportedLocale>;
   set: (locale: SupportedLocale) => Promise<SupportedLocale>;
   onUpdated: (listener: (locale: SupportedLocale) => void) => () => void;
+}
+
+interface ThemeApi {
+  get: () => Promise<ThemeSnapshot>;
+  set: (preference: ThemePreference) => Promise<ThemeSnapshot>;
+  onUpdated: (listener: (snapshot: ThemeSnapshot) => void) => () => void;
 }
 
 interface CostOptimizationApi {
@@ -66,6 +73,7 @@ interface CodexUsageApi {
   openExternal: (url: string) => Promise<void>;
   window: WindowControlApi;
   locale: LocaleApi;
+  theme: ThemeApi;
   budgets: BudgetApi;
   costOptimization: CostOptimizationApi;
 }

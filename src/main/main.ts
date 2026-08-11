@@ -3,7 +3,15 @@
  * @description
  * 初始化主窗口、用量扫描、预算运行时、通知和 IPC，并协调应用生命周期。
  */
-import { app, BrowserWindow, dialog, Menu, Notification, type OpenDialogOptions } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  Menu,
+  nativeTheme,
+  Notification,
+  type OpenDialogOptions,
+} from 'electron';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createApplicationRuntime, type ApplicationRuntime } from './applicationRuntime';
@@ -18,6 +26,12 @@ import { createMainI18n } from './i18n';
 import registerUsageIpc from './ipc';
 import { createLocaleService } from './localeService';
 import { createLocaleStore } from './localeStore';
+import {
+  createNativeThemeSystemSource,
+  createThemeService,
+  type ThemeService,
+} from './themeService';
+import { createThemeStore } from './themeStore';
 import { getApplicationMenuPolicy } from './menuPolicy';
 import {
   createElectronNotificationAdapter,
@@ -35,11 +49,13 @@ const BUDGET_CONFIG_FILENAME = 'budget-config.json';
 const COST_OPTIMIZATION_CONFIG_FILENAME = 'cost-optimization-config.json';
 const COST_OPTIMIZATION_CACHE_FILENAME = 'cost-optimization-cache.json';
 const LOCALE_PREFERENCES_FILENAME = 'locale-preferences.json';
+const THEME_PREFERENCES_FILENAME = 'theme-preferences.json';
 const USAGE_DATA_PATH_FILENAME = 'usage-data-path.json';
 
 let mainWindow: BrowserWindow | null = null;
 let budgetRuntime: BudgetRuntime | undefined;
 let applicationRuntime: ApplicationRuntime | undefined;
+let applicationThemeService: ThemeService | undefined;
 let unregisterIpc: (() => void) | undefined;
 let unregisterWindowControls: (() => void) | undefined;
 
@@ -69,13 +85,14 @@ const selectUsageDataDirectory = async (defaultPath: string): Promise<string | n
   return result.canceled ? null : (result.filePaths[0] ?? null);
 };
 
-const createWindow = (runtime: ApplicationRuntime): BrowserWindow => {
+const createWindow = (runtime: ApplicationRuntime, themeService: ThemeService): BrowserWindow => {
   const menuPolicy = getApplicationMenuPolicy(app.isPackaged);
   const window = new BrowserWindow(
     createMainWindowOptions({
       preloadPath: join(CURRENT_DIRECTORY, '../preload/preload.mjs'),
       autoHideMenuBar: menuPolicy.autoHideMenuBar,
       useNativeFrame: menuPolicy.useNativeFrame,
+      resolvedTheme: themeService.getSnapshot().resolvedTheme,
     })
   );
   const unregisterWindowStateListeners = registerWindowStateEvents(window);
@@ -109,6 +126,13 @@ const initializeApplication = async (): Promise<void> => {
     initialLocale,
     i18n: mainI18n,
     store: localeStore,
+  });
+  const themeStore = createThemeStore(join(userDataPath, THEME_PREFERENCES_FILENAME));
+  const initialThemePreference = await themeStore.load();
+  const themeService = createThemeService({
+    initialPreference: initialThemePreference,
+    store: themeStore,
+    systemSource: createNativeThemeSystemSource(nativeTheme),
   });
   const scanner = createUsageScanner();
   const defaultSessionsDir = getDefaultCodexSessionsDir();
@@ -164,6 +188,7 @@ const initializeApplication = async (): Promise<void> => {
   });
   budgetRuntime = currentBudgetRuntime;
   applicationRuntime = currentApplicationRuntime;
+  applicationThemeService = themeService;
 
   await currentApplicationRuntime.initialize();
   unregisterIpc = registerUsageIpc({
@@ -172,6 +197,7 @@ const initializeApplication = async (): Promise<void> => {
     budgetRuntime: currentBudgetRuntime,
     costRuntime,
     localeService,
+    themeService,
     usageDataPathService,
     selectUsageDataDirectory,
     getWindow: () => mainWindow,
@@ -183,12 +209,12 @@ const initializeApplication = async (): Promise<void> => {
     Menu.setApplicationMenu(null);
   }
 
-  createWindow(currentApplicationRuntime);
+  createWindow(currentApplicationRuntime, themeService);
   currentApplicationRuntime.start();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow(currentApplicationRuntime);
+      createWindow(currentApplicationRuntime, themeService);
     }
   });
 };
@@ -197,6 +223,8 @@ void app.whenReady().then(initializeApplication);
 
 app.on('before-quit', () => {
   applicationRuntime?.stop();
+  applicationThemeService?.destroy();
+  applicationThemeService = undefined;
   unregisterIpc?.();
   unregisterIpc = undefined;
   unregisterWindowControls?.();

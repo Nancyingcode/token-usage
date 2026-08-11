@@ -6,6 +6,7 @@ import {
   type CostOptimizationRuntime,
 } from '../src/main/costOptimizationRuntime';
 import type { LocaleService } from '../src/main/localeService';
+import type { ThemeService } from '../src/main/themeService';
 import type { UsageRuntime } from '../src/main/usageRuntime';
 import type { UsageDataPathService } from '../src/main/usageDataPathService';
 import {
@@ -15,6 +16,9 @@ import {
   COST_OPTIMIZATION_GET_SNAPSHOT_CHANNEL,
   COST_OPTIMIZATION_UPDATED_CHANNEL,
   COST_OPTIMIZATION_UPDATE_SETTINGS_CHANNEL,
+  THEME_GET_CHANNEL,
+  THEME_SET_CHANNEL,
+  THEME_UPDATED_CHANNEL,
   USAGE_DATA_PATH_GET_CHANNEL,
   USAGE_DATA_PATH_RESET_CHANNEL,
   USAGE_DATA_PATH_SELECT_CHANNEL,
@@ -180,6 +184,31 @@ describe('cost optimization IPC', () => {
     expect(harness.usageDataPathService.reset).toHaveBeenCalledOnce();
     expect(harness.selectUsageDataDirectory).toHaveBeenCalledWith('C:\\sessions');
   });
+
+  it('routes theme reads and writes and publishes updated snapshots', async () => {
+    const harness = makeIpcHarness();
+    const unregister = registerUsageIpc(harness.dependencies);
+
+    await expect(invokeHandler(THEME_GET_CHANNEL, undefined)).resolves.toEqual({
+      preference: 'system',
+      resolvedTheme: 'mint-light',
+    });
+    await expect(invokeHandler(THEME_SET_CHANNEL, 'ocean-dark')).resolves.toEqual({
+      preference: 'ocean-dark',
+      resolvedTheme: 'ocean-dark',
+    });
+    expect(harness.themeService.setPreference).toHaveBeenCalledWith('ocean-dark');
+
+    harness.emitTheme({ preference: 'system', resolvedTheme: 'emerald-dark' });
+    expect(harness.send).toHaveBeenCalledWith(THEME_UPDATED_CHANNEL, {
+      preference: 'system',
+      resolvedTheme: 'emerald-dark',
+    });
+
+    unregister();
+    expect(electronMocks.removeHandler).toHaveBeenCalledWith(THEME_GET_CHANNEL);
+    expect(electronMocks.removeHandler).toHaveBeenCalledWith(THEME_SET_CHANNEL);
+  });
 });
 
 interface CostRuntimeMock extends Pick<
@@ -204,6 +233,10 @@ interface IpcHarness {
   selectUsageDataDirectory: ReturnType<
     typeof vi.fn<(defaultPath: string) => Promise<string | null>>
   >;
+  themeService: {
+    setPreference: ReturnType<typeof vi.fn>;
+  };
+  emitTheme: Parameters<ThemeService['subscribe']>[0];
 }
 
 const makeIpcHarness = (): IpcHarness => {
@@ -238,6 +271,21 @@ const makeIpcHarness = (): IpcHarness => {
     reset: vi.fn(async () => ({ settings: dataPathSettings, result: SNAPSHOT_USAGE_RESULT })),
   };
   const selectUsageDataDirectory = vi.fn(async (_defaultPath: string) => 'E:\\selected');
+  let themeListener: Parameters<ThemeService['subscribe']>[0] | undefined;
+  const themeService = {
+    getSnapshot: vi.fn(() => ({
+      preference: 'system' as const,
+      resolvedTheme: 'mint-light' as const,
+    })),
+    setPreference: vi.fn(async () => ({
+      preference: 'ocean-dark' as const,
+      resolvedTheme: 'ocean-dark' as const,
+    })),
+    subscribe: vi.fn((listener: Parameters<ThemeService['subscribe']>[0]) => {
+      themeListener = listener;
+      return () => undefined;
+    }),
+  };
   const dependencies: Parameters<typeof registerUsageIpc>[0] = {
     applicationRuntime: {
       refresh: vi.fn(),
@@ -250,6 +298,7 @@ const makeIpcHarness = (): IpcHarness => {
     localeService: {
       subscribe: () => () => undefined,
     } as unknown as LocaleService,
+    themeService: themeService as unknown as ThemeService,
     usageDataPathService,
     selectUsageDataDirectory,
     getWindow: () =>
@@ -267,6 +316,8 @@ const makeIpcHarness = (): IpcHarness => {
     emitSnapshot: (snapshot) => snapshotListener?.(snapshot),
     usageDataPathService,
     selectUsageDataDirectory,
+    themeService,
+    emitTheme: (snapshot) => themeListener?.(snapshot),
   };
 };
 

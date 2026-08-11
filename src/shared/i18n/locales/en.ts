@@ -108,7 +108,41 @@ export const en = {
   },
   settings: {
     title: 'Settings',
-    description: 'Review local data access, privacy, pricing assumptions, and scan warnings.',
+    description: 'Customize appearance and review local data access, privacy, and scan warnings.',
+    appearance: {
+      eyebrow: 'Appearance',
+      title: 'Application theme',
+      description: 'Choose a complete color theme. Your selection applies across every page.',
+      themeLabel: 'Theme',
+      saved: 'Theme saved.',
+      saveError: 'Unable to save the theme. The previous theme is still active.',
+      light: 'Light',
+      dark: 'Dark',
+      automatic: 'Automatic',
+      systemResolved: 'Currently using {{theme}} based on your system appearance.',
+      options: {
+        system: {
+          name: 'Follow system',
+          description: 'Use Mint Daylight or Emerald Night as your system appearance changes.',
+        },
+        'mint-light': {
+          name: 'Mint Daylight',
+          description: 'Cool white surfaces with calm mint accents.',
+        },
+        'emerald-dark': {
+          name: 'Emerald Night',
+          description: 'Low-glare ink green surfaces with soft emerald accents.',
+        },
+        'ocean-dark': {
+          name: 'Deep Ocean',
+          description: 'Deep navy surfaces with crisp cyan-blue accents.',
+        },
+        'sand-light': {
+          name: 'Warm Sand',
+          description: 'Warm paper surfaces with amber and earth-tone accents.',
+        },
+      },
+    },
     dataPath: 'Data path',
     codexSessions: 'Codex Sessions',
     sessionsDirectory: 'Sessions directory',

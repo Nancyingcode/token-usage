@@ -3,13 +3,21 @@
  * @description 管理只读用量数据路径的选择、校验反馈、重置和相关警告展示。
  */
 import React, { useEffect, useState } from 'react';
-import { Folder, ShieldCheck } from 'lucide-react';
+import { Folder, Palette, ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { UsageScanResult } from '../../shared/usageTypes';
 import type {
   UsageDataPathIssueCode,
   UsageDataPathSettings,
 } from '../../shared/usageDataPathTypes';
+import {
+  THEME_PREFERENCES,
+  getThemeColorScheme,
+  type ThemeId,
+  type ThemePreference,
+  type ThemeSnapshot,
+} from '../../shared/theme';
+import type { ThemeFeedback } from '../hooks/useTheme';
 import { ICON_SIZE_MEDIUM } from '../constants/ui';
 import { translateUsageWarning } from '../utils/usageWarnings';
 import PageHeader from './PageHeader';
@@ -21,9 +29,16 @@ interface SettingsViewProps {
   onSelectDataPath: () => Promise<string | null>;
   onUpdateDataPath: (sessionsDir: string) => Promise<unknown>;
   onResetDataPath: () => Promise<unknown>;
+  themeSnapshot: ThemeSnapshot;
+  themePending: boolean;
+  themeFeedback: ThemeFeedback;
+  onThemeChange: (preference: ThemePreference) => Promise<void>;
 }
 
 const MAX_VISIBLE_WARNINGS = 8;
+
+const getPreviewTheme = (preference: ThemePreference, resolvedTheme: ThemeId): ThemeId =>
+  preference === 'system' ? resolvedTheme : preference;
 
 const DATA_PATH_ISSUE_CODES = new Set<UsageDataPathIssueCode>([
   'path-required',
@@ -53,6 +68,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({
   onSelectDataPath,
   onUpdateDataPath,
   onResetDataPath,
+  themeSnapshot,
+  themePending,
+  themeFeedback,
+  onThemeChange,
 }) => {
   const { t } = useTranslation('settings');
   const { t: tWarning } = useTranslation('warnings');
@@ -122,6 +141,83 @@ const SettingsView: React.FC<SettingsViewProps> = ({
     <section className="page-stack">
       <PageHeader title={t('title')} description={t('description')} />
       <div className="settings-grid">
+        <article className="panel settings-appearance-panel">
+          <div className="settings-item settings-appearance-item">
+            <Palette size={ICON_SIZE_MEDIUM} />
+            <div>
+              <p className="eyebrow">{t('appearance.eyebrow')}</p>
+              <h3>{t('appearance.title')}</h3>
+              <p>{t('appearance.description')}</p>
+              <fieldset
+                className="theme-selector"
+                role="radiogroup"
+                aria-label={t('appearance.themeLabel')}
+                disabled={themePending}
+              >
+                <legend className="visually-hidden">{t('appearance.themeLabel')}</legend>
+                <div className="theme-options">
+                  {THEME_PREFERENCES.map((preference) => {
+                    const previewTheme = getPreviewTheme(preference, themeSnapshot.resolvedTheme);
+                    const descriptionId = `theme-${preference}-description`;
+                    const colorScheme = getThemeColorScheme(previewTheme);
+
+                    return (
+                      <label
+                        key={preference}
+                        className={`theme-option theme-option--${previewTheme}`}
+                      >
+                        <input
+                          type="radio"
+                          name="theme-preference"
+                          value={preference}
+                          checked={themeSnapshot.preference === preference}
+                          aria-describedby={descriptionId}
+                          onChange={() => void onThemeChange(preference)}
+                        />
+                        <span className="theme-preview" aria-hidden="true">
+                          <i />
+                          <i />
+                          <i />
+                        </span>
+                        <span className="theme-option-copy">
+                          <strong>{t(`appearance.options.${preference}.name`)}</strong>
+                          <small>
+                            {t(
+                              preference === 'system'
+                                ? 'appearance.automatic'
+                                : `appearance.${colorScheme}`
+                            )}
+                          </small>
+                          <span id={descriptionId}>
+                            {t(`appearance.options.${preference}.description`)}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+              {themeSnapshot.preference === 'system' ? (
+                <p className="theme-system-state">
+                  {t('appearance.systemResolved', {
+                    theme: t(`appearance.options.${themeSnapshot.resolvedTheme}.name`),
+                  })}
+                </p>
+              ) : null}
+              {themeFeedback === 'saved' ? (
+                <p className="settings-theme-success" role="status">
+                  {t('appearance.saved')}
+                </p>
+              ) : null}
+              {themeFeedback === 'error' ? (
+                <p className="form-error" role="alert">
+                  {t('appearance.saveError')}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </article>
+
         <article className="panel settings-data-path-panel">
           <div className="settings-item">
             <Folder size={ICON_SIZE_MEDIUM} />

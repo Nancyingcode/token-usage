@@ -106,7 +106,41 @@ export const zhCN = {
   },
   settings: {
     title: '设置',
-    description: '查看本地数据访问、隐私、计价假设和扫描警告。',
+    description: '定制应用外观，并查看本地数据访问、隐私和扫描警告。',
+    appearance: {
+      eyebrow: '外观',
+      title: '应用主题',
+      description: '选择一套完整配色，主题会应用到所有页面。',
+      themeLabel: '主题',
+      saved: '主题已保存。',
+      saveError: '无法保存主题，已继续使用上一次确认的主题。',
+      light: '浅色',
+      dark: '深色',
+      automatic: '自动',
+      systemResolved: '当前根据系统外观使用{{theme}}。',
+      options: {
+        system: {
+          name: '跟随系统',
+          description: '随系统外观在薄荷晨光和翡翠夜色之间切换。',
+        },
+        'mint-light': {
+          name: '薄荷晨光',
+          description: '冷白表面搭配平静的薄荷强调色。',
+        },
+        'emerald-dark': {
+          name: '翡翠夜色',
+          description: '低眩光墨绿色表面搭配柔和翡翠强调色。',
+        },
+        'ocean-dark': {
+          name: '深海蓝',
+          description: '深海军蓝表面搭配清晰的青蓝强调色。',
+        },
+        'sand-light': {
+          name: '暖砂纸',
+          description: '温暖纸张色表面搭配琥珀与大地色强调。',
+        },
+      },
+    },
     dataPath: '数据路径',
     codexSessions: 'Codex 会话',
     sessionsDirectory: '会话目录',

@@ -14,6 +14,19 @@ const readRendererStyle = (relativePath: string): string =>
 const readRendererFile = (relativePath: string): string =>
   readFileSync(resolve(process.cwd(), 'src/renderer', relativePath), 'utf8').replace(/\r\n/g, '\n');
 
+const THEME_IDS = ['mint-light', 'emerald-dark', 'ocean-dark', 'sand-light'] as const;
+
+const getThemeTokenBlock = (tokens: string, themeId: (typeof THEME_IDS)[number]): string => {
+  const selector = `:root[data-theme='${themeId}']`;
+  const selectorIndex = tokens.indexOf(selector);
+  const openingBrace = tokens.indexOf('{', selectorIndex);
+  const closingBrace = tokens.indexOf('}', openingBrace);
+
+  return selectorIndex >= 0 && openingBrace >= 0 && closingBrace >= 0
+    ? tokens.slice(openingBrace + 1, closingBrace)
+    : '';
+};
+
 describe('UI style policy', () => {
   it('loads layered styles in deterministic order', () => {
     expect(readRendererStyle('styles.css').trim()).toBe(
@@ -57,6 +70,39 @@ describe('UI style policy', () => {
     expect(tokens).toContain('--color-brand-300: #6ce0b5;');
     expect(tokens).toContain('--font-size-body: 0.8125rem;');
     expect(tokens).toContain('--control-height-compact: 2rem;');
+  });
+
+  it('defines a complete semantic color contract for every concrete theme', () => {
+    const tokens = readRendererStyle('styles/tokens.css');
+    const expectedColorTokens = new Set(
+      [...getThemeTokenBlock(tokens, 'mint-light').matchAll(/--color-[a-z0-9-]+(?=:)/g)].map(
+        ([token]) => token
+      )
+    );
+
+    expect(expectedColorTokens.size).toBeGreaterThan(40);
+    THEME_IDS.forEach((themeId) => {
+      const block = getThemeTokenBlock(tokens, themeId);
+      const actualColorTokens = new Set(
+        [...block.matchAll(/--color-[a-z0-9-]+(?=:)/g)].map(([token]) => token)
+      );
+
+      expect(actualColorTokens).toEqual(expectedColorTokens);
+      expect(block).toContain(`color-scheme: ${themeId.endsWith('-light') ? 'light' : 'dark'};`);
+    });
+  });
+
+  it('styles theme previews, keyboard focus, selection and disabled states', () => {
+    const tokens = readRendererStyle('styles/tokens.css');
+    const views = readRendererStyle('styles/views.css');
+
+    THEME_IDS.forEach((themeId) => {
+      expect(tokens).toContain(`.theme-option--${themeId}`);
+    });
+    expect(views).toContain('.theme-options');
+    expect(views).toContain('.theme-option:has(input:checked)');
+    expect(views).toContain('.theme-option input:focus-visible + .theme-preview');
+    expect(views).toContain('.theme-selector:disabled');
   });
 
   it('uses a compact Codex-style scrollbar across light and dark surfaces', () => {
