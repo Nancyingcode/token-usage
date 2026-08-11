@@ -3,13 +3,80 @@ import { describe, expect, it } from 'vitest';
 
 const eslint = new ESLint({ cwd: process.cwd() });
 const FIXTURE_PATH = 'src/renderer/CompoundConditionFixture.tsx';
+const TEST_FIXTURE_PATH = 'tests/EslintPolicyFixture.test.ts';
+const TEMPLATE_LITERAL_TEST_FIXTURE_PATH = 'tests/packagingConfig.test.ts';
 
-const lintSource = async (source: string): Promise<string[]> => {
-  const [result] = await eslint.lintText(source, { filePath: FIXTURE_PATH });
+const lintSource = async (source: string, filePath = FIXTURE_PATH): Promise<string[]> => {
+  const [result] = await eslint.lintText(source, { filePath });
   return result.messages.map(({ ruleId }) => ruleId ?? 'unknown');
 };
 
-describe('JSX compound condition lint policy', () => {
+describe('ESLint policy', () => {
+  it('enforces type-only imports', async () => {
+    const rules = await lintSource(`
+      import { Example } from './example';
+      export type Alias = Example;
+    `);
+
+    expect(rules).toContain('@typescript-eslint/consistent-type-imports');
+  });
+
+  it('rejects console calls and non-Error promise rejections in production code', async () => {
+    const rules = await lintSource(`
+      console.log('debug');
+      export const load = () => Promise.reject('failed');
+    `);
+
+    expect(rules).toContain('no-console');
+    expect(rules).toContain('prefer-promise-reject-errors');
+  });
+
+  it('allows console calls and flexible promise rejections in tests', async () => {
+    const rules = await lintSource(
+      `
+        console.log('debug');
+        export const load = () => Promise.reject('failed');
+      `,
+      TEST_FIXTURE_PATH
+    );
+
+    expect(rules).not.toContain('no-console');
+    expect(rules).not.toContain('prefer-promise-reject-errors');
+  });
+
+  it('protects the renderer filesystem and Electron process boundary', async () => {
+    const rules = await lintSource(`
+      import { ipcRenderer } from 'electron';
+      import { readFile } from 'node:fs/promises';
+      import { join } from 'path';
+      import { scanUsage } from '../main/usageScanner';
+      export const loadOs = () => import('node:os');
+      export { ipcRenderer, join, readFile, scanUsage };
+    `);
+
+    expect(rules.filter((rule) => rule === 'no-restricted-imports')).toHaveLength(4);
+    expect(rules).toContain('no-restricted-syntax');
+  });
+
+  it('rejects accidental template interpolation in ordinary strings', async () => {
+    const rules = await lintSource(`
+      export const message = 'Hello, \${name}';
+    `);
+
+    expect(rules).toContain('no-template-curly-in-string');
+  });
+
+  it('allows literal template placeholders in configuration policy tests', async () => {
+    const rules = await lintSource(
+      `
+        export const artifactName = 'Setup-\${version}.exe';
+      `,
+      TEMPLATE_LITERAL_TEST_FIXTURE_PATH
+    );
+
+    expect(rules).not.toContain('no-template-curly-in-string');
+  });
+
   it('warns when React flushSync is imported', async () => {
     const rules = await lintSource(`
       import { flushSync } from 'react-dom';

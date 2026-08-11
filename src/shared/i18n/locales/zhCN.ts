@@ -3,7 +3,7 @@
  * @description 提供与英文基准资源键结构一致的简体中文文案。
  */
 
-import { en, type TranslationShape } from './en';
+import type { en, TranslationShape } from './en';
 
 export const zhCN = {
   common: {

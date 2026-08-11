@@ -1,3 +1,5 @@
+import type { UsageSession } from './usageTypes';
+
 export type BudgetScope = 'global' | 'project';
 export type BudgetPeriod = 'day' | 'week' | 'month';
 export type BudgetMetric = 'token' | 'cost';
@@ -143,7 +145,7 @@ export interface BudgetSnapshot {
 }
 
 export interface EvaluateBudgetsInput {
-  sessions: import('./usageTypes').UsageSession[];
+  sessions: UsageSession[];
   policies: BudgetPolicy[];
   thresholds: BudgetThresholds;
   pricing: ModelPricingEntry[];
