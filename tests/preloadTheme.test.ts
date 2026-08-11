@@ -88,6 +88,27 @@ describe('preload theme bridge', () => {
     expect(electronMocks.invoke).toHaveBeenCalledWith(THEME_SET_CHANNEL, 'sand-light');
   });
 
+  it('exposes the IPC API when the preload runs before the document element exists', async () => {
+    const documentElement = document.documentElement;
+    const documentElementSpy = vi
+      .spyOn(document, 'documentElement', 'get')
+      // Electron can run preload before the DOM element exists despite the DOM library's type.
+      .mockReturnValueOnce(null as unknown as HTMLElement)
+      .mockReturnValue(documentElement);
+
+    await expect(loadPreload('--codex-resolved-theme=ocean-dark')).resolves.toBeDefined();
+    expect(electronMocks.exposeInMainWorld).toHaveBeenCalledWith(
+      'codexUsage',
+      expect.objectContaining({ theme: expect.any(Object) })
+    );
+
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+    expect(documentElement.dataset.theme).toBe('ocean-dark');
+    expect(documentElement.style.colorScheme).toBe('dark');
+
+    documentElementSpy.mockRestore();
+  });
+
   it.each([undefined, '--codex-resolved-theme=unknown'])(
     'falls back to the default light theme for an invalid argument',
     async (themeArgument) => {

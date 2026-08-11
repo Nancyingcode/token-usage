@@ -77,8 +77,20 @@ const resolveInitialTheme = (args: readonly string[]): ThemeId => {
 };
 
 const initialTheme = resolveInitialTheme(process.argv);
-document.documentElement.dataset.theme = initialTheme;
-document.documentElement.style.colorScheme = getThemeColorScheme(initialTheme);
+const applyInitialTheme = (): boolean => {
+  const documentElement = document.documentElement;
+  if (!documentElement) {
+    return false;
+  }
+
+  documentElement.dataset.theme = initialTheme;
+  documentElement.style.colorScheme = getThemeColorScheme(initialTheme);
+  return true;
+};
+
+if (!applyInitialTheme()) {
+  document.addEventListener('DOMContentLoaded', applyInitialTheme, { once: true });
+}
 
 const subscribe = <Payload>(
   channel: string,
