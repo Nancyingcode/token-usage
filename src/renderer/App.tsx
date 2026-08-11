@@ -17,6 +17,7 @@ import TitleBar from './components/TitleBar';
 import { useBudgetSnapshot } from './hooks/useBudgetSnapshot';
 import { useCostOptimizationSnapshot } from './hooks/useCostOptimizationSnapshot';
 import { useSessionDiagnosisDetail } from './hooks/useSessionDiagnosisDetail';
+import { useTheme } from './hooks/useTheme';
 import { resolveAppContentModel } from './utils/appContentModel';
 import {
   loadUsagePeriodPreference,
@@ -120,6 +121,7 @@ const App: React.FC = () => {
   const [dataPathSettings, setDataPathSettings] = useState<UsageDataPathSettings | null>(null);
   const [focusedPolicyId, setFocusedPolicyId] = useState<string | null>(null);
   const budgetState = useBudgetSnapshot();
+  const themeState = useTheme();
   const costOptimizationState = useCostOptimizationSnapshot(period);
   const setCostOptimizationProjectPath = costOptimizationState.setProjectPath;
   const diagnosisDetailModel = useSessionDiagnosisDetail(
@@ -311,6 +313,10 @@ const App: React.FC = () => {
             onSelectDataPath={handleDataPathSelect}
             onUpdateDataPath={handleDataPathUpdate}
             onResetDataPath={handleDataPathReset}
+            themeSnapshot={themeState.snapshot}
+            themePending={themeState.pending}
+            themeFeedback={themeState.feedback}
+            onThemeChange={themeState.setPreference}
           />
         </div>
       </main>

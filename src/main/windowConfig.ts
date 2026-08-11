@@ -3,29 +3,34 @@
  * @description 集中生成窗口尺寸、外观和 WebPreferences 安全选项。
  */
 import type { BrowserWindowConstructorOptions } from 'electron';
+import {
+  getThemeWindowBackgroundColor,
+  RESOLVED_THEME_ARGUMENT_PREFIX,
+  type ThemeId,
+} from '../shared/theme';
 
 const DEFAULT_WINDOW_WIDTH = 1280;
 const DEFAULT_WINDOW_HEIGHT = 820;
 const MINIMUM_WINDOW_WIDTH = 1024;
 const MINIMUM_WINDOW_HEIGHT = 680;
-const WINDOW_BACKGROUND_COLOR = '#f8f7f4';
-
 interface MainWindowOptionsInput {
   preloadPath: string;
   autoHideMenuBar: boolean;
   useNativeFrame: boolean;
+  resolvedTheme: ThemeId;
 }
 
 export const createMainWindowOptions = ({
   preloadPath,
   autoHideMenuBar,
   useNativeFrame,
+  resolvedTheme,
 }: MainWindowOptionsInput): BrowserWindowConstructorOptions => ({
   width: DEFAULT_WINDOW_WIDTH,
   height: DEFAULT_WINDOW_HEIGHT,
   minWidth: MINIMUM_WINDOW_WIDTH,
   minHeight: MINIMUM_WINDOW_HEIGHT,
-  backgroundColor: WINDOW_BACKGROUND_COLOR,
+  backgroundColor: getThemeWindowBackgroundColor(resolvedTheme),
   autoHideMenuBar,
   frame: useNativeFrame,
   webPreferences: {
@@ -33,5 +38,6 @@ export const createMainWindowOptions = ({
     contextIsolation: true,
     nodeIntegration: false,
     sandbox: false,
+    additionalArguments: [`${RESOLVED_THEME_ARGUMENT_PREFIX}${resolvedTheme}`],
   },
 });

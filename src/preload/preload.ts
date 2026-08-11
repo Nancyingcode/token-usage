@@ -22,6 +22,9 @@ import {
   LOCALE_SET_CHANNEL,
   LOCALE_UPDATED_CHANNEL,
   OPEN_EXTERNAL_CHANNEL,
+  THEME_GET_CHANNEL,
+  THEME_SET_CHANNEL,
+  THEME_UPDATED_CHANNEL,
   USAGE_DATA_PATH_GET_CHANNEL,
   USAGE_DATA_PATH_RESET_CHANNEL,
   USAGE_DATA_PATH_SELECT_CHANNEL,
@@ -57,6 +60,25 @@ import type {
   UsageDataPathUpdateResult,
 } from '../shared/usageDataPathTypes';
 import type { WindowState } from '../shared/windowTypes';
+import {
+  DEFAULT_LIGHT_THEME,
+  getThemeColorScheme,
+  isThemeId,
+  RESOLVED_THEME_ARGUMENT_PREFIX,
+  type ThemeId,
+  type ThemePreference,
+  type ThemeSnapshot,
+} from '../shared/theme';
+
+const resolveInitialTheme = (args: readonly string[]): ThemeId => {
+  const argument = args.find((value) => value.startsWith(RESOLVED_THEME_ARGUMENT_PREFIX));
+  const candidate = argument?.slice(RESOLVED_THEME_ARGUMENT_PREFIX.length);
+  return isThemeId(candidate) ? candidate : DEFAULT_LIGHT_THEME;
+};
+
+const initialTheme = resolveInitialTheme(process.argv);
+document.documentElement.dataset.theme = initialTheme;
+document.documentElement.style.colorScheme = getThemeColorScheme(initialTheme);
 
 const subscribe = <Payload>(
   channel: string,
@@ -120,6 +142,13 @@ contextBridge.exposeInMainWorld('codexUsage', {
       ipcRenderer.invoke(LOCALE_SET_CHANNEL, locale),
     onUpdated: (listener: (locale: SupportedLocale) => void): (() => void) =>
       subscribe(LOCALE_UPDATED_CHANNEL, listener),
+  },
+  theme: {
+    get: (): Promise<ThemeSnapshot> => ipcRenderer.invoke(THEME_GET_CHANNEL),
+    set: (preference: ThemePreference): Promise<ThemeSnapshot> =>
+      ipcRenderer.invoke(THEME_SET_CHANNEL, preference),
+    onUpdated: (listener: (snapshot: ThemeSnapshot) => void): (() => void) =>
+      subscribe(THEME_UPDATED_CHANNEL, listener),
   },
   budgets: {
     getSnapshot: (): Promise<BudgetSnapshot> => ipcRenderer.invoke(BUDGET_GET_SNAPSHOT_CHANNEL),

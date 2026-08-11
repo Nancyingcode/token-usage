@@ -8,13 +8,14 @@ describe('createMainWindowOptions', () => {
         preloadPath: 'C:\\app\\preload.mjs',
         autoHideMenuBar: true,
         useNativeFrame: false,
+        resolvedTheme: 'mint-light',
       })
     ).toMatchObject({
       width: 1280,
       height: 820,
       minWidth: 1024,
       minHeight: 680,
-      backgroundColor: '#f8f7f4',
+      backgroundColor: '#f3f7f6',
       autoHideMenuBar: true,
       frame: false,
       webPreferences: {
@@ -22,6 +23,7 @@ describe('createMainWindowOptions', () => {
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: false,
+        additionalArguments: ['--codex-resolved-theme=mint-light'],
       },
     });
   });
@@ -32,10 +34,15 @@ describe('createMainWindowOptions', () => {
         preloadPath: 'C:\\app\\preload.mjs',
         autoHideMenuBar: false,
         useNativeFrame: true,
+        resolvedTheme: 'emerald-dark',
       })
     ).toMatchObject({
       autoHideMenuBar: false,
       frame: true,
+      backgroundColor: '#0d1714',
+      webPreferences: {
+        additionalArguments: ['--codex-resolved-theme=emerald-dark'],
+      },
     });
   });
 });

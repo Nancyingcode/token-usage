@@ -34,6 +34,9 @@ import {
   LOCALE_SET_CHANNEL,
   LOCALE_UPDATED_CHANNEL,
   OPEN_EXTERNAL_CHANNEL,
+  THEME_GET_CHANNEL,
+  THEME_SET_CHANNEL,
+  THEME_UPDATED_CHANNEL,
   USAGE_DATA_PATH_GET_CHANNEL,
   USAGE_DATA_PATH_RESET_CHANNEL,
   USAGE_DATA_PATH_SELECT_CHANNEL,
@@ -50,6 +53,7 @@ import {
 } from './costOptimizationRuntime';
 import { isAllowedExternalUrl } from './externalUrlPolicy';
 import type { LocaleService } from './localeService';
+import type { ThemeService } from './themeService';
 import type { UsageRuntime } from './usageRuntime';
 import { UsageDataPathServiceError, type UsageDataPathService } from './usageDataPathService';
 
@@ -62,6 +66,7 @@ export interface UsageIpcDependencies {
     'getSnapshot' | 'getSessionDiagnosis' | 'updateSettings' | 'subscribe'
   >;
   localeService: LocaleService;
+  themeService: ThemeService;
   usageDataPathService: UsageDataPathService;
   selectUsageDataDirectory: (defaultPath: string) => Promise<string | null>;
   getWindow: () => BrowserWindow | null;
@@ -86,6 +91,8 @@ const HANDLED_CHANNELS = [
   COST_OPTIMIZATION_UPDATE_SETTINGS_CHANNEL,
   LOCALE_GET_CHANNEL,
   LOCALE_SET_CHANNEL,
+  THEME_GET_CHANNEL,
+  THEME_SET_CHANNEL,
   OPEN_EXTERNAL_CHANNEL,
 ] as const;
 
@@ -153,6 +160,7 @@ const registerUsageIpc = ({
   budgetRuntime,
   costRuntime,
   localeService,
+  themeService,
   usageDataPathService,
   selectUsageDataDirectory,
   getWindow,
@@ -206,6 +214,10 @@ const registerUsageIpc = ({
   );
   ipcMain.handle(LOCALE_GET_CHANNEL, () => localeService.getLocale());
   ipcMain.handle(LOCALE_SET_CHANNEL, (_event, locale: unknown) => localeService.setLocale(locale));
+  ipcMain.handle(THEME_GET_CHANNEL, () => themeService.getSnapshot());
+  ipcMain.handle(THEME_SET_CHANNEL, (_event, preference: unknown) =>
+    themeService.setPreference(preference)
+  );
   ipcMain.handle(OPEN_EXTERNAL_CHANNEL, async (_event, url: string) => {
     if (typeof url !== 'string' || !isAllowedExternalUrl(url)) {
       throw new TypeError('External URL is not allowed.');
@@ -229,6 +241,9 @@ const registerUsageIpc = ({
   const unsubscribeLocale = localeService.subscribe((locale) =>
     sendToRenderer(getWindow, LOCALE_UPDATED_CHANNEL, locale)
   );
+  const unsubscribeTheme = themeService.subscribe((snapshot) =>
+    sendToRenderer(getWindow, THEME_UPDATED_CHANNEL, snapshot)
+  );
 
   return () => {
     unsubscribeBudget();
@@ -236,6 +251,7 @@ const registerUsageIpc = ({
     unsubscribeNavigation();
     unsubscribeCostOptimization();
     unsubscribeLocale();
+    unsubscribeTheme();
     HANDLED_CHANNELS.forEach((channel) => ipcMain.removeHandler(channel));
   };
 };

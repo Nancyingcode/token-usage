@@ -3,6 +3,7 @@ import type { ApplicationRuntime } from '../src/main/applicationRuntime';
 import type { BudgetRuntime } from '../src/main/budgetRuntime';
 import type { CostOptimizationRuntime } from '../src/main/costOptimizationRuntime';
 import type { LocaleService } from '../src/main/localeService';
+import type { ThemeService } from '../src/main/themeService';
 import type { UsageRuntime } from '../src/main/usageRuntime';
 import type { SupportedLocale } from '../src/shared/i18n/locale';
 import {
@@ -63,6 +64,7 @@ describe('locale IPC', () => {
       costRuntime: createCostRuntimeStub(),
       usageRuntime: createUsageRuntimeStub(),
       localeService,
+      themeService: createThemeServiceStub(),
       usageDataPathService: {
         getSettings: () => ({
           sessionsDir: 'C:\\sessions',
@@ -117,3 +119,8 @@ const createCostRuntimeStub = (): CostOptimizationRuntime =>
   ({
     subscribe: () => () => undefined,
   }) as unknown as CostOptimizationRuntime;
+
+const createThemeServiceStub = (): ThemeService =>
+  ({
+    subscribe: () => () => undefined,
+  }) as unknown as ThemeService;
