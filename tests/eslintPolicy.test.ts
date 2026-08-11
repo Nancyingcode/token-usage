@@ -44,6 +44,34 @@ describe('ESLint policy', () => {
     expect(rules).not.toContain('prefer-promise-reject-errors');
   });
 
+  it('rejects super-linear regular expressions and unused capturing groups', async () => {
+    const rules = await lintSource(`
+      export const hasRepeatedA = (value: string) => /(a+)+$/.test(value);
+      export const hasPrefix = (value: string) => /(prefix)-value/.test(value);
+    `);
+
+    expect(rules).toContain('regexp/no-super-linear-backtracking');
+    expect(rules).toContain('regexp/no-unused-capturing-group');
+  });
+
+  it('rejects event listeners without lifecycle cleanup', async () => {
+    const rules = await lintSource(`
+      import { useEffect } from 'react';
+
+      const handleResize = () => undefined;
+      const Example = () => {
+        useEffect(() => {
+          window.addEventListener('resize', handleResize);
+        }, []);
+        return null;
+      };
+
+      export default Example;
+    `);
+
+    expect(rules).toContain('react-web-api/no-leaked-event-listener');
+  });
+
   it('protects the renderer filesystem and Electron process boundary', async () => {
     const rules = await lintSource(`
       import { ipcRenderer } from 'electron';

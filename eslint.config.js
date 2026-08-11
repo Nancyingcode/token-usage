@@ -4,6 +4,8 @@ import js from '@eslint/js';
 import prettierConfig from 'eslint-config-prettier/flat';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
+import reactWebApi from 'eslint-plugin-react-web-api';
+import regexp from 'eslint-plugin-regexp';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
@@ -84,6 +86,8 @@ export default tseslint.config(
     plugins: {
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
+      'react-web-api': reactWebApi,
+      regexp,
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
@@ -135,6 +139,8 @@ export default tseslint.config(
         },
       ],
       'prefer-promise-reject-errors': 'error',
+      'regexp/no-super-linear-backtracking': 'error',
+      'regexp/no-unused-capturing-group': 'error',
     },
   },
   {
@@ -180,6 +186,7 @@ export default tseslint.config(
         },
       ],
       'no-restricted-syntax': ['error', ...RESTRICTED_RENDERER_DYNAMIC_IMPORTS],
+      'react-web-api/no-leaked-event-listener': 'error',
     },
   },
   {
