@@ -10,6 +10,15 @@ const lintSource = async (source: string): Promise<string[]> => {
 };
 
 describe('JSX compound condition lint policy', () => {
+  it('warns when React flushSync is imported', async () => {
+    const rules = await lintSource(`
+      import { flushSync } from 'react-dom';
+      flushSync(() => undefined);
+    `);
+
+    expect(rules).toContain('no-restricted-imports');
+  });
+
   it('rejects compound ternary and direct rendering conditions', async () => {
     const ternaryRules = await lintSource(`
       const Example = ({ ready, visible }: { ready: boolean; visible: boolean }) => (

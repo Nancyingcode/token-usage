@@ -28,6 +28,7 @@ export default tseslint.config(
       'docs/**',
       'node_modules/**',
       'out/**',
+      '**/*.snap',
       '*.tsbuildinfo',
     ],
   },
@@ -56,6 +57,18 @@ export default tseslint.config(
       eqeqeq: ['error', 'always'],
       'func-style': ['error', 'expression'],
       'no-param-reassign': ['error', { props: true }],
+      'no-restricted-imports': [
+        'warn',
+        {
+          paths: [
+            {
+              name: 'react-dom',
+              importNames: ['flushSync'],
+              message: 'Avoid flushSync because it can force synchronous rendering work.',
+            },
+          ],
+        },
+      ],
       'no-var': 'error',
       'object-shorthand': ['error', 'always'],
       'prefer-const': 'error',
