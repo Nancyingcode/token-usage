@@ -205,9 +205,11 @@ describe('UI style policy', () => {
     const shell = readRendererStyle('styles/shell.css');
     const titleBarRule = shell.match(/\.title-bar\s*\{([^}]*)\}/)?.[1] ?? '';
     const controlRule = shell.match(/\.window-control\s*\{([^}]*)\}/)?.[1] ?? '';
+    const toolbarActionsRule = shell.match(/\.toolbar-actions\s*\{([^}]*)\}/)?.[1] ?? '';
 
     expect(titleBarRule).toContain('-webkit-app-region: drag;');
     expect(controlRule).toContain('-webkit-app-region: no-drag;');
+    expect(toolbarActionsRule).toContain('-webkit-app-region: no-drag;');
     expect(shell).toContain('.window-control--close:hover');
   });
 });

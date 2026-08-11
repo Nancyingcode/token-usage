@@ -12,7 +12,6 @@ import type {
 } from '../shared/usageDataPathTypes';
 import AppContent from './components/AppContent';
 import Sidebar, { type ViewKey } from './components/Sidebar';
-import Toolbar from './components/Toolbar';
 import TitleBar from './components/TitleBar';
 import { useBudgetSnapshot } from './hooks/useBudgetSnapshot';
 import { useCostOptimizationSnapshot } from './hooks/useCostOptimizationSnapshot';
@@ -268,20 +267,18 @@ const App: React.FC = () => {
         warningCount={warningCount}
         budgetAlertCount={budgetAlertCount}
       />
-      <TitleBar />
+      <TitleBar
+        activeView={activeView}
+        loading={loading}
+        error={error}
+        scannedAt={result?.scannedAt}
+        onRefresh={refresh}
+        period={period}
+        onPeriodChange={handlePeriodChange}
+      />
       <main
         className={activeView === 'overview' ? 'main-panel main-panel--overview' : 'main-panel'}
       >
-        <Toolbar
-          activeView={activeView}
-          loading={loading}
-          error={error}
-          scannedAt={result?.scannedAt}
-          onRefresh={refresh}
-          period={period}
-          onPeriodChange={handlePeriodChange}
-        />
-
         <div key={viewTransitionKey} className="view-transition">
           <AppContent
             activeView={activeView}

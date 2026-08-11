@@ -14,6 +14,16 @@ const windowApi = {
   onStateChanged: vi.fn(),
 };
 
+const createTitleBarProps = (): React.ComponentProps<typeof TitleBar> => ({
+  activeView: 'overview',
+  loading: false,
+  error: null,
+  scannedAt: '2026-08-03T08:00:00.000Z',
+  onRefresh: vi.fn(),
+  period: 'month',
+  onPeriodChange: vi.fn(),
+});
+
 describe('TitleBar', () => {
   beforeEach(() => {
     windowApi.minimize.mockClear();
@@ -27,7 +37,7 @@ describe('TitleBar', () => {
   it('renders accessible window controls and invokes the isolated API', async () => {
     render(
       <I18nextProvider i18n={createTestI18n('en')}>
-        <TitleBar />
+        <TitleBar {...createTitleBarProps()} />
       </I18nextProvider>
     );
 
@@ -52,7 +62,7 @@ describe('TitleBar', () => {
 
     const view = render(
       <I18nextProvider i18n={createTestI18n('zh-CN')}>
-        <TitleBar />
+        <TitleBar {...createTitleBarProps()} />
       </I18nextProvider>
     );
 
@@ -62,5 +72,21 @@ describe('TitleBar', () => {
 
     view.unmount();
     expect(unsubscribe).toHaveBeenCalledOnce();
+  });
+
+  it('keeps usage controls inside the single custom title bar', async () => {
+    const { container } = render(
+      <I18nextProvider i18n={createTestI18n('en')}>
+        <TitleBar {...createTitleBarProps()} />
+      </I18nextProvider>
+    );
+
+    expect(container.querySelectorAll('header')).toHaveLength(1);
+    expect(screen.getByText('Local data synced')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Month' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('combobox', { name: 'Language' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Refresh' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Minimize' })).toBeTruthy();
+    await waitFor(() => expect(windowApi.getState).toHaveBeenCalledOnce());
   });
 });
