@@ -236,6 +236,33 @@ describe('analytics tables', () => {
     expect(screen.queryByRole('tooltip')).toBeNull();
   });
 
+  it('truncates an overlong donut total and exposes the full value in a tooltip', () => {
+    const i18n = createTestI18n('en');
+    const { container } = render(
+      <I18nextProvider i18n={i18n}>
+        <ProjectsView
+          projects={[{ ...PROJECT, totalTokens: Number.MAX_SAFE_INTEGER }]}
+          onProjectSelect={vi.fn()}
+        />
+      </I18nextProvider>
+    );
+    const center = container.querySelector<HTMLElement>('.project-donut-center');
+    const total = center?.querySelector('strong');
+
+    expect(center?.tabIndex).toBe(0);
+    expect(total?.classList.contains('project-donut-center-value')).toBe(true);
+
+    fireEvent.pointerEnter(center as HTMLElement);
+    expect(screen.getByRole('tooltip').textContent).toContain('9,007,199,254,740,991');
+    fireEvent.pointerLeave(center as HTMLElement);
+    expect(screen.queryByRole('tooltip')).toBeNull();
+
+    fireEvent.focus(center as HTMLElement);
+    expect(screen.getByRole('tooltip').textContent).toContain('9,007,199,254,740,991');
+    fireEvent.blur(center as HTMLElement);
+    expect(screen.queryByRole('tooltip')).toBeNull();
+  });
+
   it('maps project colors to a legend with names and percentages', () => {
     const onSelect = vi.fn();
     const i18n = createTestI18n('en');

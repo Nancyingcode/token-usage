@@ -169,6 +169,15 @@ describe('UI style policy', () => {
     expect(disabledActionRule).not.toContain('cursor: wait;');
   });
 
+  it('ellipsizes overlong project donut center values', () => {
+    const views = readRendererStyle('styles/views.css');
+    const centerValueRule = views.match(/\.project-donut-center-value\s*\{([^}]*)\}/)?.[1] ?? '';
+
+    expect(centerValueRule).toContain('overflow: hidden;');
+    expect(centerValueRule).toContain('text-overflow: ellipsis;');
+    expect(centerValueRule).toContain('white-space: nowrap;');
+  });
+
   it('keeps the navigation sidebar visible while page content scrolls', () => {
     const shell = readRendererStyle('styles/shell.css');
     const sidebarRule = shell.match(/\.sidebar\s*\{([^}]*)\}/)?.[1] ?? '';

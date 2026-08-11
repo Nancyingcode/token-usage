@@ -112,6 +112,8 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onProjectSelect }
   const chartId = useId();
   const [hoveredProjectKey, setHoveredProjectKey] = useState<string | null>(null);
   const [focusedProjectKey, setFocusedProjectKey] = useState<string | null>(null);
+  const [isCenterHovered, setIsCenterHovered] = useState(false);
+  const [isCenterFocused, setIsCenterFocused] = useState(false);
   const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState<ProjectSortKey>('tokens');
   const chartEntries = useMemo(() => buildProjectChartEntries(projects), [projects]);
@@ -134,6 +136,8 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onProjectSelect }
   const topProject = [...projects].sort((a, b) => b.totalTokens - a.totalTokens)[0];
   const activeProjectKey = hoveredProjectKey ?? focusedProjectKey;
   const activeSegment = segments.find(({ key }) => key === activeProjectKey);
+  const formattedTotalTokens = formatNumber(totalTokens, locale);
+  const isCenterTooltipVisible = isCenterHovered || isCenterFocused;
   const unknownDateLabel = tCommon('value.unknownDate');
 
   const getDisplayName = (project: ProjectDonutDatum): string => {
@@ -313,10 +317,28 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onProjectSelect }
                 );
               })}
             </svg>
-            <div className="project-donut-center">
+            <div
+              className="project-donut-center"
+              tabIndex={0}
+              aria-describedby={isCenterTooltipVisible ? `${chartId}-center-tooltip` : undefined}
+              onPointerEnter={() => setIsCenterHovered(true)}
+              onPointerLeave={() => setIsCenterHovered(false)}
+              onFocus={() => setIsCenterFocused(true)}
+              onBlur={() => setIsCenterFocused(false)}
+            >
               <span>{t('projects.totalTokens')}</span>
-              <strong>{formatNumber(totalTokens, locale)}</strong>
+              <strong className="project-donut-center-value">{formattedTotalTokens}</strong>
             </div>
+            {isCenterTooltipVisible ? (
+              <div
+                id={`${chartId}-center-tooltip`}
+                className="project-donut-center-tooltip"
+                role="tooltip"
+              >
+                <span>{t('projects.totalTokens')}</span>
+                <strong>{formattedTotalTokens}</strong>
+              </div>
+            ) : null}
             {activeSegment ? (
               <div
                 id={`${chartId}-tooltip`}
