@@ -1,0 +1,36 @@
+appId: io.github.nancyingcode.tokenusage
+productName: Codex Token Usage
+artifactName: Codex-Token-Usage-Setup-${version}-${arch}.${ext}
+asar: true
+directories:
+  output: dist
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+win:
+  executableName: CodexTokenUsage
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  guid: '{CCEDAC33-CADC-41A8-93BC-A1FBEA0F5EBF}'
+  oneClick: false
+  perMachine: false
+  selectPerMachineByDefault: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Codex Token Usage
+  runAfterFinish: true
+  displayLanguageSelector: false
+  installerLanguages:
+    - en_US
+    - zh_CN
+  include: build/installer.nsh
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeader: build/installer-header.bmp
+  installerSidebar: build/installer-sidebar.bmp
+  uninstallerSidebar: build/installer-sidebar.bmp

@@ -30,19 +30,34 @@ npm run build
 
 > 如果 `npm` 未加入 `PATH`，可在 PowerShell 中将上述命令的 `npm` 替换为 `& 'C:\Program Files\nodejs\npm.cmd'`。
 
-## Windows 打包
+## Windows 安装与打包
 
-生成 Windows 安装包：
+生成 Windows x64 品牌化 NSIS 安装包：
 
 ```powershell
 npm run build:win
 ```
 
-该命令会先执行完整构建，再调用 electron-builder 打包。安装包输出到 `dist\`，典型文件名为：
+该命令会先执行完整构建，再调用 electron-builder 生成中英文辅助安装向导。安装包输出到
+`dist\`，文件名为：
 
 ```text
-dist\codex-token-usage Setup <version>.exe
+dist\Codex-Token-Usage-Setup-<version>-x64.exe
 ```
+
+安装向导默认按系统语言选择英文或简体中文，支持当前用户/所有用户安装、自定义安装目录、
+桌面快捷方式选择以及安装完成后启动应用。当前用户安装默认不要求管理员权限；选择所有用户
+安装时，Windows 会请求管理员授权。
+
+本地构建在没有代码签名证书时仍可生成安装包，但 Windows 可能显示未知发布者或 SmartScreen
+提示。正式发布前必须使用可信证书和时间戳服务签名，并分别验证安装器、应用可执行文件和
+卸载器的签名状态。证书私钥和密码不得提交到仓库。
+
+卸载会移除程序文件、开始菜单项和安装器管理的桌面快捷方式，但保留
+`%APPDATA%\codex-token-usage` 中的应用配置与可重建缓存。安装、重装和卸载均不会读取、修改
+或删除 `%USERPROFILE%\.codex` 或用户在设置中选择的 Codex 会话数据源。如需清除应用自身
+配置，应在确认不再需要预算、语言、主题和自定义数据路径后，手动删除且仅删除
+`%APPDATA%\codex-token-usage`。
 
 ## 测试与质量检查
 
@@ -182,10 +197,13 @@ Cost Optimization 是独立的分析工作台，可按全局周期和项目筛�
 <Electron userData>\cost-optimization-config.json
 <Electron userData>\cost-optimization-cache.json
 <Electron userData>\locale-preferences.json
+<Electron userData>\theme-preferences.json
 <Electron userData>\usage-data-path.json
 ```
 
-预算、成本优化参数、语言和自定义数据路径保存在配置文件中；成本优化缓存损坏时可由现有会话日志重新构建。
+打包后的 Windows 应用将 `<Electron userData>` 固定为 `%APPDATA%\codex-token-usage`，避免产品
+显示名称变化后既有配置不可见。预算、成本优化参数、语言、主题和自定义数据路径保存在配置
+文件中；成本优化缓存损坏时可由现有会话日志重新构建。
 
 ## 技术栈
 

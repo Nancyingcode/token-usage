@@ -1,6 +1,8 @@
 {
   "name": "codex-token-usage",
   "version": "0.1.0",
+  "description": "Local, read-only Codex token usage analytics for Windows.",
+  "author": "Nancyingcode",
   "private": true,
   "type": "module",
   "main": "out/main/main.js",
@@ -8,7 +10,7 @@
     "dev": "electron-vite dev",
     "build": "tsc -p tsconfig.node.json && tsc -p tsconfig.web.json && electron-vite build",
     "build:web": "vite build",
-    "build:win": "npm run build && electron-builder --win",
+    "build:win": "npm run build && electron-builder --config electron-builder.yml --win nsis --x64",
     "commitlint": "commitlint --from HEAD~1 --to HEAD --verbose",
     "lint": "eslint . --max-warnings=0 && prettier --check . && npm run lint:docs",
     "lint:docs": "node scripts/check-docs.cjs",

@@ -14,6 +14,7 @@ import {
 } from 'electron';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { configureStableUserDataPath } from './appPaths';
 import { createApplicationRuntime, type ApplicationRuntime } from './applicationRuntime';
 import { createBudgetRuntime, type BudgetRuntime } from './budgetRuntime';
 import { createBudgetStore } from './budgetStore';
@@ -118,7 +119,7 @@ const createWindow = (runtime: ApplicationRuntime, themeService: ThemeService): 
 };
 
 const initializeApplication = async (): Promise<void> => {
-  const userDataPath = app.getPath('userData');
+  const userDataPath = configureStableUserDataPath(app);
   const localeStore = createLocaleStore(join(userDataPath, LOCALE_PREFERENCES_FILENAME));
   const initialLocale = await localeStore.load(app.getLocale());
   const mainI18n = await createMainI18n(initialLocale);
