@@ -303,6 +303,7 @@ const AppContent: React.FC<AppContentProps> = ({
             <SessionsView
               sessions={model.summary.sessions}
               selectedProjectPath={selectedProjectPath}
+              onProjectFilterChange={onProjectSelect}
               onClearProjectFilter={onClearProjectFilter}
               globalDiagnostics={globalDiagnostics}
               onDiagnosisOpen={onDiagnosisOpen}
