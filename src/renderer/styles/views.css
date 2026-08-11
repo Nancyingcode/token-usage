@@ -3037,7 +3037,6 @@ code {
   overflow: hidden;
 }
 
-.main-panel--overview > .toolbar,
 .main-panel--overview > .view-transition > .status-banner {
   flex: 0 0 auto;
 }
@@ -3075,10 +3074,6 @@ code {
   .main-panel--overview {
     padding-top: var(--space-4);
     padding-bottom: var(--space-3);
-  }
-
-  .main-panel--overview > .toolbar {
-    margin-bottom: var(--space-2);
   }
 
   .main-panel--overview > .view-transition > .page-stack,

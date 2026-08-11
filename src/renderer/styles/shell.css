@@ -52,15 +52,25 @@
   height: var(--title-bar-height);
   display: flex;
   align-items: stretch;
-  justify-content: flex-end;
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
   -webkit-app-region: drag;
   user-select: none;
 }
 
+.title-bar-toolbar {
+  min-width: 0;
+  padding-left: var(--space-4);
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
 .window-controls {
   display: flex;
+  flex: 0 0 auto;
   align-items: stretch;
   -webkit-app-region: no-drag;
 }
@@ -235,15 +245,6 @@
   animation: badge-pop var(--duration-standard) var(--ease-motion-enter) both;
 }
 
-.toolbar {
-  min-height: var(--control-height-compact);
-  margin-bottom: var(--space-4);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
 .toolbar-title {
   min-width: 0;
   display: inline-flex;
@@ -328,6 +329,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  -webkit-app-region: no-drag;
 }
 
 .language-selector {
@@ -418,13 +420,26 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .toolbar {
-    align-items: flex-start;
-    flex-direction: column;
+  .title-bar-toolbar {
+    padding-left: var(--space-2);
+    overflow: hidden;
+  }
+
+  .toolbar-title,
+  .period-toggle {
+    display: none;
   }
 
   .toolbar-actions {
-    flex-wrap: wrap;
+    min-width: 0;
+    margin-left: auto;
+    gap: var(--space-1);
+  }
+}
+
+@media (max-width: 1180px) and (min-width: 761px) {
+  .scan-time {
+    display: none;
   }
 }
 

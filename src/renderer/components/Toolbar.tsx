@@ -28,7 +28,7 @@ interface PeriodToggleProps {
   labels?: PeriodLabels;
 }
 
-interface ToolbarProps extends PeriodToggleProps {
+export interface ToolbarProps extends PeriodToggleProps {
   activeView: ViewKey;
   loading: boolean;
   error?: string | null;
@@ -108,7 +108,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
   };
 
   return (
-    <header className="toolbar">
+    <div className="title-bar-toolbar">
       <div className="toolbar-title">
         <span className={`scan-status scan-status--${scanState}`}>
           <i aria-hidden="true" />
@@ -142,7 +142,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
           <RefreshCw size={ICON_SIZE_SMALL} className={loading ? 'spinning' : undefined} />
         </button>
       </div>
-    </header>
+    </div>
   );
 };
 

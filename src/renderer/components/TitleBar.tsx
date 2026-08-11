@@ -3,10 +3,11 @@ import { Copy, Minus, Square, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { WindowState } from '../../shared/windowTypes';
 import { ICON_SIZE_SMALL, NAV_ICON_STROKE_WIDTH } from '../constants/ui';
+import Toolbar, { type ToolbarProps } from './Toolbar';
 
 const INITIAL_WINDOW_STATE: WindowState = { isMaximized: false };
 
-const TitleBar: React.FC = () => {
+const TitleBar: React.FC<ToolbarProps> = (toolbarProps) => {
   const { t } = useTranslation('common');
   const [windowState, setWindowState] = useState<WindowState>(INITIAL_WINDOW_STATE);
 
@@ -52,6 +53,7 @@ const TitleBar: React.FC = () => {
 
   return (
     <header className="title-bar">
+      <Toolbar {...toolbarProps} />
       <div className="window-controls">
         <button
           type="button"
