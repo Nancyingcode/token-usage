@@ -3749,6 +3749,125 @@ code {
   border-radius: var(--radius-control);
 }
 
+.session-filter-panel {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.session-filter-controls {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(12rem, 1.4fr) repeat(3, minmax(9rem, 1fr));
+  gap: var(--space-3);
+}
+
+.session-filter-controls label,
+.session-pagination label {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-label);
+  font-weight: 700;
+}
+
+.session-filter-controls input,
+.session-filter-controls select,
+.session-pagination select {
+  width: 100%;
+  min-height: var(--control-height-compact);
+  padding: 0 var(--space-2);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  font: inherit;
+}
+
+.session-filter-controls input:focus-visible,
+.session-filter-controls select:focus-visible,
+.session-pagination select:focus-visible,
+.session-filter-clear:focus-visible,
+.session-pagination button:focus-visible {
+  outline: 2px solid var(--color-brand-700);
+  outline-offset: 2px;
+}
+
+.session-filter-clear,
+.session-pagination button {
+  min-height: var(--control-height-compact);
+  padding: 0 var(--space-3);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.session-pagination {
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  color: var(--color-text-muted);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-body-small);
+}
+
+.session-pagination label {
+  width: 8.5rem;
+}
+
+.session-pagination-navigation {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.session-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+@media (max-width: 1100px) {
+  .session-filter-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .session-filter-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .session-filter-clear {
+    align-self: flex-start;
+  }
+}
+
+@media (max-width: 760px) {
+  .session-filter-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .session-pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .session-pagination label {
+    width: 100%;
+  }
+
+  .session-pagination-navigation {
+    justify-content: space-between;
+  }
+}
+
 .performance-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(16.25rem, 1fr));

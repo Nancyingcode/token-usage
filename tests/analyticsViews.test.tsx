@@ -8,6 +8,7 @@ import ProjectsView from '../src/renderer/components/ProjectsView';
 import SessionsView, { ProjectFilterChip } from '../src/renderer/components/SessionsView';
 import { UNKNOWN_PROJECT_KEY } from '../src/shared/usageMath';
 import type { UsageProject, UsageSession } from '../src/shared/usageTypes';
+import { makeDiagnosisSummary, makeFindingSummary } from './helpers/sessionDiagnosisFixtures';
 import { createTestI18n, renderWithI18n } from './helpers/renderWithI18n';
 
 const SESSION: UsageSession = {
@@ -376,5 +377,115 @@ describe('analytics tables', () => {
     );
 
     expect(markup).toContain(UNKNOWN_PROJECT_KEY);
+  });
+
+  it('combines project, diagnosis cause, and severity filters', () => {
+    const onProjectFilterChange = vi.fn();
+    const cacheSession: UsageSession = {
+      ...SESSION,
+      sessionId: 'cache-session',
+      threadName: 'Cache session',
+      projectPath: 'C:\\other',
+      projectName: 'other',
+      sourceFile: 'cache.jsonl',
+    };
+    const i18n = createTestI18n('en');
+    render(
+      <I18nextProvider i18n={i18n}>
+        <SessionsView
+          sessions={[SESSION, cacheSession]}
+          selectedProjectPath={null}
+          onProjectFilterChange={onProjectFilterChange}
+          onClearProjectFilter={vi.fn()}
+          globalDiagnostics={[
+            makeDiagnosisSummary('session-123456789', {
+              sourceFile: 'session.jsonl',
+              primaryFinding: makeFindingSummary('input-growth', 'critical', 'high'),
+            }),
+            makeDiagnosisSummary('cache-session', {
+              sourceFile: 'cache.jsonl',
+              primaryFinding: makeFindingSummary('cache-degradation', 'warning', 'medium'),
+            }),
+          ]}
+        />
+      </I18nextProvider>
+    );
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Filter by project' }), {
+      target: { value: 'C:\\other' },
+    });
+    expect(onProjectFilterChange).toHaveBeenCalledWith('C:\\other');
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Filter by diagnosis cause' }), {
+      target: { value: 'cache-degradation' },
+    });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Filter by diagnosis severity' }), {
+      target: { value: 'warning' },
+    });
+
+    expect(screen.getByText('Cache session')).toBeTruthy();
+    expect(screen.queryByTitle('session-123456789')).toBeNull();
+  });
+
+  it('searches sessions and clears all local filters', () => {
+    const i18n = createTestI18n('en');
+    render(
+      <I18nextProvider i18n={i18n}>
+        <SessionsView
+          sessions={[SESSION, LOWER_TOKEN_SESSION]}
+          selectedProjectPath={null}
+          onClearProjectFilter={vi.fn()}
+        />
+      </I18nextProvider>
+    );
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search sessions' }), {
+      target: { value: 'low token' },
+    });
+    expect(screen.getByText('Low token session')).toBeTruthy();
+    expect(screen.queryByTitle('session-123456789')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+    expect(screen.getByText('Low token session')).toBeTruthy();
+    expect(screen.getByTitle('session-123456789')).toBeTruthy();
+  });
+
+  it('paginates sessions and remembers the selected page size', () => {
+    window.localStorage.clear();
+    const sessions = Array.from({ length: 12 }, (_, index) => ({
+      ...SESSION,
+      sessionId: `session-${index + 1}`,
+      threadName: `Session ${index + 1}`,
+      sourceFile: `session-${index + 1}.jsonl`,
+    }));
+    const i18n = createTestI18n('en');
+    render(
+      <I18nextProvider i18n={i18n}>
+        <SessionsView
+          sessions={sessions}
+          selectedProjectPath={null}
+          onClearProjectFilter={vi.fn()}
+        />
+      </I18nextProvider>
+    );
+
+    expect(screen.getByText('Session 10')).toBeTruthy();
+    expect(screen.queryByText('Session 11')).toBeNull();
+    expect(
+      (screen.getByRole('button', { name: 'Previous page' }) as HTMLButtonElement).disabled
+    ).toBe(true);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    expect(screen.getByText('Session 11')).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Next page' }) as HTMLButtonElement).disabled).toBe(
+      true
+    );
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Sessions per page' }), {
+      target: { value: '20' },
+    });
+    expect(screen.getByText('Session 1')).toBeTruthy();
+    expect(screen.getByText('Session 12')).toBeTruthy();
+    expect(window.localStorage.getItem('codex-token-usage.sessions-page-size')).toBe('20');
   });
 });
