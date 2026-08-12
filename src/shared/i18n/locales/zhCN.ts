@@ -79,6 +79,8 @@ export const zhCN = {
       showingPreviousData: '正在显示之前的数据',
       previousDataDescription: '上次成功扫描：{{scannedAt}}。刷新失败：{{reason}}',
       retryScan: '重新扫描',
+      pageLoadFailed: '页面加载失败',
+      reloadApplication: '重新加载应用',
       noSessions: '未找到 Codex 会话',
       scannedPath: '扫描路径：{{path}}',
       periodEmptyTitle: '此时间范围内没有会话',

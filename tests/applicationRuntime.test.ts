@@ -111,10 +111,61 @@ describe('application runtime', () => {
     callOrder.splice(0);
     await runtime.refresh();
 
+    await vi.waitFor(() => {
+      expect(harness.costRuntime.applyUsageCycle).toHaveBeenCalledOnce();
+    });
+
     expect(harness.usageRuntime.refresh).toHaveBeenCalledOnce();
     expect(harness.budgetRuntime.applyUsageResult).toHaveBeenCalledOnce();
     expect(harness.costRuntime.applyUsageCycle).toHaveBeenCalledOnce();
     expect(callOrder).toEqual(['budget-usage', 'cost-budget', 'cost-usage']);
+  });
+
+  it('returns usage before background analysis finishes', async () => {
+    const analysisFinished = deferred<BudgetSnapshot>();
+    const harness = makeRuntimeHarness();
+    harness.budgetRuntime.applyUsageResult = vi.fn(() => analysisFinished.promise);
+    const runtime = createApplicationRuntime(harness.dependencies);
+
+    await runtime.initialize();
+    await expect(runtime.refresh()).resolves.toBe(USAGE_RESULT);
+    expect(harness.costRuntime.applyUsageCycle).not.toHaveBeenCalled();
+
+    analysisFinished.resolve(BUDGET_SNAPSHOT);
+    await vi.waitFor(() => {
+      expect(harness.costRuntime.applyUsageCycle).toHaveBeenCalledOnce();
+    });
+  });
+
+  it('processes usage cycles sequentially in the background', async () => {
+    const firstBudget = deferred<BudgetSnapshot>();
+    const callOrder: string[] = [];
+    const harness = makeRuntimeHarness(callOrder);
+    harness.budgetRuntime.applyUsageResult = vi
+      .fn<() => Promise<BudgetSnapshot>>()
+      .mockReturnValueOnce(firstBudget.promise)
+      .mockImplementationOnce(async () => {
+        callOrder.push('second-budget');
+        return BUDGET_SNAPSHOT;
+      });
+    const runtime = createApplicationRuntime(harness.dependencies);
+
+    await runtime.initialize();
+    callOrder.splice(0);
+    harness.emitUsageCycle(USAGE_CYCLE);
+    harness.emitUsageCycle({
+      ...USAGE_CYCLE,
+      result: { ...USAGE_RESULT, scannedAt: '2026-07-20T10:01:00.000Z' },
+    });
+    await vi.waitFor(() => {
+      expect(harness.budgetRuntime.applyUsageResult).toHaveBeenCalledTimes(1);
+    });
+
+    firstBudget.resolve(BUDGET_SNAPSHOT);
+    await vi.waitFor(() => {
+      expect(harness.budgetRuntime.applyUsageResult).toHaveBeenCalledTimes(2);
+    });
+    expect(callOrder.indexOf('cost-usage')).toBeLessThan(callOrder.indexOf('second-budget'));
   });
 
   it('marks both analysis runtimes stale after a usage error', async () => {
@@ -128,6 +179,21 @@ describe('application runtime', () => {
     expect(harness.budgetRuntime.markUsageStale).toHaveBeenCalledWith(error);
     expect(harness.costRuntime.markStale).toHaveBeenCalledWith(error);
   });
+
+  it('finishes critical initialization before cost optimization is ready', async () => {
+    const costReady = deferred<void>();
+    const harness = makeRuntimeHarness();
+    harness.costRuntime.initialize = vi.fn(() => costReady.promise);
+    const runtime = createApplicationRuntime(harness.dependencies);
+
+    await expect(runtime.initialize()).resolves.toBeUndefined();
+    expect(harness.budgetRuntime.initialize).toHaveBeenCalledOnce();
+    expect(harness.costRuntime.applyBudgetSnapshot).not.toHaveBeenCalled();
+
+    costReady.resolve();
+    await expect(runtime.waitForCostOptimization()).resolves.toBeUndefined();
+    expect(harness.costRuntime.applyBudgetSnapshot).toHaveBeenCalledWith(BUDGET_SNAPSHOT);
+  });
 });
 
 interface RuntimeHarness {
@@ -136,6 +202,7 @@ interface RuntimeHarness {
   budgetRuntime: BudgetRuntime;
   costRuntime: CostOptimizationRuntime;
   emitUsageError: (error: unknown) => void;
+  emitUsageCycle: (cycle: UsageScanCycle) => void;
 }
 
 const makeRuntimeHarness = (callOrder: string[] = []): RuntimeHarness => {
@@ -143,9 +210,10 @@ const makeRuntimeHarness = (callOrder: string[] = []): RuntimeHarness => {
   let errorListener: ((error: unknown) => void) | undefined;
   const usageRuntime: UsageRuntime = {
     refresh: vi.fn(async () => {
-      await cycleListener?.(USAGE_CYCLE);
+      void cycleListener?.(USAGE_CYCLE);
       return USAGE_RESULT;
     }),
+    getInitialUsage: vi.fn(async () => USAGE_RESULT),
     refreshOnFocus: vi.fn(async () => undefined),
     updateSessionsDir: vi.fn(async () => USAGE_RESULT),
     getResult: vi.fn(() => USAGE_RESULT),
@@ -210,5 +278,20 @@ const makeRuntimeHarness = (callOrder: string[] = []): RuntimeHarness => {
     budgetRuntime,
     costRuntime,
     emitUsageError: (error) => errorListener?.(error),
+    emitUsageCycle: (cycle) => {
+      void cycleListener?.(cycle);
+    },
   };
+};
+
+const deferred = <Value>(): {
+  promise: Promise<Value>;
+  resolve: (value: Value) => void;
+} => {
+  let resolvePromise: (value: Value) => void = () => undefined;
+  const promise = new Promise<Value>((resolve) => {
+    resolvePromise = resolve;
+  });
+
+  return { promise, resolve: resolvePromise };
 };

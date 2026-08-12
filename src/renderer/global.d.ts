@@ -35,6 +35,7 @@ interface BudgetApi {
 }
 
 interface LocaleApi {
+  initial: SupportedLocale;
   get: () => Promise<SupportedLocale>;
   set: (locale: SupportedLocale) => Promise<SupportedLocale>;
   onUpdated: (listener: (locale: SupportedLocale) => void) => () => void;
@@ -62,6 +63,7 @@ interface WindowControlApi {
 }
 
 interface CodexUsageApi {
+  getInitialUsage: () => Promise<UsageScanResult>;
   scan: () => Promise<UsageScanResult>;
   onUsageUpdated: (listener: (result: UsageScanResult) => void) => () => void;
   dataPath: {

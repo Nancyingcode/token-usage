@@ -25,6 +25,7 @@ import {
   THEME_GET_CHANNEL,
   THEME_SET_CHANNEL,
   THEME_UPDATED_CHANNEL,
+  USAGE_GET_INITIAL_CHANNEL,
   USAGE_DATA_PATH_GET_CHANNEL,
   USAGE_DATA_PATH_RESET_CHANNEL,
   USAGE_DATA_PATH_SELECT_CHANNEL,
@@ -52,7 +53,12 @@ import type {
   ModelPricingOverrideInput,
   UnknownModelPricingInput,
 } from '../shared/budgetTypes';
-import type { SupportedLocale } from '../shared/i18n/locale';
+import {
+  DEFAULT_LOCALE,
+  INITIAL_LOCALE_ARGUMENT_PREFIX,
+  isSupportedLocale,
+  type SupportedLocale,
+} from '../shared/i18n/locale';
 import type { UsageScanResult } from '../shared/usageTypes';
 import type {
   UsageDataPathIpcResponse,
@@ -76,7 +82,14 @@ const resolveInitialTheme = (args: readonly string[]): ThemeId => {
   return isThemeId(candidate) ? candidate : DEFAULT_LIGHT_THEME;
 };
 
+const resolveInitialLocale = (args: readonly string[]): SupportedLocale => {
+  const argument = args.find((value) => value.startsWith(INITIAL_LOCALE_ARGUMENT_PREFIX));
+  const candidate = argument?.slice(INITIAL_LOCALE_ARGUMENT_PREFIX.length);
+  return isSupportedLocale(candidate) ? candidate : DEFAULT_LOCALE;
+};
+
 const initialTheme = resolveInitialTheme(process.argv);
+const initialLocale = resolveInitialLocale(process.argv);
 const applyInitialTheme = (): boolean => {
   const documentElement = document.documentElement;
   if (!documentElement) {
@@ -128,6 +141,7 @@ const invokeUsageDataPath = async <Result>(channel: string, input?: string): Pro
 };
 
 contextBridge.exposeInMainWorld('codexUsage', {
+  getInitialUsage: (): Promise<UsageScanResult> => ipcRenderer.invoke(USAGE_GET_INITIAL_CHANNEL),
   scan: (): Promise<UsageScanResult> => ipcRenderer.invoke(USAGE_SCAN_CHANNEL),
   onUsageUpdated: (listener: (result: UsageScanResult) => void): (() => void) =>
     subscribe(USAGE_UPDATED_CHANNEL, listener),
@@ -149,6 +163,7 @@ contextBridge.exposeInMainWorld('codexUsage', {
       subscribe(WINDOW_STATE_CHANGED_CHANNEL, listener),
   },
   locale: {
+    initial: initialLocale,
     get: (): Promise<SupportedLocale> => ipcRenderer.invoke(LOCALE_GET_CHANNEL),
     set: (locale: SupportedLocale): Promise<SupportedLocale> =>
       ipcRenderer.invoke(LOCALE_SET_CHANNEL, locale),

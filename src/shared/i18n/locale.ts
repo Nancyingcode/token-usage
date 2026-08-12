@@ -7,6 +7,7 @@ export const SUPPORTED_LOCALES = ['en', 'zh-CN'] as const;
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
 
 export const DEFAULT_LOCALE: SupportedLocale = 'en';
+export const INITIAL_LOCALE_ARGUMENT_PREFIX = '--codex-initial-locale=';
 
 const CHINESE_LOCALE_PATTERN = /^zh(?:-|$)/i;
 

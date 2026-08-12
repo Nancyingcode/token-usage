@@ -12,6 +12,11 @@ import { buildUsageSummary } from '../shared/usageMath';
 import type { UsageScanResult, UsageSession, UsageWarning } from '../shared/usageTypes';
 import { getDefaultCodexSessionsDir, getSessionIndexPathForSessionsDir } from './codexPaths';
 import parseSessionJsonl from './sessionParser';
+import {
+  USAGE_SCAN_CACHE_SCHEMA_VERSION,
+  type UsageScanCache,
+  type UsageScanCacheStore,
+} from './usageScanCacheStore';
 
 export interface ScanOptions {
   sessionsDir?: string;
@@ -31,6 +36,8 @@ export interface UsageScanCycle {
 export interface UsageScannerDependencies {
   readFile: (path: string, encoding: 'utf8') => Promise<string>;
   stat: (path: string) => Promise<{ size: number; mtimeMs: number }>;
+  cacheStore: UsageScanCacheStore;
+  onCacheError: (error: unknown) => void;
 }
 
 interface FileDiscoveryResult {
@@ -71,13 +78,71 @@ export const createUsageScanner = (
   const stat =
     dependencies.stat ??
     (async (path: string): Promise<{ size: number; mtimeMs: number }> => fs.stat(path));
+  const cacheStore = dependencies.cacheStore;
+  const onCacheError = dependencies.onCacheError ?? (() => undefined);
   const cache = new Map<string, CachedSessionFile>();
   let lastSessionsDir: string | undefined;
+  // 扫描器拥有水合与写入队列；首次扫描等待一次水合，缓存写入按扫描顺序后台串行保存。
+  let cacheHydration: Promise<void> | undefined;
+  let cacheWriteQueue: Promise<void> = Promise.resolve();
+
+  const hydrateCache = (sessionsDir: string): Promise<void> => {
+    if (!cacheStore) {
+      return Promise.resolve();
+    }
+
+    cacheHydration ??= cacheStore
+      .load()
+      .then((persistedCache) => {
+        if (persistedCache?.sessionsDir !== sessionsDir) {
+          return;
+        }
+
+        Object.entries(persistedCache.entries).forEach(([sourceFile, entry]) => {
+          cache.set(sourceFile, entry);
+        });
+      })
+      .catch(onCacheError);
+
+    return cacheHydration;
+  };
+
+  const getPersistedCache = (sessionsDir: string): UsageScanCache => ({
+    schemaVersion: USAGE_SCAN_CACHE_SCHEMA_VERSION,
+    sessionsDir,
+    entries: Object.fromEntries(
+      [...cache.entries()].map(([sourceFile, entry]) => [
+        sourceFile,
+        {
+          fingerprint: entry.fingerprint,
+          session: { ...entry.session, threadName: undefined },
+        },
+      ])
+    ),
+  });
+
+  const persistCache = (sessionsDir: string): void => {
+    if (!cacheStore) {
+      return;
+    }
+
+    const snapshot = getPersistedCache(sessionsDir);
+    cacheWriteQueue = cacheWriteQueue
+      .then(() => cacheStore.save(snapshot))
+      .catch((error: unknown) => {
+        try {
+          onCacheError(error);
+        } catch {
+          // 缓存诊断回调不能破坏后续写入队列或已经成功的用量扫描。
+        }
+      });
+  };
 
   const scanCycle = async (options: ScanOptions = {}): Promise<UsageScanCycle> => {
     const sessionsDir = options.sessionsDir ?? getDefaultCodexSessionsDir();
     const sessionIndexPath =
       options.sessionIndexPath ?? getSessionIndexPathForSessionsDir(sessionsDir);
+    await hydrateCache(sessionsDir);
     const previousCachedPaths = new Set(cache.keys());
     const [discovery, threadNameResult] = await Promise.all([
       findJsonlFiles(sessionsDir),
@@ -158,6 +223,7 @@ export const createUsageScanner = (
 
     const requiresFullRebuild = lastSessionsDir !== undefined && lastSessionsDir !== sessionsDir;
     lastSessionsDir = sessionsDir;
+    persistCache(sessionsDir);
 
     return {
       result: {

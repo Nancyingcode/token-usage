@@ -81,6 +81,8 @@ export const en = {
       showingPreviousData: 'Showing previous data',
       previousDataDescription: 'Last successful scan: {{scannedAt}}. Refresh failed: {{reason}}',
       retryScan: 'Retry scan',
+      pageLoadFailed: 'This page could not be loaded',
+      reloadApplication: 'Reload application',
       noSessions: 'No Codex sessions found',
       scannedPath: 'Scanned: {{path}}',
       periodEmptyTitle: 'No sessions in this period',

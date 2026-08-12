@@ -19,6 +19,7 @@ import {
   THEME_GET_CHANNEL,
   THEME_SET_CHANNEL,
   THEME_UPDATED_CHANNEL,
+  USAGE_GET_INITIAL_CHANNEL,
   USAGE_DATA_PATH_GET_CHANNEL,
   USAGE_DATA_PATH_RESET_CHANNEL,
   USAGE_DATA_PATH_SELECT_CHANNEL,
@@ -185,6 +186,31 @@ describe('cost optimization IPC', () => {
     expect(harness.selectUsageDataDirectory).toHaveBeenCalledWith('C:\\sessions');
   });
 
+  it('waits for cost initialization before reading a snapshot', async () => {
+    const ready = deferred<void>();
+    const harness = makeIpcHarness();
+    harness.applicationRuntime.waitForCostOptimization.mockReturnValueOnce(ready.promise);
+    registerUsageIpc(harness.dependencies);
+
+    const response = invokeHandler(COST_OPTIMIZATION_GET_SNAPSHOT_CHANNEL, { period: 'month' });
+    expect(harness.costRuntime.getSnapshot).not.toHaveBeenCalled();
+
+    ready.resolve();
+    await expect(response).resolves.toEqual({ ok: true, value: SNAPSHOT });
+    expect(harness.costRuntime.getSnapshot).toHaveBeenCalledOnce();
+  });
+
+  it('routes initial usage separately from an explicit refresh', async () => {
+    const harness = makeIpcHarness();
+    registerUsageIpc(harness.dependencies);
+
+    await expect(invokeHandler(USAGE_GET_INITIAL_CHANNEL, undefined)).resolves.toBe(
+      SNAPSHOT_USAGE_RESULT
+    );
+    expect(harness.applicationRuntime.getInitialUsage).toHaveBeenCalledOnce();
+    expect(harness.applicationRuntime.refresh).not.toHaveBeenCalled();
+  });
+
   it('routes theme reads and writes and publishes updated snapshots', async () => {
     const harness = makeIpcHarness();
     const unregister = registerUsageIpc(harness.dependencies);
@@ -222,6 +248,11 @@ interface CostRuntimeMock extends Pick<
 
 interface IpcHarness {
   dependencies: Parameters<typeof registerUsageIpc>[0];
+  applicationRuntime: {
+    getInitialUsage: ReturnType<typeof vi.fn>;
+    refresh: ReturnType<typeof vi.fn>;
+    waitForCostOptimization: ReturnType<typeof vi.fn>;
+  };
   costRuntime: CostRuntimeMock;
   budgetRuntime: {
     saveUnknownModelPricing: ReturnType<typeof vi.fn>;
@@ -286,10 +317,13 @@ const makeIpcHarness = (): IpcHarness => {
       return () => undefined;
     }),
   };
+  const applicationRuntime = {
+    getInitialUsage: vi.fn(async () => SNAPSHOT_USAGE_RESULT),
+    refresh: vi.fn(async () => SNAPSHOT_USAGE_RESULT),
+    waitForCostOptimization: vi.fn(async () => undefined),
+  };
   const dependencies: Parameters<typeof registerUsageIpc>[0] = {
-    applicationRuntime: {
-      refresh: vi.fn(),
-    } as unknown as ApplicationRuntime,
+    applicationRuntime: applicationRuntime as unknown as ApplicationRuntime,
     budgetRuntime: budgetRuntime as unknown as BudgetRuntime,
     usageRuntime: {
       subscribe: () => () => undefined,
@@ -310,6 +344,7 @@ const makeIpcHarness = (): IpcHarness => {
 
   return {
     dependencies,
+    applicationRuntime,
     costRuntime,
     budgetRuntime,
     send,
@@ -347,4 +382,16 @@ const invokeHandler = async (channel: string, input: unknown): Promise<unknown> 
   }
 
   return handler({}, input);
+};
+
+const deferred = <Value>(): {
+  promise: Promise<Value>;
+  resolve: (value: Value) => void;
+} => {
+  let resolvePromise: (value: Value) => void = () => undefined;
+  const promise = new Promise<Value>((resolve) => {
+    resolvePromise = resolve;
+  });
+
+  return { promise, resolve: resolvePromise };
 };

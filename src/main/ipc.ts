@@ -37,6 +37,7 @@ import {
   THEME_GET_CHANNEL,
   THEME_SET_CHANNEL,
   THEME_UPDATED_CHANNEL,
+  USAGE_GET_INITIAL_CHANNEL,
   USAGE_DATA_PATH_GET_CHANNEL,
   USAGE_DATA_PATH_RESET_CHANNEL,
   USAGE_DATA_PATH_SELECT_CHANNEL,
@@ -73,6 +74,7 @@ export interface UsageIpcDependencies {
 }
 
 const HANDLED_CHANNELS = [
+  USAGE_GET_INITIAL_CHANNEL,
   USAGE_SCAN_CHANNEL,
   USAGE_DATA_PATH_GET_CHANNEL,
   USAGE_DATA_PATH_SELECT_CHANNEL,
@@ -109,9 +111,11 @@ const sendToRenderer = (
 };
 
 const runCostOptimizationOperation = async <Result>(
+  waitForReady: () => Promise<void>,
   operation: () => Result | Promise<Result>
 ): Promise<CostOptimizationIpcResponse<Result>> => {
   try {
+    await waitForReady();
     return {
       ok: true,
       value: await operation(),
@@ -165,6 +169,7 @@ const registerUsageIpc = ({
   selectUsageDataDirectory,
   getWindow,
 }: UsageIpcDependencies): (() => void) => {
+  ipcMain.handle(USAGE_GET_INITIAL_CHANNEL, () => applicationRuntime.getInitialUsage());
   ipcMain.handle(USAGE_SCAN_CHANNEL, () => applicationRuntime.refresh());
   ipcMain.handle(USAGE_DATA_PATH_GET_CHANNEL, () => usageDataPathService.getSettings());
   ipcMain.handle(USAGE_DATA_PATH_SELECT_CHANNEL, () =>
@@ -200,17 +205,23 @@ const registerUsageIpc = ({
     budgetRuntime.deleteUnknownModelPricing()
   );
   ipcMain.handle(COST_OPTIMIZATION_GET_SNAPSHOT_CHANNEL, (_event, query: CostOptimizationQuery) =>
-    runCostOptimizationOperation(() => costRuntime.getSnapshot(query))
+    runCostOptimizationOperation(applicationRuntime.waitForCostOptimization, () =>
+      costRuntime.getSnapshot(query)
+    )
   );
   ipcMain.handle(
     COST_OPTIMIZATION_GET_SESSION_DIAGNOSIS_CHANNEL,
     (_event, request: SessionDiagnosisRequest) =>
-      runCostOptimizationOperation(() => costRuntime.getSessionDiagnosis(request))
+      runCostOptimizationOperation(applicationRuntime.waitForCostOptimization, () =>
+        costRuntime.getSessionDiagnosis(request)
+      )
   );
   ipcMain.handle(
     COST_OPTIMIZATION_UPDATE_SETTINGS_CHANNEL,
     (_event, settings: CostOptimizationSettings) =>
-      runCostOptimizationOperation(() => costRuntime.updateSettings(settings))
+      runCostOptimizationOperation(applicationRuntime.waitForCostOptimization, () =>
+        costRuntime.updateSettings(settings)
+      )
   );
   ipcMain.handle(LOCALE_GET_CHANNEL, () => localeService.getLocale());
   ipcMain.handle(LOCALE_SET_CHANNEL, (_event, locale: unknown) => localeService.setLocale(locale));

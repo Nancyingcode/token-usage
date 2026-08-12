@@ -23,16 +23,19 @@ import { resolveRendererLocale } from '../i18n';
 import type { AppContentModel, AppFreshness } from '../utils/appContentModel';
 import { formatShortDateTime } from '../utils/formatters';
 import type { SessionDiagnosisDetailModel } from '../utils/sessionDiagnosisDetailState';
-import BudgetsView, { type BudgetContentModel, type BudgetTab } from './BudgetsView';
-import CostOptimizationView, { type CostOptimizationContentModel } from './CostOptimizationView';
+import type BudgetsViewComponent from './BudgetsView';
+import type { BudgetContentModel, BudgetTab } from './BudgetsView';
+import type CostOptimizationViewComponent from './CostOptimizationView';
+import type { CostOptimizationContentModel } from './CostOptimizationView';
 import EmptyState from './EmptyState';
+import LazyPageBoundary from './LazyPageBoundary';
 import LoadingSkeleton from './LoadingSkeleton';
 import Overview from './Overview';
+import type PerformanceViewComponent from './PerformanceView';
 import PeriodEmptyState from './PeriodEmptyState';
-import PerformanceView from './PerformanceView';
-import ProjectsView from './ProjectsView';
-import SessionsView from './SessionsView';
-import SettingsView from './SettingsView';
+import type ProjectsViewComponent from './ProjectsView';
+import type SessionsViewComponent from './SessionsView';
+import type SettingsViewComponent from './SettingsView';
 import type { ViewKey } from './Sidebar';
 import StatusBanner from './StatusBanner';
 
@@ -70,6 +73,16 @@ interface AppContentProps {
   themePending?: boolean;
   themeFeedback?: ThemeFeedback;
   onThemeChange?: (preference: ThemePreference) => Promise<void>;
+  views?: AppContentViews;
+}
+
+export interface AppContentViews {
+  BudgetsView: typeof BudgetsViewComponent;
+  CostOptimizationView: typeof CostOptimizationViewComponent;
+  SessionsView: typeof SessionsViewComponent;
+  ProjectsView: typeof ProjectsViewComponent;
+  PerformanceView: typeof PerformanceViewComponent;
+  SettingsView: typeof SettingsViewComponent;
 }
 
 const IDLE_DIAGNOSIS_DETAIL_MODEL: SessionDiagnosisDetailModel = { kind: 'idle' };
@@ -156,38 +169,54 @@ const AppContent: React.FC<AppContentProps> = ({
   themePending = false,
   themeFeedback = null,
   onThemeChange = ignoreThemeChange,
+  views,
 }) => {
   const { t, i18n } = useTranslation('common');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
+  const pageFallback = <LoadingSkeleton label={t('state.scanningTitle')} />;
 
   if (activeView === 'budgets') {
+    if (!views) {
+      return pageFallback;
+    }
+
+    const { BudgetsView } = views;
     return (
-      <BudgetsView
-        model={budgetModel ?? { kind: 'loading' }}
-        actions={budgetActions}
-        activeTab={budgetTab}
-        onActiveTabChange={onBudgetTabChange}
-        focusedPolicyId={focusedPolicyId}
-        onFocusedPolicyConsumed={onFocusedPolicyConsumed}
-      />
+      <LazyPageBoundary fallback={pageFallback}>
+        <BudgetsView
+          model={budgetModel ?? { kind: 'loading' }}
+          actions={budgetActions}
+          activeTab={budgetTab}
+          onActiveTabChange={onBudgetTabChange}
+          focusedPolicyId={focusedPolicyId}
+          onFocusedPolicyConsumed={onFocusedPolicyConsumed}
+        />
+      </LazyPageBoundary>
     );
   }
 
   if (activeView === 'costOptimization') {
+    if (!views) {
+      return pageFallback;
+    }
+
+    const { CostOptimizationView } = views;
     return (
-      <CostOptimizationView
-        model={costOptimizationModel ?? { kind: 'loading' }}
-        projectOptions={costProjectOptions}
-        projectPath={costProjectPath}
-        activeTab={costOptimizationTab}
-        onActiveTabChange={onCostOptimizationTabChange}
-        diagnosisId={diagnosisId}
-        diagnosisDetailModel={diagnosisDetailModel}
-        onDiagnosisOpen={onDiagnosisOpen}
-        onDiagnosisClose={onDiagnosisClose}
-        onProjectPathChange={onCostProjectPathChange ?? (() => undefined)}
-        onUpdateSettings={onCostSettingsUpdate ?? (async () => undefined)}
-      />
+      <LazyPageBoundary fallback={pageFallback}>
+        <CostOptimizationView
+          model={costOptimizationModel ?? { kind: 'loading' }}
+          projectOptions={costProjectOptions}
+          projectPath={costProjectPath}
+          activeTab={costOptimizationTab}
+          onActiveTabChange={onCostOptimizationTabChange}
+          diagnosisId={diagnosisId}
+          diagnosisDetailModel={diagnosisDetailModel}
+          onDiagnosisOpen={onDiagnosisOpen}
+          onDiagnosisClose={onDiagnosisClose}
+          onProjectPathChange={onCostProjectPathChange ?? (() => undefined)}
+          onUpdateSettings={onCostSettingsUpdate ?? (async () => undefined)}
+        />
+      </LazyPageBoundary>
     );
   }
 
@@ -207,6 +236,10 @@ const AppContent: React.FC<AppContentProps> = ({
       return <LoadingSkeleton label={t('state.scanningTitle')} />;
     }
 
+    if (!views) {
+      return pageFallback;
+    }
+
     const scanError =
       model.kind === 'error'
         ? model.message
@@ -214,19 +247,22 @@ const AppContent: React.FC<AppContentProps> = ({
           ? (model.freshness.staleReason ?? undefined)
           : undefined;
 
+    const { SettingsView } = views;
     return (
-      <SettingsView
-        result={result}
-        dataPathSettings={effectiveDataPathSettings}
-        scanError={scanError}
-        onSelectDataPath={onSelectDataPath}
-        onUpdateDataPath={onUpdateDataPath}
-        onResetDataPath={onResetDataPath}
-        themeSnapshot={themeSnapshot}
-        themePending={themePending}
-        themeFeedback={themeFeedback}
-        onThemeChange={onThemeChange}
-      />
+      <LazyPageBoundary fallback={pageFallback}>
+        <SettingsView
+          result={result}
+          dataPathSettings={effectiveDataPathSettings}
+          scanError={scanError}
+          onSelectDataPath={onSelectDataPath}
+          onUpdateDataPath={onUpdateDataPath}
+          onResetDataPath={onResetDataPath}
+          themeSnapshot={themeSnapshot}
+          themePending={themePending}
+          themeFeedback={themeFeedback}
+          onThemeChange={onThemeChange}
+        />
+      </LazyPageBoundary>
     );
   }
 
@@ -261,7 +297,13 @@ const AppContent: React.FC<AppContentProps> = ({
           <PeriodEmptyState period={model.period} />
         </>
       );
-    case 'ready':
+    case 'ready': {
+      const SessionsView = views?.SessionsView;
+      const ProjectsView = views?.ProjectsView;
+      const PerformanceView = views?.PerformanceView;
+      const showSessions = activeView === 'sessions' && SessionsView !== undefined;
+      const showProjects = activeView === 'tools' && ProjectsView !== undefined;
+      const showPerformance = activeView === 'performance' && PerformanceView !== undefined;
       return (
         <>
           {renderFreshnessBanner(model.freshness, model.result.scannedAt, onRefresh, t, locale)}
@@ -274,28 +316,35 @@ const AppContent: React.FC<AppContentProps> = ({
               scannedAt={model.result.scannedAt}
             />
           ) : null}
-          {activeView === 'sessions' ? (
-            <SessionsView
-              sessions={model.summary.sessions}
-              selectedProjectPath={selectedProjectPath}
-              onProjectFilterChange={onProjectSelect}
-              onClearProjectFilter={onClearProjectFilter}
-              globalDiagnostics={globalDiagnostics}
-              onDiagnosisOpen={onDiagnosisOpen}
-            />
+          {showSessions ? (
+            <LazyPageBoundary fallback={pageFallback}>
+              <SessionsView
+                sessions={model.summary.sessions}
+                selectedProjectPath={selectedProjectPath}
+                onProjectFilterChange={onProjectSelect}
+                onClearProjectFilter={onClearProjectFilter}
+                globalDiagnostics={globalDiagnostics}
+                onDiagnosisOpen={onDiagnosisOpen}
+              />
+            </LazyPageBoundary>
           ) : null}
-          {activeView === 'tools' ? (
-            <ProjectsView projects={model.summary.byProject} onProjectSelect={onProjectSelect} />
+          {showProjects ? (
+            <LazyPageBoundary fallback={pageFallback}>
+              <ProjectsView projects={model.summary.byProject} onProjectSelect={onProjectSelect} />
+            </LazyPageBoundary>
           ) : null}
-          {activeView === 'performance' ? (
-            <PerformanceView
-              summary={model.summary}
-              pricing={pricing}
-              unknownModelPricing={unknownModelPricing}
-            />
+          {showPerformance ? (
+            <LazyPageBoundary fallback={pageFallback}>
+              <PerformanceView
+                summary={model.summary}
+                pricing={pricing}
+                unknownModelPricing={unknownModelPricing}
+              />
+            </LazyPageBoundary>
           ) : null}
         </>
       );
+    }
     case 'idle':
       return null;
   }

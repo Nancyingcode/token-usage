@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import type { i18n } from 'i18next';
 import { I18nextProvider } from 'react-i18next';
-import { DEFAULT_LOCALE, isSupportedLocale, type SupportedLocale } from '../shared/i18n/locale';
+import { DEFAULT_LOCALE } from '../shared/i18n/locale';
 import App from './App';
 import { createRendererI18n, resolveRendererLocale } from './i18n';
 import './styles.css';
@@ -13,18 +13,8 @@ const syncDocumentLanguage = (instance: i18n): void => {
   document.title = instance.t('common:app.title');
 };
 
-const loadInitialLocale = async (): Promise<SupportedLocale> => {
-  try {
-    const locale = await window.codexUsage.locale.get();
-    return isSupportedLocale(locale) ? locale : DEFAULT_LOCALE;
-  } catch {
-    return DEFAULT_LOCALE;
-  }
-};
-
 const startRenderer = async (): Promise<void> => {
-  const initialLocale = await loadInitialLocale();
-  const i18n = await createRendererI18n(initialLocale);
+  const i18n = await createRendererI18n(window.codexUsage.locale.initial);
   syncDocumentLanguage(i18n);
 
   window.codexUsage.locale.onUpdated((locale) => {

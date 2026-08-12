@@ -1,6 +1,12 @@
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import AppContent from '../src/renderer/components/AppContent';
+import AppContent, { type AppContentViews } from '../src/renderer/components/AppContent';
+import BudgetsView from '../src/renderer/components/BudgetsView';
+import CostOptimizationView from '../src/renderer/components/CostOptimizationView';
+import PerformanceView from '../src/renderer/components/PerformanceView';
+import ProjectsView from '../src/renderer/components/ProjectsView';
+import SessionsView from '../src/renderer/components/SessionsView';
+import SettingsView from '../src/renderer/components/SettingsView';
 import type { BudgetActions } from '../src/renderer/hooks/useBudgetSnapshot';
 import type { AppContentModel } from '../src/renderer/utils/appContentModel';
 import type { BudgetSnapshot } from '../src/shared/budgetTypes';
@@ -35,6 +41,14 @@ const RESULT: UsageScanResult = {
   warnings: [],
 };
 const FRESHNESS = { refreshing: false, staleReason: null };
+const EAGER_VIEWS: AppContentViews = {
+  BudgetsView,
+  CostOptimizationView,
+  PerformanceView,
+  ProjectsView,
+  SessionsView,
+  SettingsView,
+};
 
 const makeBudgetSnapshot = (
   unknownModelPricing?: BudgetSnapshot['unknownModelPricing']
@@ -226,6 +240,7 @@ describe('AppContent', () => {
         }}
         budgetActions={BUDGET_ACTIONS}
         budgetTab="policies"
+        views={EAGER_VIEWS}
         onBudgetTabChange={vi.fn()}
       />
     );
@@ -248,6 +263,7 @@ describe('AppContent', () => {
         budgetModel={{ kind: 'loading' }}
         budgetActions={BUDGET_ACTIONS}
         budgetTab="overview"
+        views={EAGER_VIEWS}
         onBudgetTabChange={vi.fn()}
       />
     );
@@ -275,6 +291,7 @@ describe('AppContent', () => {
         }}
         onUpdateDataPath={vi.fn()}
         onResetDataPath={vi.fn()}
+        views={EAGER_VIEWS}
       />
     );
 
@@ -294,6 +311,7 @@ describe('AppContent', () => {
         onProjectSelect={vi.fn()}
         selectedProjectPath={null}
         onClearProjectFilter={vi.fn()}
+        views={EAGER_VIEWS}
       />,
       'zh-CN'
     );
@@ -312,6 +330,7 @@ describe('AppContent', () => {
         onProjectSelect={vi.fn()}
         selectedProjectPath={null}
         onClearProjectFilter={vi.fn()}
+        views={EAGER_VIEWS}
       />
     );
 
@@ -332,6 +351,7 @@ describe('AppContent', () => {
         onProjectSelect={vi.fn()}
         selectedProjectPath={'C:\\repo'}
         onClearProjectFilter={vi.fn()}
+        views={EAGER_VIEWS}
       />
     );
 
@@ -354,6 +374,7 @@ describe('AppContent', () => {
           }),
         ]}
         onDiagnosisOpen={vi.fn()}
+        views={EAGER_VIEWS}
       />
     );
 

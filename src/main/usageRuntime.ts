@@ -20,6 +20,7 @@ export interface UsageRuntimeDependencies<IntervalId> {
 }
 
 export interface UsageRuntime {
+  getInitialUsage: () => Promise<UsageScanResult>;
   refresh: () => Promise<UsageScanResult>;
   refreshOnFocus: () => Promise<UsageScanResult | undefined>;
   updateSessionsDir: (sessionsDir: string) => Promise<UsageScanResult>;
@@ -58,9 +59,13 @@ export const createUsageRuntime = <IntervalId>(
     const cycle = await dependencies.scanCycle(sessionsDir);
     lastResult = cycle.result;
 
-    for (const listener of cycleListeners) {
-      await listener(cycle);
-    }
+    cycleListeners.forEach((listener) => {
+      void Promise.resolve()
+        .then(() => listener(cycle))
+        .catch((error: unknown) => {
+          errorListeners.forEach((errorListener) => errorListener(error));
+        });
+    });
 
     return cycle.result;
   };
@@ -79,6 +84,7 @@ export const createUsageRuntime = <IntervalId>(
   });
 
   return {
+    getInitialUsage: () => (lastResult ? Promise.resolve(lastResult) : monitor.refresh()),
     refresh: monitor.refresh,
     refreshOnFocus: monitor.refreshOnFocus,
     updateSessionsDir: (nextSessionsDir) => {

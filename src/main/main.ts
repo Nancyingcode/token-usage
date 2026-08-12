@@ -23,6 +23,7 @@ import { createCostOptimizationCacheStore } from './costOptimizationCacheStore';
 import { createCostOptimizationConfigStore } from './costOptimizationConfigStore';
 import { createCostOptimizationRuntime } from './costOptimizationRuntime';
 import { DEFAULT_MODEL_PRICING } from './defaultModelPricing';
+import type { SupportedLocale } from '../shared/i18n/locale';
 import { createMainI18n } from './i18n';
 import registerUsageIpc from './ipc';
 import { createLocaleService } from './localeService';
@@ -39,6 +40,7 @@ import {
   createNotificationService,
 } from './notificationService';
 import { createUsageScanner } from './usageScanner';
+import { createUsageScanCacheStore } from './usageScanCacheStore';
 import { createUsageRuntime } from './usageRuntime';
 import { createUsageDataPathService } from './usageDataPathService';
 import { createUsageDataPathStore } from './usageDataPathStore';
@@ -52,6 +54,7 @@ const COST_OPTIMIZATION_CACHE_FILENAME = 'cost-optimization-cache.json';
 const LOCALE_PREFERENCES_FILENAME = 'locale-preferences.json';
 const THEME_PREFERENCES_FILENAME = 'theme-preferences.json';
 const USAGE_DATA_PATH_FILENAME = 'usage-data-path.json';
+const USAGE_SCAN_CACHE_FILENAME = 'usage-scan-cache.json';
 
 let mainWindow: BrowserWindow | null = null;
 let budgetRuntime: BudgetRuntime | undefined;
@@ -86,7 +89,11 @@ const selectUsageDataDirectory = async (defaultPath: string): Promise<string | n
   return result.canceled ? null : (result.filePaths[0] ?? null);
 };
 
-const createWindow = (runtime: ApplicationRuntime, themeService: ThemeService): BrowserWindow => {
+const createWindow = (
+  runtime: ApplicationRuntime,
+  themeService: ThemeService,
+  initialLocale: SupportedLocale
+): BrowserWindow => {
   const menuPolicy = getApplicationMenuPolicy(app.isPackaged);
   const window = new BrowserWindow(
     createMainWindowOptions({
@@ -94,6 +101,7 @@ const createWindow = (runtime: ApplicationRuntime, themeService: ThemeService): 
       autoHideMenuBar: menuPolicy.autoHideMenuBar,
       useNativeFrame: menuPolicy.useNativeFrame,
       resolvedTheme: themeService.getSnapshot().resolvedTheme,
+      initialLocale,
     })
   );
   const unregisterWindowStateListeners = registerWindowStateEvents(window);
@@ -121,24 +129,29 @@ const createWindow = (runtime: ApplicationRuntime, themeService: ThemeService): 
 const initializeApplication = async (): Promise<void> => {
   const userDataPath = configureStableUserDataPath(app);
   const localeStore = createLocaleStore(join(userDataPath, LOCALE_PREFERENCES_FILENAME));
-  const initialLocale = await localeStore.load(app.getLocale());
+  const themeStore = createThemeStore(join(userDataPath, THEME_PREFERENCES_FILENAME));
+  const defaultSessionsDir = getDefaultCodexSessionsDir();
+  const usageDataPathStore = createUsageDataPathStore(join(userDataPath, USAGE_DATA_PATH_FILENAME));
+  const [initialLocale, initialThemePreference, storedSessionsDir] = await Promise.all([
+    localeStore.load(app.getLocale()),
+    themeStore.load(),
+    usageDataPathStore.load(),
+  ]);
   const mainI18n = await createMainI18n(initialLocale);
   const localeService = createLocaleService({
     initialLocale,
     i18n: mainI18n,
     store: localeStore,
   });
-  const themeStore = createThemeStore(join(userDataPath, THEME_PREFERENCES_FILENAME));
-  const initialThemePreference = await themeStore.load();
   const themeService = createThemeService({
     initialPreference: initialThemePreference,
     store: themeStore,
     systemSource: createNativeThemeSystemSource(nativeTheme),
   });
-  const scanner = createUsageScanner();
-  const defaultSessionsDir = getDefaultCodexSessionsDir();
-  const usageDataPathStore = createUsageDataPathStore(join(userDataPath, USAGE_DATA_PATH_FILENAME));
-  const initialSessionsDir = (await usageDataPathStore.load()) ?? defaultSessionsDir;
+  const scanner = createUsageScanner({
+    cacheStore: createUsageScanCacheStore(join(userDataPath, USAGE_SCAN_CACHE_FILENAME)),
+  });
+  const initialSessionsDir = storedSessionsDir ?? defaultSessionsDir;
   const budgetStore = createBudgetStore(join(userDataPath, BUDGET_CONFIG_FILENAME));
   const costConfigStore = createCostOptimizationConfigStore(
     join(userDataPath, COST_OPTIMIZATION_CONFIG_FILENAME)
@@ -210,12 +223,12 @@ const initializeApplication = async (): Promise<void> => {
     Menu.setApplicationMenu(null);
   }
 
-  createWindow(currentApplicationRuntime, themeService);
+  createWindow(currentApplicationRuntime, themeService, initialLocale);
   currentApplicationRuntime.start();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow(currentApplicationRuntime, themeService);
+      createWindow(currentApplicationRuntime, themeService, localeService.getLocale());
     }
   });
 };

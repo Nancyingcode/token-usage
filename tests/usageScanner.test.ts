@@ -1,8 +1,21 @@
-import { appendFile, mkdir, mkdtemp, readFile, rm, unlink, writeFile } from 'node:fs/promises';
+import {
+  appendFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  unlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createUsageScanner, scanCodexUsage } from '../src/main/usageScanner';
+import {
+  USAGE_SCAN_CACHE_SCHEMA_VERSION,
+  type UsageScanCacheStore,
+} from '../src/main/usageScanCacheStore';
 
 const TEST_DIRECTORY_PREFIX = 'codex-token-usage-';
 
@@ -126,6 +139,72 @@ describe('usageScanner', () => {
       sessionIndexPath: missingIndexPath,
     });
     expect(result.summary.sessions).toEqual([]);
+  });
+
+  it('hydrates unchanged sessions from the persistent cache without reading JSONL again', async () => {
+    const sessionFile = join(testDirectory, 'cached.jsonl');
+    const sessionIndexPath = join(testDirectory, 'session-index.jsonl');
+    const content = validSession('cached', '2026-07-16T00:00:00.000Z');
+    await writeFile(sessionFile, content);
+    await writeFile(
+      sessionIndexPath,
+      JSON.stringify({ id: 'cached', thread_name: 'Latest thread name' })
+    );
+    const seedScanner = createUsageScanner();
+    const seedCycle = await seedScanner.scanCycle({
+      sessionsDir: testDirectory,
+      sessionIndexPath,
+    });
+    const fileStat = await stat(sessionFile);
+    const cacheStore: UsageScanCacheStore = {
+      load: async () => ({
+        schemaVersion: USAGE_SCAN_CACHE_SCHEMA_VERSION,
+        sessionsDir: testDirectory,
+        entries: {
+          [sessionFile]: {
+            fingerprint: `${fileStat.size}:${fileStat.mtimeMs}`,
+            session: { ...seedCycle.result.summary.sessions[0], threadName: undefined },
+          },
+        },
+      }),
+      save: vi.fn(async () => undefined),
+    };
+    let sessionReadCount = 0;
+    const scanner = createUsageScanner({
+      cacheStore,
+      readFile: async (path, encoding) => {
+        if (String(path) === sessionFile) {
+          sessionReadCount += 1;
+        }
+
+        return readFile(path, encoding);
+      },
+    });
+
+    const result = await scanner.scan({ sessionsDir: testDirectory, sessionIndexPath });
+
+    expect(sessionReadCount).toBe(0);
+    expect(result.summary.sessions[0]?.threadName).toBe('Latest thread name');
+    await vi.waitFor(() => expect(cacheStore.save).toHaveBeenCalledOnce());
+  });
+
+  it('does not fail a successful scan when the persistent cache cannot be saved', async () => {
+    const sessionFile = join(testDirectory, 'cache-save-failure.jsonl');
+    await writeFile(sessionFile, validSession('cache-save-failure', '2026-07-16T00:00:00.000Z'));
+    const cacheError = new Error('cache unavailable');
+    const onCacheError = vi.fn();
+    const scanner = createUsageScanner({
+      cacheStore: {
+        load: async () => undefined,
+        save: vi.fn(async () => Promise.reject(cacheError)),
+      },
+      onCacheError,
+    });
+
+    await expect(scanner.scan({ sessionsDir: testDirectory })).resolves.toMatchObject({
+      sessionsDir: testDirectory,
+    });
+    await vi.waitFor(() => expect(onCacheError).toHaveBeenCalledWith(cacheError));
   });
 
   it('publishes only changed and removed sources in scan cycles', async () => {

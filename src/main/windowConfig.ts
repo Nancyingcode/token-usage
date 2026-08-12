@@ -3,6 +3,7 @@
  * @description 集中生成窗口尺寸、外观和 WebPreferences 安全选项。
  */
 import type { BrowserWindowConstructorOptions } from 'electron';
+import { INITIAL_LOCALE_ARGUMENT_PREFIX, type SupportedLocale } from '../shared/i18n/locale';
 import {
   getThemeWindowBackgroundColor,
   RESOLVED_THEME_ARGUMENT_PREFIX,
@@ -18,6 +19,7 @@ interface MainWindowOptionsInput {
   autoHideMenuBar: boolean;
   useNativeFrame: boolean;
   resolvedTheme: ThemeId;
+  initialLocale: SupportedLocale;
 }
 
 export const createMainWindowOptions = ({
@@ -25,6 +27,7 @@ export const createMainWindowOptions = ({
   autoHideMenuBar,
   useNativeFrame,
   resolvedTheme,
+  initialLocale,
 }: MainWindowOptionsInput): BrowserWindowConstructorOptions => ({
   width: DEFAULT_WINDOW_WIDTH,
   height: DEFAULT_WINDOW_HEIGHT,
@@ -38,6 +41,9 @@ export const createMainWindowOptions = ({
     contextIsolation: true,
     nodeIntegration: false,
     sandbox: false,
-    additionalArguments: [`${RESOLVED_THEME_ARGUMENT_PREFIX}${resolvedTheme}`],
+    additionalArguments: [
+      `${RESOLVED_THEME_ARGUMENT_PREFIX}${resolvedTheme}`,
+      `${INITIAL_LOCALE_ARGUMENT_PREFIX}${initialLocale}`,
+    ],
   },
 });

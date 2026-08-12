@@ -18,6 +18,7 @@ interface ExposedThemeApi {
 
 interface ExposedApi {
   theme: ExposedThemeApi;
+  locale: { initial: 'en' | 'zh-CN' };
 }
 
 const electronMocks = vi.hoisted(() => ({
@@ -40,8 +41,13 @@ vi.mock('electron', () => ({
 
 const originalArgv = [...process.argv];
 
-const loadPreload = async (themeArgument?: string): Promise<ExposedApi> => {
-  process.argv = themeArgument ? [...originalArgv, themeArgument] : [...originalArgv];
+const loadPreload = async (
+  ...argumentsToAppend: Array<string | undefined>
+): Promise<ExposedApi> => {
+  process.argv = [
+    ...originalArgv,
+    ...argumentsToAppend.filter((value): value is string => value !== undefined),
+  ];
   vi.resetModules();
   await import('../src/preload/preload');
   const call = electronMocks.exposeInMainWorld.mock.calls.find(([key]) => key === 'codexUsage');
@@ -68,10 +74,14 @@ describe('preload theme bridge', () => {
   });
 
   it('applies a valid initial theme before exposing the IPC API', async () => {
-    const api = await loadPreload('--codex-resolved-theme=ocean-dark');
+    const api = await loadPreload(
+      '--codex-resolved-theme=ocean-dark',
+      '--codex-initial-locale=zh-CN'
+    );
 
     expect(document.documentElement.dataset.theme).toBe('ocean-dark');
     expect(document.documentElement.style.colorScheme).toBe('dark');
+    expect(api.locale.initial).toBe('zh-CN');
 
     electronMocks.invoke.mockResolvedValueOnce({
       preference: 'system',
@@ -116,6 +126,15 @@ describe('preload theme bridge', () => {
 
       expect(document.documentElement.dataset.theme).toBe('mint-light');
       expect(document.documentElement.style.colorScheme).toBe('light');
+    }
+  );
+
+  it.each([undefined, '--codex-initial-locale=unknown'])(
+    'falls back to English for an invalid initial locale argument',
+    async (localeArgument) => {
+      const api = await loadPreload('--codex-resolved-theme=mint-light', localeArgument);
+
+      expect(api.locale.initial).toBe('en');
     }
   );
 

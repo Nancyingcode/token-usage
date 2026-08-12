@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   INITIAL_APP_NAVIGATION_STATE,
   getViewTransitionKey,
+  needsCostOptimization,
+  needsUsageDataPath,
   reduceAppNavigationState,
   type AppNavigationState,
 } from '../src/renderer/App';
@@ -163,5 +165,18 @@ describe('getViewTransitionKey', () => {
     expect(getViewTransitionKey('overview', states)).toBe('overview:ready');
     expect(getViewTransitionKey('budgets', states)).toBe('budgets:loading');
     expect(getViewTransitionKey('costOptimization', states)).toBe('costOptimization:error');
+  });
+});
+
+describe('first-screen data dependencies', () => {
+  it('loads cost optimization only for cost and session views', () => {
+    expect(needsCostOptimization('overview')).toBe(false);
+    expect(needsCostOptimization('sessions')).toBe(true);
+    expect(needsCostOptimization('costOptimization')).toBe(true);
+  });
+
+  it('loads usage path settings only for Settings', () => {
+    expect(needsUsageDataPath('overview')).toBe(false);
+    expect(needsUsageDataPath('wrapped')).toBe(true);
   });
 });

@@ -9,6 +9,7 @@ describe('createMainWindowOptions', () => {
         autoHideMenuBar: true,
         useNativeFrame: false,
         resolvedTheme: 'mint-light',
+        initialLocale: 'zh-CN',
       })
     ).toMatchObject({
       width: 1280,
@@ -23,7 +24,7 @@ describe('createMainWindowOptions', () => {
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: false,
-        additionalArguments: ['--codex-resolved-theme=mint-light'],
+        additionalArguments: ['--codex-resolved-theme=mint-light', '--codex-initial-locale=zh-CN'],
       },
     });
   });
@@ -35,13 +36,14 @@ describe('createMainWindowOptions', () => {
         autoHideMenuBar: false,
         useNativeFrame: true,
         resolvedTheme: 'emerald-dark',
+        initialLocale: 'en',
       })
     ).toMatchObject({
       autoHideMenuBar: false,
       frame: true,
       backgroundColor: '#0d1714',
       webPreferences: {
-        additionalArguments: ['--codex-resolved-theme=emerald-dark'],
+        additionalArguments: ['--codex-resolved-theme=emerald-dark', '--codex-initial-locale=en'],
       },
     });
   });

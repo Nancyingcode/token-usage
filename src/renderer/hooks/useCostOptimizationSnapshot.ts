@@ -30,7 +30,8 @@ export interface UseCostOptimizationSnapshotResult {
 }
 
 export const useCostOptimizationSnapshot = (
-  period: UsagePeriod
+  period: UsagePeriod,
+  enabled = true
 ): UseCostOptimizationSnapshotResult => {
   const [projectPath, setProjectPath] = useState<string | undefined>();
   const [state, dispatch] = useReducer(
@@ -97,32 +98,38 @@ export const useCostOptimizationSnapshot = (
   }, [globalQuery]);
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
     void requestSnapshot().catch(() => undefined);
-  }, [requestSnapshot]);
+  }, [enabled, requestSnapshot]);
 
   useEffect(() => {
-    if (!requestsSeparateGlobalSnapshot) {
+    if (!enabled || !requestsSeparateGlobalSnapshot) {
       return;
     }
 
     void requestGlobalSnapshot().catch(() => undefined);
-  }, [requestGlobalSnapshot, requestsSeparateGlobalSnapshot]);
+  }, [enabled, requestGlobalSnapshot, requestsSeparateGlobalSnapshot]);
 
-  useEffect(
-    () =>
-      window.codexUsage.costOptimization.onUpdated((snapshot) => {
-        if (shouldApplyCostOptimizationPush(query, snapshot.query)) {
-          dispatch({ type: 'snapshot-pushed', snapshot });
-        }
-        if (
-          requestsSeparateGlobalSnapshot &&
-          shouldApplyCostOptimizationPush(globalQuery, snapshot.query)
-        ) {
-          dispatchGlobal({ type: 'snapshot-pushed', snapshot });
-        }
-      }),
-    [globalQuery, query, requestsSeparateGlobalSnapshot]
-  );
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
+    return window.codexUsage.costOptimization.onUpdated((snapshot) => {
+      if (shouldApplyCostOptimizationPush(query, snapshot.query)) {
+        dispatch({ type: 'snapshot-pushed', snapshot });
+      }
+      if (
+        requestsSeparateGlobalSnapshot &&
+        shouldApplyCostOptimizationPush(globalQuery, snapshot.query)
+      ) {
+        dispatchGlobal({ type: 'snapshot-pushed', snapshot });
+      }
+    });
+  }, [enabled, globalQuery, query, requestsSeparateGlobalSnapshot]);
 
   const updateSettings = useCallback(
     async (settings: CostOptimizationSettings): Promise<CostOptimizationSnapshot> => {

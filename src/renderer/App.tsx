@@ -11,6 +11,7 @@ import type {
   UsageDataPathUpdateResult,
 } from '../shared/usageDataPathTypes';
 import AppContent from './components/AppContent';
+import { LAZY_APP_CONTENT_VIEWS } from './components/lazyAppContentViews';
 import type { BudgetTab } from './components/BudgetsView';
 import Sidebar, { type ViewKey } from './components/Sidebar';
 import TitleBar from './components/TitleBar';
@@ -66,6 +67,11 @@ export const getViewTransitionKey = (activeView: ViewKey, states: ViewTransition
       return `${activeView}:${states.usage}`;
   }
 };
+
+export const needsCostOptimization = (activeView: ViewKey): boolean =>
+  activeView === 'costOptimization' || activeView === 'sessions';
+
+export const needsUsageDataPath = (activeView: ViewKey): boolean => activeView === 'wrapped';
 
 export const reduceAppNavigationState = (
   state: AppNavigationState,
@@ -143,7 +149,8 @@ const App: React.FC = () => {
   const [focusedPolicyId, setFocusedPolicyId] = useState<string | null>(null);
   const budgetState = useBudgetSnapshot();
   const themeState = useTheme();
-  const costOptimizationState = useCostOptimizationSnapshot(period);
+  const costOptimizationEnabled = needsCostOptimization(activeView);
+  const costOptimizationState = useCostOptimizationSnapshot(period, costOptimizationEnabled);
   const setCostOptimizationProjectPath = costOptimizationState.setProjectPath;
   const diagnosisDetailModel = useSessionDiagnosisDetail(
     costOptimizationState.query,
@@ -151,12 +158,12 @@ const App: React.FC = () => {
     costOptimizationState.snapshot ?? undefined
   );
 
-  const refresh = useCallback(async () => {
+  const loadUsage = useCallback(async (request: () => Promise<UsageScanResult>) => {
     setLoading(true);
     setError(null);
 
     try {
-      const nextResult = await window.codexUsage.scan();
+      const nextResult = await request();
       setResult(nextResult);
     } catch (scanError) {
       setError(scanError instanceof Error ? scanError.message : String(scanError));
@@ -164,6 +171,10 @@ const App: React.FC = () => {
       setLoading(false);
     }
   }, []);
+  const refresh = useCallback(
+    async (): Promise<void> => loadUsage(window.codexUsage.scan),
+    [loadUsage]
+  );
   const clearFocusedPolicy = useCallback(() => setFocusedPolicyId(null), []);
   const applyDataPathUpdate = useCallback((update: UsageDataPathUpdateResult): void => {
     setDataPathSettings(update.settings);
@@ -217,15 +228,19 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    void loadUsage(window.codexUsage.getInitialUsage);
+  }, [loadUsage]);
 
   useEffect(() => {
+    if (!needsUsageDataPath(activeView) || dataPathSettings) {
+      return;
+    }
+
     void window.codexUsage.dataPath
       .get()
       .then(setDataPathSettings)
       .catch(() => undefined);
-  }, []);
+  }, [activeView, dataPathSettings]);
 
   useEffect(
     () =>
@@ -341,6 +356,7 @@ const App: React.FC = () => {
             themePending={themeState.pending}
             themeFeedback={themeState.feedback}
             onThemeChange={themeState.setPreference}
+            views={LAZY_APP_CONTENT_VIEWS}
           />
         </div>
       </main>
