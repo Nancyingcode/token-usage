@@ -30,11 +30,11 @@ const AccessibleTabs = <T extends string>({
   tabs,
   onChange,
 }: AccessibleTabsProps<T>): React.ReactElement => {
-  const buttonRefs = React.useRef(new Map<T, HTMLButtonElement>());
+  const buttonByValueRef = React.useRef(new Map<T, HTMLButtonElement>());
 
   const selectAndFocus = (target: AccessibleTab<T>): void => {
     onChange(target.value);
-    buttonRefs.current.get(target.value)?.focus();
+    buttonByValueRef.current.get(target.value)?.focus();
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number): void => {
@@ -76,9 +76,9 @@ const AccessibleTabs = <T extends string>({
             key={tab.value}
             ref={(node) => {
               if (node) {
-                buttonRefs.current.set(tab.value, node);
+                buttonByValueRef.current.set(tab.value, node);
               } else {
-                buttonRefs.current.delete(tab.value);
+                buttonByValueRef.current.delete(tab.value);
               }
             }}
             id={getTabId(groupId, tab.value)}

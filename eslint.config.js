@@ -1,5 +1,6 @@
 import { builtinModules } from 'node:module';
 
+import eslintReact from '@eslint-react/eslint-plugin';
 import js from '@eslint/js';
 import prettierConfig from 'eslint-config-prettier/flat';
 import reactHooks from 'eslint-plugin-react-hooks';
@@ -54,6 +55,10 @@ const TYPESCRIPT_CONFIGS = tseslint.configs.recommended.map((config) => ({
   ...config,
   files: TYPESCRIPT_FILES,
 }));
+const ESLINT_REACT_CONFIG = {
+  ...eslintReact.configs['recommended-typescript'],
+  files: ['src/renderer/**/*.{ts,tsx}', 'tests/**/*.{ts,tsx}'],
+};
 
 export default tseslint.config(
   {
@@ -70,6 +75,7 @@ export default tseslint.config(
   },
   js.configs.recommended,
   ...TYPESCRIPT_CONFIGS,
+  ESLINT_REACT_CONFIG,
   {
     files: TYPESCRIPT_FILES,
     languageOptions: {
@@ -121,6 +127,7 @@ export default tseslint.config(
           varsIgnorePattern: '^React$',
         },
       ],
+      '@eslint-react/set-state-in-effect': 'off',
       'react-hooks/set-state-in-effect': 'off',
       'react-refresh/only-export-components': 'off',
     },
@@ -192,6 +199,7 @@ export default tseslint.config(
   {
     files: ['tests/**/*.{ts,tsx}', 'scripts/**/*.{js,cjs,mjs,ts,tsx}'],
     rules: {
+      '@eslint-react/no-children-to-array': 'off',
       'no-console': 'off',
       'prefer-promise-reject-errors': 'off',
     },

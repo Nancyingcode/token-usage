@@ -44,8 +44,8 @@ export const useCostOptimizationSnapshot = (
     undefined,
     createCostOptimizationSnapshotState
   );
-  const nextRequestId = useRef(0);
-  const nextGlobalRequestId = useRef(0);
+  const nextRequestIdRef = useRef(0);
+  const nextGlobalRequestIdRef = useRef(0);
   const query = useMemo<CostOptimizationQuery>(
     () => ({
       period,
@@ -60,8 +60,8 @@ export const useCostOptimizationSnapshot = (
   const requestsSeparateGlobalSnapshot = shouldRequestSeparateGlobalSnapshot(query);
 
   const requestSnapshot = useCallback(async (): Promise<CostOptimizationSnapshot> => {
-    nextRequestId.current += 1;
-    const requestId = nextRequestId.current;
+    nextRequestIdRef.current += 1;
+    const requestId = nextRequestIdRef.current;
     dispatch({ type: 'request-started', requestId });
 
     try {
@@ -79,8 +79,8 @@ export const useCostOptimizationSnapshot = (
   }, [query]);
 
   const requestGlobalSnapshot = useCallback(async (): Promise<CostOptimizationSnapshot> => {
-    nextGlobalRequestId.current += 1;
-    const requestId = nextGlobalRequestId.current;
+    nextGlobalRequestIdRef.current += 1;
+    const requestId = nextGlobalRequestIdRef.current;
     dispatchGlobal({ type: 'request-started', requestId });
 
     try {

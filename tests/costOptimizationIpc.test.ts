@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 import type { ApplicationRuntime } from '../src/main/applicationRuntime';
 import type { BudgetRuntime } from '../src/main/budgetRuntime';
 import {
@@ -241,9 +241,9 @@ interface CostRuntimeMock extends Pick<
   CostOptimizationRuntime,
   'getSnapshot' | 'getSessionDiagnosis' | 'updateSettings' | 'subscribe'
 > {
-  getSnapshot: ReturnType<typeof vi.fn>;
-  getSessionDiagnosis: ReturnType<typeof vi.fn>;
-  updateSettings: ReturnType<typeof vi.fn>;
+  getSnapshot: Mock<CostOptimizationRuntime['getSnapshot']>;
+  getSessionDiagnosis: Mock<CostOptimizationRuntime['getSessionDiagnosis']>;
+  updateSettings: Mock<CostOptimizationRuntime['updateSettings']>;
 }
 
 interface IpcHarness {
