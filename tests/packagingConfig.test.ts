@@ -45,6 +45,15 @@ describe('Windows packaging configuration', () => {
     );
   });
 
+  it('prepares Electron binaries and Git hooks for a fresh checkout', () => {
+    const packageSource = readWorkspaceFile('package.json');
+    const prepareSource = readWorkspaceFile('scripts/prepare.cjs');
+
+    expect(packageSource).toContain('"prepare": "node scripts/prepare.cjs"');
+    expect(prepareSource).toContain("require('electron')");
+    expect(prepareSource).toContain("require('./prepare-husky.cjs')");
+  });
+
   it('does not grant the installer access to Codex session data', () => {
     const packagingSources = [
       readWorkspaceFile('electron-builder.yml'),

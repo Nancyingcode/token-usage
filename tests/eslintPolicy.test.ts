@@ -114,6 +114,15 @@ describe('ESLint policy', () => {
     expect(rules).toContain('no-restricted-imports');
   });
 
+  it('enforces eslint-react rules for TypeScript components', async () => {
+    const rules = await lintSource(`
+      const Example = () => <>{['first', 'second'].map((label) => <span>{label}</span>)}</>;
+      export default Example;
+    `);
+
+    expect(rules).toContain('@eslint-react/no-missing-key');
+  });
+
   it('rejects compound ternary and direct rendering conditions', async () => {
     const ternaryRules = await lintSource(`
       const Example = ({ ready, visible }: { ready: boolean; visible: boolean }) => (
