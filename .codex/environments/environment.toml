@@ -1,0 +1,10 @@
+version = 1
+name = "token-usage"
+
+[setup]
+script = "npm ci --include=dev --include=optional"
+
+[[actions]]
+name = "安装依赖"
+icon = "tool"
+command = "npm ci --include=dev --include=optional"
