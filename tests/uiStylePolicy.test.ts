@@ -122,6 +122,19 @@ describe('UI style policy', () => {
     expect(shell).toContain('.sidebar::-webkit-scrollbar-thumb');
   });
 
+  it('styles native selects and custom combobox options consistently', () => {
+    const base = readRendererStyle('styles/base.css');
+    const views = readRendererStyle('styles/views.css');
+
+    expect(base).toContain('select:not([multiple])');
+    expect(base).toContain('select:not(:disabled):hover');
+    expect(base).toContain('select:disabled');
+    expect(base).toContain('select option:checked');
+    expect(views).toContain('.budget-model-combobox-list:not([hidden])');
+    expect(views).toContain('.budget-model-combobox-option:hover');
+    expect(views).toContain('.pricing-model-combobox-option:not(.disabled):hover');
+  });
+
   it('defines reusable motion tokens for entering and exiting surfaces', () => {
     const tokens = readRendererStyle('styles/tokens.css');
 
