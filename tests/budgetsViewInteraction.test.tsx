@@ -45,6 +45,34 @@ const SNAPSHOT: BudgetSnapshot = {
 };
 
 describe('BudgetsView model options', () => {
+  it('filters budget policies through the accessible scope and period menus', () => {
+    render(
+      <I18nextProvider i18n={createTestI18n('en')}>
+        <BudgetsView
+          model={{ kind: 'ready', snapshot: FILTERABLE_SNAPSHOT }}
+          actions={ACTIONS}
+          activeTab="policies"
+          onActiveTabChange={vi.fn()}
+        />
+      </I18nextProvider>
+    );
+
+    expect(screen.getByText('Global budgets')).toBeTruthy();
+    expect(screen.getByText('Project budgets')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Scope' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Project' }));
+
+    expect(screen.queryByText('Global budgets')).toBeNull();
+    expect(screen.getByText('Project budgets')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Period' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Daily' }));
+
+    expect(screen.queryByText('Project budgets')).toBeNull();
+    expect(screen.getByText('No budgets match these filters')).toBeTruthy();
+  });
+
   it('passes priced, concrete unpriced, and one missing-ID option into the budget drawer', () => {
     const onActiveTabChange = vi.fn();
     render(
@@ -137,3 +165,44 @@ describe('BudgetsView model options', () => {
     expect(screen.getByRole('dialog').textContent).toContain('Alert thresholds');
   });
 });
+
+const FILTERABLE_SNAPSHOT: BudgetSnapshot = {
+  ...SNAPSHOT,
+  statuses: [
+    {
+      policy: {
+        id: 'global-day',
+        scope: 'global',
+        period: 'day',
+        modelTarget: { kind: 'all' },
+        tokenLimit: 1_000,
+        createdAt: '2026-08-03T00:00:00.000Z',
+        updatedAt: '2026-08-03T00:00:00.000Z',
+      },
+      periodStart: '2026-08-03T00:00:00.000Z',
+      periodEnd: '2026-08-03T23:59:59.999Z',
+      token: { used: 100, limit: 1_000, percent: 10, severity: 'normal' },
+      assumedTokens: 0,
+      unpricedTokens: 0,
+      unpricedModelIds: [],
+    },
+    {
+      policy: {
+        id: 'project-month',
+        scope: 'project',
+        projectPath: 'C:\\repo',
+        period: 'month',
+        modelTarget: { kind: 'all' },
+        tokenLimit: 2_000,
+        createdAt: '2026-08-03T00:00:00.000Z',
+        updatedAt: '2026-08-03T00:00:00.000Z',
+      },
+      periodStart: '2026-08-01T00:00:00.000Z',
+      periodEnd: '2026-08-31T23:59:59.999Z',
+      token: { used: 200, limit: 2_000, percent: 10, severity: 'normal' },
+      assumedTokens: 0,
+      unpricedTokens: 0,
+      unpricedModelIds: [],
+    },
+  ],
+};

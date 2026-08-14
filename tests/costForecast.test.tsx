@@ -1,11 +1,15 @@
+// @vitest-environment jsdom
+
 import React from 'react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { I18nextProvider } from 'react-i18next';
 import { describe, expect, it } from 'vitest';
 import CostForecast, {
   buildCumulativeForecastPoints,
   getForecastBandPoints,
 } from '../src/renderer/components/CostForecast';
 import { READY_FORECAST, SNAPSHOT } from './helpers/costOptimizationFixtures';
-import { renderWithI18n } from './helpers/renderWithI18n';
+import { createTestI18n, renderWithI18n } from './helpers/renderWithI18n';
 
 describe('CostForecast', () => {
   it('renders a labelled forecast band and budget crossing', () => {
@@ -78,5 +82,33 @@ describe('CostForecast', () => {
         .split(' ')
         .map((coordinate) => Number(coordinate.split(',')[0]))
     ).toEqual([34, 686, 686, 34]);
+  });
+
+  it('switches budget crossings through an accessible menu', () => {
+    const forecast = {
+      ...READY_FORECAST,
+      budgetCrossings: [
+        ...READY_FORECAST.budgetCrossings,
+        {
+          policyId: 'weekly-cost',
+          date: '2026-08-15',
+          projectedCostUsd: 25,
+          limitUsd: 20,
+        },
+      ],
+    };
+
+    render(
+      <I18nextProvider i18n={createTestI18n('en')}>
+        <CostForecast forecast={forecast} budgets={[]} query={SNAPSHOT.query} />
+      </I18nextProvider>
+    );
+
+    const budgetMenu = screen.getByRole('combobox', { name: 'Budget' });
+    fireEvent.click(budgetMenu);
+    fireEvent.click(screen.getByRole('option', { name: 'weekly-cost' }));
+
+    expect(budgetMenu.textContent).toContain('weekly-cost');
+    expect(document.body.textContent).toContain('weekly-cost reaches $20.00 on 2026-08-15.');
   });
 });

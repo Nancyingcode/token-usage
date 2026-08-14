@@ -15,6 +15,7 @@ interface PricingModelComboboxProps {
   unpricedLabel: string;
   unknownModelLabel: string;
   unknownModelDescription: string;
+  emptyLabel: string;
   error?: string;
   onChange: (modelId: string) => void;
 }
@@ -43,6 +44,7 @@ const PricingModelCombobox: React.FC<PricingModelComboboxProps> = ({
   unpricedLabel,
   unknownModelLabel,
   unknownModelDescription,
+  emptyLabel,
   error,
   onChange,
 }) => {
@@ -106,15 +108,19 @@ const PricingModelCombobox: React.FC<PricingModelComboboxProps> = ({
       return;
     }
 
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      closeList();
-      return;
-    }
-
     if (event.key === 'Tab') {
       closeList();
     }
+  };
+
+  const handleKeyDownCapture = (event: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (event.key !== 'Escape' || !open) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    closeList();
   };
 
   return (
@@ -125,7 +131,7 @@ const PricingModelCombobox: React.FC<PricingModelComboboxProps> = ({
         role="combobox"
         value={displayValue}
         aria-autocomplete="list"
-        aria-controls={listboxId}
+        aria-controls={open ? listboxId : undefined}
         aria-expanded={open}
         aria-activedescendant={activeOptionId}
         aria-invalid={error ? true : undefined}
@@ -138,55 +144,68 @@ const PricingModelCombobox: React.FC<PricingModelComboboxProps> = ({
           setActiveIndex(-1);
           onChange(modelId);
         }}
+        onKeyDownCapture={handleKeyDownCapture}
         onKeyDown={handleKeyDown}
       />
-      <div id={listboxId} className="pricing-model-combobox-list" role="listbox" hidden={!open}>
-        {options.map((option, index) => {
-          const optionId = `${generatedId}-option-${index}`;
-          const active = index === activeIndex;
-          const selected =
-            option.kind === 'model' &&
-            normalizeModelId(option.modelId) === normalizeModelId(displayValue);
-          const className = [
-            'pricing-model-combobox-option',
-            active ? 'active' : '',
-            selected ? 'selected' : '',
-            option.kind === 'unknown' ? 'disabled' : '',
-          ]
-            .filter(Boolean)
-            .join(' ');
+      <div className="pricing-model-combobox-list" hidden={!open}>
+        <div
+          id={listboxId}
+          className="pricing-model-combobox-listbox"
+          role="listbox"
+          aria-label={label}
+        >
+          {options.map((option, index) => {
+            const optionId = `${generatedId}-option-${index}`;
+            const active = index === activeIndex;
+            const selected =
+              option.kind === 'model' &&
+              normalizeModelId(option.modelId) === normalizeModelId(displayValue);
+            const className = [
+              'pricing-model-combobox-option',
+              active ? 'active' : '',
+              selected ? 'selected' : '',
+              option.kind === 'unknown' ? 'disabled' : '',
+            ]
+              .filter(Boolean)
+              .join(' ');
 
-          if (option.kind === 'unknown') {
+            if (option.kind === 'unknown') {
+              return (
+                <div
+                  id={optionId}
+                  key={option.key}
+                  className={className}
+                  role="option"
+                  aria-selected="false"
+                  aria-disabled="true"
+                >
+                  <strong>{unknownModelLabel}</strong>
+                  <small>{unknownModelDescription}</small>
+                </div>
+              );
+            }
+
             return (
               <div
                 id={optionId}
                 key={option.key}
                 className={className}
                 role="option"
-                aria-selected="false"
-                aria-disabled="true"
+                aria-selected={selected}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => selectOption(option)}
               >
-                <strong>{unknownModelLabel}</strong>
-                <small>{unknownModelDescription}</small>
+                <strong>{option.modelId}</strong>
+                <small>{option.pricingState === 'priced' ? pricedLabel : unpricedLabel}</small>
               </div>
             );
-          }
-
-          return (
-            <div
-              id={optionId}
-              key={option.key}
-              className={className}
-              role="option"
-              aria-selected={selected}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => selectOption(option)}
-            >
-              <strong>{option.modelId}</strong>
-              <small>{option.pricingState === 'priced' ? pricedLabel : unpricedLabel}</small>
-            </div>
-          );
-        })}
+          })}
+        </div>
+        {options.length === 0 ? (
+          <div className="model-combobox-status" role="status">
+            {emptyLabel}
+          </div>
+        ) : null}
       </div>
       {error ? (
         <small id={errorId} className="field-error">

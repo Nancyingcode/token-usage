@@ -14,6 +14,7 @@ interface BudgetModelComboboxProps {
   label: string;
   allModelsLabel: string;
   unknownModelLabel: string;
+  emptyLabel: string;
   error?: string;
   onChange: (target: BudgetModelTarget) => void;
 }
@@ -40,6 +41,7 @@ const BudgetModelCombobox: React.FC<BudgetModelComboboxProps> = ({
   label,
   allModelsLabel,
   unknownModelLabel,
+  emptyLabel,
   error,
   onChange,
 }) => {
@@ -97,15 +99,19 @@ const BudgetModelCombobox: React.FC<BudgetModelComboboxProps> = ({
       return;
     }
 
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      closeList();
-      return;
-    }
-
     if (event.key === 'Tab') {
       closeList();
     }
+  };
+
+  const handleKeyDownCapture = (event: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (event.key !== 'Escape' || !open) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    closeList();
   };
 
   return (
@@ -116,7 +122,7 @@ const BudgetModelCombobox: React.FC<BudgetModelComboboxProps> = ({
         role="combobox"
         value={displayValue}
         aria-autocomplete="list"
-        aria-controls={listboxId}
+        aria-controls={open ? listboxId : undefined}
         aria-expanded={open}
         aria-activedescendant={activeOptionId}
         aria-invalid={error ? true : undefined}
@@ -129,35 +135,48 @@ const BudgetModelCombobox: React.FC<BudgetModelComboboxProps> = ({
           setActiveIndex(-1);
           onChange({ kind: 'model', modelId });
         }}
+        onKeyDownCapture={handleKeyDownCapture}
         onKeyDown={handleKeyDown}
       />
-      <div id={listboxId} className="budget-model-combobox-list" role="listbox" hidden={!open}>
-        {options.map((option, index) => {
-          const optionId = `${generatedId}-option-${index}`;
-          const active = index === activeIndex;
-          const selected = option.key === selectedKey;
-          const className = [
-            'budget-model-combobox-option',
-            active ? 'active' : '',
-            selected ? 'selected' : '',
-          ]
-            .filter(Boolean)
-            .join(' ');
+      <div className="budget-model-combobox-list" hidden={!open}>
+        <div
+          id={listboxId}
+          className="budget-model-combobox-listbox"
+          role="listbox"
+          aria-label={label}
+        >
+          {options.map((option, index) => {
+            const optionId = `${generatedId}-option-${index}`;
+            const active = index === activeIndex;
+            const selected = option.key === selectedKey;
+            const className = [
+              'budget-model-combobox-option',
+              active ? 'active' : '',
+              selected ? 'selected' : '',
+            ]
+              .filter(Boolean)
+              .join(' ');
 
-          return (
-            <div
-              id={optionId}
-              key={option.key}
-              className={className}
-              role="option"
-              aria-selected={selected}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => selectOption(option)}
-            >
-              {getTargetLabel(option.target, allModelsLabel, unknownModelLabel)}
-            </div>
-          );
-        })}
+            return (
+              <div
+                id={optionId}
+                key={option.key}
+                className={className}
+                role="option"
+                aria-selected={selected}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => selectOption(option)}
+              >
+                {getTargetLabel(option.target, allModelsLabel, unknownModelLabel)}
+              </div>
+            );
+          })}
+        </div>
+        {options.length === 0 ? (
+          <div className="model-combobox-status" role="status">
+            {emptyLabel}
+          </div>
+        ) : null}
       </div>
       {error ? (
         <small id={errorId} className="field-error">

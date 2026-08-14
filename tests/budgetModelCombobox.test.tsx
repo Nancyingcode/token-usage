@@ -19,6 +19,7 @@ const renderCombobox = (onChange = vi.fn()) => {
       label="Model ID"
       allModelsLabel="All models"
       unknownModelLabel="Unknown model"
+      emptyLabel="No options available"
       onChange={onChange}
     />
   );
@@ -65,6 +66,24 @@ describe('BudgetModelCombobox', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it('announces an empty option list without exposing a fake option', () => {
+    render(
+      <BudgetModelCombobox
+        value={{ kind: 'model', modelId: 'custom-model' }}
+        options={[]}
+        label="Model ID"
+        allModelsLabel="All models"
+        unknownModelLabel="Unknown model"
+        emptyLabel="No options available"
+        onChange={vi.fn()}
+      />
+    );
+
+    fireEvent.focus(screen.getByRole('combobox', { name: 'Model ID' }));
+    expect(screen.getByRole('status').textContent).toBe('No options available');
+    expect(screen.queryAllByRole('option')).toHaveLength(0);
+  });
+
   it('exposes field errors through ARIA', () => {
     render(
       <BudgetModelCombobox
@@ -73,6 +92,7 @@ describe('BudgetModelCombobox', () => {
         label="Model ID"
         allModelsLabel="All models"
         unknownModelLabel="Unknown model"
+        emptyLabel="No options available"
         error="Model ID is required."
         onChange={vi.fn()}
       />

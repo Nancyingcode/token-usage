@@ -13,6 +13,7 @@ import type {
 } from '../../shared/costOptimizationTypes';
 import { resolveRendererLocale } from '../i18n';
 import { formatPercent, formatUsd } from '../utils/formatters';
+import SelectMenu, { type SelectMenuOption } from './SelectMenu';
 
 interface CostForecastProps {
   forecast: CostForecastModel | InsufficientForecast;
@@ -99,8 +100,20 @@ const budgetMatchesForecastScope = (
 
 const CostForecast: React.FC<CostForecastProps> = ({ forecast, budgets, query }) => {
   const { t, i18n } = useTranslation('costOptimization');
+  const { t: tCommon } = useTranslation('common');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
-  const crossingPolicyIds = [...new Set(forecast.budgetCrossings.map(({ policyId }) => policyId))];
+  const crossingPolicyIds = useMemo(
+    () => [...new Set(forecast.budgetCrossings.map(({ policyId }) => policyId))],
+    [forecast.budgetCrossings]
+  );
+  const crossingPolicyOptions = useMemo<SelectMenuOption<string>[]>(
+    () =>
+      crossingPolicyIds.map((policyId) => ({
+        value: policyId,
+        label: budgets.find(({ policy }) => policy.id === policyId)?.policy.projectPath ?? policyId,
+      })),
+    [budgets, crossingPolicyIds]
+  );
   const [selectedPolicyId, setSelectedPolicyId] = useState(crossingPolicyIds[0] ?? '');
   const effectiveSelectedPolicyId = crossingPolicyIds.includes(selectedPolicyId)
     ? selectedPolicyId
@@ -186,17 +199,14 @@ const CostForecast: React.FC<CostForecastProps> = ({ forecast, budgets, query })
         {crossingPolicyIds.length > 1 ? (
           <label>
             <span>{t('forecast.budget')}</span>
-            <select
+            <SelectMenu
               value={effectiveSelectedPolicyId}
-              onChange={(event) => setSelectedPolicyId(event.target.value)}
-            >
-              {crossingPolicyIds.map((policyId) => (
-                <option key={policyId} value={policyId}>
-                  {budgets.find(({ policy }) => policy.id === policyId)?.policy.projectPath ??
-                    policyId}
-                </option>
-              ))}
-            </select>
+              options={crossingPolicyOptions}
+              onChange={setSelectedPolicyId}
+              ariaLabel={t('forecast.budget')}
+              loadingLabel={tCommon('state.loadingOptions')}
+              emptyLabel={tCommon('state.noOptions')}
+            />
           </label>
         ) : null}
       </div>

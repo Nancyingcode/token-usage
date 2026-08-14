@@ -157,6 +157,7 @@ const PricingEditor: React.FC<{
             unpricedLabel={t('pricing.unpricedOption')}
             unknownModelLabel={tCommon('value.unknownModel')}
             unknownModelDescription={t('pricing.unknownModelDescription')}
+            emptyLabel={tCommon('state.noOptions')}
             error={modelIdIssue}
             onChange={(modelId) => updateField('modelId', modelId)}
           />

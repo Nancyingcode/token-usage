@@ -23,6 +23,7 @@ import LoadingSkeleton from './LoadingSkeleton';
 import ModelCostComparison from './ModelCostComparison';
 import PageHeader from './PageHeader';
 import SavingsRecommendations from './SavingsRecommendations';
+import SelectMenu from './SelectMenu';
 import SessionDiagnosticsView from './SessionDiagnosticsView';
 import StatusBanner from './StatusBanner';
 import ToastNotice from './ToastNotice';
@@ -35,6 +36,7 @@ export type CostOptimizationContentModel =
 interface CostOptimizationViewProps {
   model: CostOptimizationContentModel;
   projectOptions: string[];
+  projectOptionsLoading?: boolean;
   projectPath: string | null | undefined;
   activeTab: CostOptimizationTab;
   diagnosisId: string | null;
@@ -106,6 +108,7 @@ const renderCostOptimizationTab = (
 const CostOptimizationView: React.FC<CostOptimizationViewProps> = ({
   model,
   projectOptions,
+  projectOptionsLoading = false,
   projectPath,
   activeTab,
   diagnosisId,
@@ -117,6 +120,7 @@ const CostOptimizationView: React.FC<CostOptimizationViewProps> = ({
   onUpdateSettings,
 }) => {
   const { t } = useTranslation('costOptimization');
+  const { t: tCommon } = useTranslation('common');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [dismissedWarnings, setDismissedWarnings] = useState<string[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -133,6 +137,19 @@ const CostOptimizationView: React.FC<CostOptimizationViewProps> = ({
     value: tab.key,
     label: t(tab.labelKey),
   }));
+  const projectSelectOptions = useMemo(
+    () =>
+      projectOptionsLoading && projectOptions.length === 0
+        ? []
+        : [
+            { value: '', label: t('page.allProjects') },
+            ...projectOptions.map((projectOption) => ({
+              value: projectOption,
+              label: projectOption,
+            })),
+          ],
+    [projectOptions, projectOptionsLoading, t]
+  );
   const closeSettings = React.useCallback((): void => setSettingsOpen(false), []);
   const dismissToast = React.useCallback((): void => setToastMessage(null), []);
   const handleSettingsSaved = React.useCallback(
@@ -143,17 +160,16 @@ const CostOptimizationView: React.FC<CostOptimizationViewProps> = ({
     <div className="cost-optimization-toolbar">
       <label>
         <span>{t('page.project')}</span>
-        <select
+        <SelectMenu
           value={projectPath ?? ''}
-          onChange={(event) => onProjectPathChange(event.target.value || undefined)}
-        >
-          <option value="">{t('page.allProjects')}</option>
-          {projectOptions.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
+          options={projectSelectOptions}
+          ariaLabel={t('page.project')}
+          loading={projectOptionsLoading}
+          fallbackLabel={t('page.allProjects')}
+          loadingLabel={tCommon('state.loadingOptions')}
+          emptyLabel={tCommon('state.noOptions')}
+          onChange={(nextProjectPath) => onProjectPathChange(nextProjectPath || undefined)}
+        />
       </label>
       <button
         type="button"

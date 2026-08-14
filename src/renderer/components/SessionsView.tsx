@@ -24,13 +24,13 @@ import {
 } from '../utils/sessionListFilters';
 import {
   DEFAULT_SESSION_PAGE_SIZE,
-  isSessionPageSize,
   loadSessionPageSizePreference,
   saveSessionPageSizePreference,
   SESSION_PAGE_SIZE_OPTIONS,
   type SessionPageSize,
 } from '../utils/sessionPageSizePreference';
 import PageHeader from './PageHeader';
+import SelectMenu, { type SelectMenuOption } from './SelectMenu';
 
 interface SessionsViewProps {
   sessions: UsageSession[];
@@ -60,6 +60,8 @@ const CAUSES: SessionDiagnosisCause[] = [
   'interaction-accumulation',
 ];
 const SEVERITIES: SessionDiagnosisSeverity[] = ['warning', 'critical'];
+const PAGE_SIZE_SELECT_OPTIONS: readonly SelectMenuOption<SessionPageSize>[] =
+  SESSION_PAGE_SIZE_OPTIONS.map((value) => ({ value, label: String(value) }));
 
 const CAUSE_KEYS: Record<
   SessionDiagnosisCause,
@@ -135,6 +137,37 @@ const SessionsView: React.FC<SessionsViewProps> = ({
 
     return options;
   }, [selectedProjectPath, sessions]);
+  const projectSelectOptions = React.useMemo<SelectMenuOption<string>[]>(
+    () => [
+      { value: '', label: t('sessions.filters.allProjects') },
+      ...projectOptions.map(({ projectPath, projectName: fallbackName }) => ({
+        value: projectPath,
+        label: projectPath === UNKNOWN_PROJECT_KEY ? t('projects.unknownProject') : fallbackName,
+      })),
+    ],
+    [projectOptions, t]
+  );
+  const causeSelectOptions = React.useMemo<SelectMenuOption<SessionDiagnosisCauseFilter>[]>(
+    () => [
+      { value: 'all', label: t('sessions.filters.allCauses') },
+      ...CAUSES.map((diagnosisCause) => ({
+        value: diagnosisCause,
+        label: tCostOptimization(CAUSE_KEYS[diagnosisCause]),
+      })),
+      { value: 'none', label: t('sessions.filters.noDiagnosis') },
+    ],
+    [t, tCostOptimization]
+  );
+  const severitySelectOptions = React.useMemo<SelectMenuOption<SessionDiagnosisSeverity | 'all'>[]>(
+    () => [
+      { value: 'all', label: t('sessions.filters.allSeverities') },
+      ...SEVERITIES.map((diagnosisSeverity) => ({
+        value: diagnosisSeverity,
+        label: tCostOptimization(`diagnostics.severity.${diagnosisSeverity}`),
+      })),
+    ],
+    [t, tCostOptimization]
+  );
   const filteredSessions = React.useMemo(
     () =>
       filterSessionList({
@@ -170,8 +203,8 @@ const SessionsView: React.FC<SessionsViewProps> = ({
     setCurrentPage(1);
   }, [selectedProjectPath]);
 
-  const handleProjectChange = (event: React.ChangeEvent<HTMLSelectElement>): void => {
-    const projectPath = event.target.value || null;
+  const handleProjectChange = (value: string): void => {
+    const projectPath = value || null;
     setCurrentPage(1);
 
     if (projectPath === null) {
@@ -182,23 +215,17 @@ const SessionsView: React.FC<SessionsViewProps> = ({
     onProjectFilterChange(projectPath);
   };
 
-  const handleCauseChange = (event: React.ChangeEvent<HTMLSelectElement>): void => {
-    setCause(event.target.value as SessionDiagnosisCauseFilter);
+  const handleCauseChange = (nextCause: SessionDiagnosisCauseFilter): void => {
+    setCause(nextCause);
     setCurrentPage(1);
   };
 
-  const handleSeverityChange = (event: React.ChangeEvent<HTMLSelectElement>): void => {
-    setSeverity(event.target.value as SessionDiagnosisSeverity | 'all');
+  const handleSeverityChange = (nextSeverity: SessionDiagnosisSeverity | 'all'): void => {
+    setSeverity(nextSeverity);
     setCurrentPage(1);
   };
 
-  const handlePageSizeChange = (event: React.ChangeEvent<HTMLSelectElement>): void => {
-    const nextPageSize = Number(event.target.value);
-
-    if (!isSessionPageSize(nextPageSize)) {
-      return;
-    }
-
+  const handlePageSizeChange = (nextPageSize: SessionPageSize): void => {
     setPageSize(nextPageSize);
     setCurrentPage(1);
 
@@ -214,9 +241,6 @@ const SessionsView: React.FC<SessionsViewProps> = ({
     setCurrentPage(1);
     onClearProjectFilter();
   };
-
-  const getProjectLabel = (projectPath: string, fallbackName: string): string =>
-    projectPath === UNKNOWN_PROJECT_KEY ? t('projects.unknownProject') : fallbackName;
 
   return (
     <section className="page-stack">
@@ -260,37 +284,36 @@ const SessionsView: React.FC<SessionsViewProps> = ({
           </label>
           <label>
             <span>{t('sessions.filters.projectLabel')}</span>
-            <select value={selectedProjectPath ?? ''} onChange={handleProjectChange}>
-              <option value="">{t('sessions.filters.allProjects')}</option>
-              {projectOptions.map((option) => (
-                <option key={option.projectPath} value={option.projectPath}>
-                  {getProjectLabel(option.projectPath, option.projectName)}
-                </option>
-              ))}
-            </select>
+            <SelectMenu
+              value={selectedProjectPath ?? ''}
+              options={projectSelectOptions}
+              ariaLabel={t('sessions.filters.projectLabel')}
+              loadingLabel={tCommon('state.loadingOptions')}
+              emptyLabel={tCommon('state.noOptions')}
+              onChange={handleProjectChange}
+            />
           </label>
           <label>
             <span>{t('sessions.filters.causeLabel')}</span>
-            <select value={cause} onChange={handleCauseChange}>
-              <option value="all">{t('sessions.filters.allCauses')}</option>
-              {CAUSES.map((diagnosisCause) => (
-                <option key={diagnosisCause} value={diagnosisCause}>
-                  {tCostOptimization(CAUSE_KEYS[diagnosisCause])}
-                </option>
-              ))}
-              <option value="none">{t('sessions.filters.noDiagnosis')}</option>
-            </select>
+            <SelectMenu
+              value={cause}
+              options={causeSelectOptions}
+              ariaLabel={t('sessions.filters.causeLabel')}
+              loadingLabel={tCommon('state.loadingOptions')}
+              emptyLabel={tCommon('state.noOptions')}
+              onChange={handleCauseChange}
+            />
           </label>
           <label>
             <span>{t('sessions.filters.severityLabel')}</span>
-            <select value={severity} onChange={handleSeverityChange}>
-              <option value="all">{t('sessions.filters.allSeverities')}</option>
-              {SEVERITIES.map((diagnosisSeverity) => (
-                <option key={diagnosisSeverity} value={diagnosisSeverity}>
-                  {tCostOptimization(`diagnostics.severity.${diagnosisSeverity}`)}
-                </option>
-              ))}
-            </select>
+            <SelectMenu
+              value={severity}
+              options={severitySelectOptions}
+              ariaLabel={t('sessions.filters.severityLabel')}
+              loadingLabel={tCommon('state.loadingOptions')}
+              emptyLabel={tCommon('state.noOptions')}
+              onChange={handleSeverityChange}
+            />
           </label>
         </div>
         {hasAnyFilter ? (
@@ -399,13 +422,14 @@ const SessionsView: React.FC<SessionsViewProps> = ({
         <footer className="session-pagination">
           <label>
             <span>{t('sessions.pagination.pageSize')}</span>
-            <select value={pageSize} onChange={handlePageSizeChange}>
-              {SESSION_PAGE_SIZE_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
+            <SelectMenu
+              value={pageSize}
+              options={PAGE_SIZE_SELECT_OPTIONS}
+              ariaLabel={t('sessions.pagination.pageSize')}
+              loadingLabel={tCommon('state.loadingOptions')}
+              emptyLabel={tCommon('state.noOptions')}
+              onChange={handlePageSizeChange}
+            />
           </label>
           <span>
             {t('sessions.pagination.range', {

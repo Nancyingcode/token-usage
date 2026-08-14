@@ -55,6 +55,7 @@ interface AppContentProps {
   onFocusedPolicyConsumed?: () => void;
   costOptimizationModel?: CostOptimizationContentModel;
   costProjectOptions?: string[];
+  costProjectOptionsLoading?: boolean;
   costProjectPath?: string | null;
   costOptimizationTab?: CostOptimizationTab;
   diagnosisId?: string | null;
@@ -151,6 +152,7 @@ const AppContent: React.FC<AppContentProps> = ({
   onFocusedPolicyConsumed,
   costOptimizationModel,
   costProjectOptions = [],
+  costProjectOptionsLoading = false,
   costProjectPath,
   costOptimizationTab = 'overview',
   diagnosisId = null,
@@ -206,6 +208,7 @@ const AppContent: React.FC<AppContentProps> = ({
         <CostOptimizationView
           model={costOptimizationModel ?? { kind: 'loading' }}
           projectOptions={costProjectOptions}
+          projectOptionsLoading={costProjectOptionsLoading}
           projectPath={costProjectPath}
           activeTab={costOptimizationTab}
           onActiveTabChange={onCostOptimizationTabChange}

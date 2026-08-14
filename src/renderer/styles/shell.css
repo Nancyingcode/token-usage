@@ -333,12 +333,13 @@
 }
 
 .language-selector {
+  min-width: 6.5rem;
+}
+
+.language-selector .select-menu-trigger {
   min-height: var(--control-height-compact);
   padding: 0 1.625rem 0 var(--space-2);
-  color: var(--color-text);
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
+  box-shadow: none;
   font-size: var(--font-size-body-small);
 }
 
