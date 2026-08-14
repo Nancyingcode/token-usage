@@ -338,6 +338,7 @@ const App: React.FC = () => {
             onClearProjectFilter={clearProjectFilter}
             costOptimizationModel={costOptimizationModel}
             costProjectOptions={costProjectOptions}
+            costProjectOptionsLoading={loading}
             costProjectPath={costOptimizationState.projectPath}
             costOptimizationTab={activeCostOptimizationTab}
             diagnosisId={diagnosisId}

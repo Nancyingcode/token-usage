@@ -22,6 +22,7 @@ import {
   type CostOptimizationSettingsForm,
   type CostOptimizationSettingsFormField,
 } from '../utils/costOptimizationSettingsForm';
+import SelectMenu from './SelectMenu';
 
 interface CostOptimizationSettingsDrawerProps {
   settings: CostOptimizationSettings;
@@ -143,6 +144,13 @@ const CostOptimizationSettingsDrawer: React.FC<CostOptimizationSettingsDrawerPro
     ...availableCandidateModelIds,
     ...settings.candidateModelIds.filter((modelId) => !availableCandidateIdSet.has(modelId)),
   ];
+  const forecastHorizonOptions = React.useMemo(
+    () => [
+      { value: '7', label: t('drawer.sevenDays') },
+      { value: '30', label: t('drawer.thirtyDays') },
+    ],
+    [t]
+  );
 
   const updateField = (field: CostOptimizationSettingsFormField, value: string): void => {
     setForm((current) => updateCostOptimizationSettingsForm(current, field, value));
@@ -226,13 +234,14 @@ const CostOptimizationSettingsDrawer: React.FC<CostOptimizationSettingsDrawerPro
 
         <label className="form-field">
           <span>{t('drawer.forecastHorizonDays')}</span>
-          <select
+          <SelectMenu
             value={form.forecastHorizonDays}
-            onChange={(event) => updateField('forecastHorizonDays', event.target.value)}
-          >
-            <option value="7">{t('drawer.sevenDays')}</option>
-            <option value="30">{t('drawer.thirtyDays')}</option>
-          </select>
+            options={forecastHorizonOptions}
+            ariaLabel={t('drawer.forecastHorizonDays')}
+            loadingLabel={tCommon('state.loadingOptions')}
+            emptyLabel={tCommon('state.noOptions')}
+            onChange={(value) => updateField('forecastHorizonDays', value)}
+          />
           {getIssueMessage(issues, 'forecastHorizonDays', t) ? (
             <small className="field-error">
               {getIssueMessage(issues, 'forecastHorizonDays', t)}

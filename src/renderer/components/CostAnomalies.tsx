@@ -14,6 +14,7 @@ import type {
 import { ICON_SIZE_SMALL } from '../constants/ui';
 import { resolveRendererLocale } from '../i18n';
 import { formatPercent, formatUsd } from '../utils/formatters';
+import SelectMenu, { type SelectMenuOption } from './SelectMenu';
 
 export type CostAnomalyLevelFilter = CostAnomalyLevel | 'all';
 export type CostAnomalySeverityFilter = CostAnomalySeverity | 'all';
@@ -55,6 +56,7 @@ export const filterCostAnomalies = (
 
 const CostAnomalies: React.FC<CostAnomaliesProps> = ({ anomalies }) => {
   const { t, i18n } = useTranslation('costOptimization');
+  const { t: tCommon } = useTranslation('common');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const [level, setLevel] = useState<CostAnomalyLevelFilter>('all');
   const [severity, setSeverity] = useState<CostAnomalySeverityFilter>('all');
@@ -66,6 +68,26 @@ const CostAnomalies: React.FC<CostAnomaliesProps> = ({ anomalies }) => {
     () => [...new Set(anomalies.map((anomaly) => anomaly.severity))],
     [anomalies]
   );
+  const levelOptions = useMemo<SelectMenuOption<CostAnomalyLevelFilter>[]>(
+    () => [
+      { value: 'all', label: t('filter.allLevels') },
+      ...levels.map((option) => ({
+        value: option,
+        label: t(`anomaly.level.${option}`),
+      })),
+    ],
+    [levels, t]
+  );
+  const severityOptions = useMemo<SelectMenuOption<CostAnomalySeverityFilter>[]>(
+    () => [
+      { value: 'all', label: t('filter.allSeverities') },
+      ...severities.map((option) => ({
+        value: option,
+        label: t(`anomaly.severity.${option}`),
+      })),
+    ],
+    [severities, t]
+  );
   const filteredAnomalies = useMemo(
     () => filterCostAnomalies(anomalies, level, severity),
     [anomalies, level, severity]
@@ -76,31 +98,25 @@ const CostAnomalies: React.FC<CostAnomaliesProps> = ({ anomalies }) => {
       <div className="cost-detail-filter-bar">
         <label>
           <span>{t('anomalies.levelFilter')}</span>
-          <select
+          <SelectMenu
             value={level}
-            onChange={(event) => setLevel(event.target.value as CostAnomalyLevelFilter)}
-          >
-            <option value="all">{t('filter.allLevels')}</option>
-            {levels.map((option) => (
-              <option key={option} value={option}>
-                {t(`anomaly.level.${option}`)}
-              </option>
-            ))}
-          </select>
+            options={levelOptions}
+            onChange={setLevel}
+            ariaLabel={t('anomalies.levelFilter')}
+            loadingLabel={tCommon('state.loadingOptions')}
+            emptyLabel={tCommon('state.noOptions')}
+          />
         </label>
         <label>
           <span>{t('anomalies.severityFilter')}</span>
-          <select
+          <SelectMenu
             value={severity}
-            onChange={(event) => setSeverity(event.target.value as CostAnomalySeverityFilter)}
-          >
-            <option value="all">{t('filter.allSeverities')}</option>
-            {severities.map((option) => (
-              <option key={option} value={option}>
-                {t(`anomaly.severity.${option}`)}
-              </option>
-            ))}
-          </select>
+            options={severityOptions}
+            onChange={setSeverity}
+            ariaLabel={t('anomalies.severityFilter')}
+            loadingLabel={tCommon('state.loadingOptions')}
+            emptyLabel={tCommon('state.noOptions')}
+          />
         </label>
       </div>
 

@@ -27,6 +27,7 @@ const renderCombobox = (onChange = vi.fn(), error?: string) => {
       unpricedLabel="Unpriced"
       unknownModelLabel="Unknown model"
       unknownModelDescription="Missing Model ID; a price cannot be added."
+      emptyLabel="No options available"
       error={error}
       onChange={onChange}
     />
@@ -81,6 +82,26 @@ describe('PricingModelCombobox', () => {
 
     expect(input.getAttribute('aria-expanded')).toBe('false');
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('announces an empty option list without exposing a fake option', () => {
+    render(
+      <PricingModelCombobox
+        value="custom-model"
+        options={[]}
+        label="Model ID"
+        pricedLabel="Priced"
+        unpricedLabel="Unpriced"
+        unknownModelLabel="Unknown model"
+        unknownModelDescription="Missing Model ID; a price cannot be added."
+        emptyLabel="No options available"
+        onChange={vi.fn()}
+      />
+    );
+
+    fireEvent.focus(screen.getByRole('combobox', { name: 'Model ID' }));
+    expect(screen.getByRole('status').textContent).toBe('No options available');
+    expect(screen.queryAllByRole('option')).toHaveLength(0);
   });
 
   it('exposes field errors through ARIA', () => {

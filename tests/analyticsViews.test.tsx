@@ -70,6 +70,11 @@ interface FilterButtonProps {
   'aria-label': string;
 }
 
+const chooseSelectOption = (controlName: string, optionName: string): void => {
+  fireEvent.click(screen.getByRole('combobox', { name: controlName }));
+  fireEvent.click(screen.getByRole('option', { name: optionName }));
+};
+
 describe('analytics tables', () => {
   it('renders session labels and warning status in Chinese', () => {
     const markup = renderWithI18n(
@@ -184,9 +189,7 @@ describe('analytics tables', () => {
       .getByRole('table', { name: 'Project list' })
       .querySelector('tbody');
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Sort projects' }), {
-      target: { value: 'name' },
-    });
+    chooseSelectOption('Sort projects', 'Project name');
     const table = screen.getByRole('table', { name: 'Project list' });
     const rows = within(table).getAllByRole('row');
     expect(rows[1].textContent).toContain('other');
@@ -411,17 +414,11 @@ describe('analytics tables', () => {
       </I18nextProvider>
     );
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Filter by project' }), {
-      target: { value: 'C:\\other' },
-    });
+    chooseSelectOption('Filter by project', 'other');
     expect(onProjectFilterChange).toHaveBeenCalledWith('C:\\other');
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Filter by diagnosis cause' }), {
-      target: { value: 'cache-degradation' },
-    });
-    fireEvent.change(screen.getByRole('combobox', { name: 'Filter by diagnosis severity' }), {
-      target: { value: 'warning' },
-    });
+    chooseSelectOption('Filter by diagnosis cause', 'Cache reuse signal declined');
+    chooseSelectOption('Filter by diagnosis severity', 'Warning');
 
     expect(screen.getByText('Cache session')).toBeTruthy();
     expect(screen.queryByTitle('session-123456789')).toBeNull();
@@ -481,9 +478,7 @@ describe('analytics tables', () => {
       true
     );
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Sessions per page' }), {
-      target: { value: '20' },
-    });
+    chooseSelectOption('Sessions per page', '20');
     expect(screen.getByText('Session 1')).toBeTruthy();
     expect(screen.getByText('Session 12')).toBeTruthy();
     expect(window.localStorage.getItem('codex-token-usage.sessions-page-size')).toBe('20');

@@ -1,4 +1,8 @@
+// @vitest-environment jsdom
+
 import React from 'react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { I18nextProvider } from 'react-i18next';
 import { describe, expect, it, vi } from 'vitest';
 import SessionDiagnosisList from '../src/renderer/components/SessionDiagnosisList';
 import { DEFAULT_DIAGNOSIS_FILTERS } from '../src/renderer/utils/sessionDiagnosisFilters';
@@ -7,7 +11,7 @@ import {
   makeFindingSummary,
   makePartiallyPricedDiagnosisSummary,
 } from './helpers/sessionDiagnosisFixtures';
-import { renderWithI18n } from './helpers/renderWithI18n';
+import { createTestI18n, renderWithI18n } from './helpers/renderWithI18n';
 
 describe('session diagnosis list', () => {
   it('renders diagnosis evidence without claiming unpriced cost is complete', () => {
@@ -97,5 +101,27 @@ describe('session diagnosis list', () => {
 
     expect(markup).toContain('No high-impact sessions in this range');
     expect(markup).toContain('Show all sessions');
+  });
+
+  it('reports the selected cause through an accessible menu', () => {
+    const onFiltersChange = vi.fn();
+    render(
+      <I18nextProvider i18n={createTestI18n('en')}>
+        <SessionDiagnosisList
+          summaries={[makePartiallyPricedDiagnosisSummary()]}
+          filters={DEFAULT_DIAGNOSIS_FILTERS}
+          onFiltersChange={onFiltersChange}
+          onOpen={vi.fn()}
+        />
+      </I18nextProvider>
+    );
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Primary cause' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Cache reuse signal declined' }));
+
+    expect(onFiltersChange).toHaveBeenCalledWith({
+      ...DEFAULT_DIAGNOSIS_FILTERS,
+      cause: 'cache-degradation',
+    });
   });
 });

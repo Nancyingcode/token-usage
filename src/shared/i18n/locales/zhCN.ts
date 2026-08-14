@@ -81,6 +81,8 @@ export const zhCN = {
       retryScan: '重新扫描',
       pageLoadFailed: '页面加载失败',
       reloadApplication: '重新加载应用',
+      loadingOptions: '正在加载选项…',
+      noOptions: '没有可用选项',
       noSessions: '未找到 Codex 会话',
       scannedPath: '扫描路径：{{path}}',
       periodEmptyTitle: '此时间范围内没有会话',

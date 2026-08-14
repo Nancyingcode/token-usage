@@ -177,6 +177,7 @@ const PolicyForm: React.FC<BudgetDrawerProps> = ({
         label={t('drawer.modelId')}
         allModelsLabel={t('drawer.allModels')}
         unknownModelLabel={t('drawer.unknownModel')}
+        emptyLabel={tCommon('state.noOptions')}
         error={modelIssue}
         onChange={(modelTarget) => dispatch({ type: 'model-target-changed', modelTarget })}
       />

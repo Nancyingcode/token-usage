@@ -21,6 +21,7 @@ import ConfirmDialog from './ConfirmDialog';
 import LoadingSkeleton from './LoadingSkeleton';
 import ModelPricingView from './ModelPricingView';
 import PageHeader from './PageHeader';
+import SelectMenu, { type SelectMenuOption } from './SelectMenu';
 import StatusBanner from './StatusBanner';
 import ToastNotice from './ToastNotice';
 
@@ -137,6 +138,23 @@ const ReadyBudgetWorkspace: React.FC<ReadyBudgetWorkspaceProps> = ({
     () => buildBudgetModelOptions(snapshot.pricing, snapshot.unpricedModels),
     [snapshot.pricing, snapshot.unpricedModels]
   );
+  const scopeOptions = useMemo<ReadonlyArray<SelectMenuOption<BudgetFilters['scope']>>>(
+    () => [
+      { value: 'all', label: t('filter.allScopes') },
+      { value: 'global', label: t('scope.global') },
+      { value: 'project', label: t('scope.project') },
+    ],
+    [t]
+  );
+  const periodOptions = useMemo<ReadonlyArray<SelectMenuOption<BudgetFilters['period']>>>(
+    () => [
+      { value: 'all', label: t('filter.allPeriods') },
+      { value: 'day', label: t('period.day') },
+      { value: 'week', label: t('period.week') },
+      { value: 'month', label: t('period.month') },
+    ],
+    [t]
+  );
   const visibleAlerts = viewModel.alerts.filter(({ id }) => !dismissedAlertIds.has(id));
   const showStaleWarning = snapshot.dataState === 'stale';
   const tabs = BUDGET_TABS.map((tab) => ({
@@ -210,36 +228,35 @@ const ReadyBudgetWorkspace: React.FC<ReadyBudgetWorkspaceProps> = ({
       <div className="filter-bar budget-filter-bar">
         <label>
           <span>{t('filter.scope')}</span>
-          <select
+          <SelectMenu
             value={filters.scope}
-            onChange={(event) =>
+            options={scopeOptions}
+            ariaLabel={t('filter.scope')}
+            loadingLabel={tCommon('state.loadingOptions')}
+            emptyLabel={tCommon('state.noOptions')}
+            onChange={(scope) =>
               setFilters((current) => ({
                 ...current,
-                scope: event.target.value as BudgetFilters['scope'],
+                scope,
               }))
             }
-          >
-            <option value="all">{t('filter.allScopes')}</option>
-            <option value="global">{t('scope.global')}</option>
-            <option value="project">{t('scope.project')}</option>
-          </select>
+          />
         </label>
         <label>
           <span>{t('filter.period')}</span>
-          <select
+          <SelectMenu
             value={filters.period}
-            onChange={(event) =>
+            options={periodOptions}
+            ariaLabel={t('filter.period')}
+            loadingLabel={tCommon('state.loadingOptions')}
+            emptyLabel={tCommon('state.noOptions')}
+            onChange={(period) =>
               setFilters((current) => ({
                 ...current,
-                period: event.target.value as BudgetFilters['period'],
+                period,
               }))
             }
-          >
-            <option value="all">{t('filter.allPeriods')}</option>
-            <option value="day">{t('period.day')}</option>
-            <option value="week">{t('period.week')}</option>
-            <option value="month">{t('period.month')}</option>
-          </select>
+          />
         </label>
       </div>
 

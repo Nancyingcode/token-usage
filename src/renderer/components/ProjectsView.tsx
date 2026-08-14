@@ -17,6 +17,7 @@ import {
   type ProjectSortKey,
 } from '../utils/projectViewModel';
 import PageHeader from './PageHeader';
+import SelectMenu, { type SelectMenuOption } from './SelectMenu';
 
 interface ProjectsViewProps {
   projects: UsageProject[];
@@ -116,6 +117,15 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onProjectSelect }
   const [isCenterFocused, setIsCenterFocused] = useState(false);
   const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState<ProjectSortKey>('tokens');
+  const sortOptions = useMemo<SelectMenuOption<ProjectSortKey>[]>(
+    () => [
+      { value: 'tokens', label: t('projects.sort.tokens') },
+      { value: 'sessions', label: t('projects.sort.sessions') },
+      { value: 'activity', label: t('projects.sort.activity') },
+      { value: 'name', label: t('projects.sort.name') },
+    ],
+    [t]
+  );
   const chartEntries = useMemo(() => buildProjectChartEntries(projects), [projects]);
   const segments = useMemo(() => buildProjectDonutSegments(chartEntries), [chartEntries]);
   const visibleProjects = useMemo(
@@ -471,16 +481,14 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onProjectSelect }
             </label>
             <label>
               <span>{t('projects.sort.label')}</span>
-              <select
+              <SelectMenu
                 value={sortKey}
-                aria-label={t('projects.sort.label')}
-                onChange={(event) => setSortKey(event.target.value as ProjectSortKey)}
-              >
-                <option value="tokens">{t('projects.sort.tokens')}</option>
-                <option value="sessions">{t('projects.sort.sessions')}</option>
-                <option value="activity">{t('projects.sort.activity')}</option>
-                <option value="name">{t('projects.sort.name')}</option>
-              </select>
+                options={sortOptions}
+                ariaLabel={t('projects.sort.label')}
+                loadingLabel={tCommon('state.loadingOptions')}
+                emptyLabel={tCommon('state.noOptions')}
+                onChange={setSortKey}
+              />
             </label>
           </div>
         </div>

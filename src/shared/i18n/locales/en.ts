@@ -83,6 +83,8 @@ export const en = {
       retryScan: 'Retry scan',
       pageLoadFailed: 'This page could not be loaded',
       reloadApplication: 'Reload application',
+      loadingOptions: 'Loading options…',
+      noOptions: 'No options available',
       noSessions: 'No Codex sessions found',
       scannedPath: 'Scanned: {{path}}',
       periodEmptyTitle: 'No sessions in this period',

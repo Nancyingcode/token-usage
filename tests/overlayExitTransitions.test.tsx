@@ -91,6 +91,37 @@ describe('overlay exit transitions', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('closes the forecast horizon menu with Escape without closing the settings drawer', () => {
+    const onClose = vi.fn();
+    const onSave = vi.fn();
+    render(
+      <I18nextProvider i18n={testI18n}>
+        <CostOptimizationSettingsDrawer
+          settings={DEFAULT_COST_OPTIMIZATION_SETTINGS}
+          availableCandidateModelIds={['gpt-test']}
+          onClose={onClose}
+          onSave={onSave}
+        />
+      </I18nextProvider>
+    );
+
+    const drawer = screen.getByRole('dialog');
+    const initialDrawerState = drawer.getAttribute('data-state');
+    const trigger = screen.getByRole('combobox', { name: 'Forecast horizon' });
+    fireEvent.click(trigger);
+    expect(screen.getByRole('listbox', { name: 'Forecast horizon' })).toBeTruthy();
+
+    fireEvent.keyDown(trigger, { key: 'Escape' });
+    expect(screen.queryByRole('listbox', { name: 'Forecast horizon' })).toBeNull();
+    expect(drawer.getAttribute('data-state')).toBe(initialDrawerState);
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('option', { name: '7 days' }));
+    expect(trigger.textContent).toContain('7 days');
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
   it('runs only the selected confirmation action after the dialog exits', () => {
     const onCancel = vi.fn();
     const onConfirm = vi.fn();

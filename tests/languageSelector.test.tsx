@@ -1,46 +1,46 @@
+// @vitest-environment jsdom
+
+import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
+import { I18nextProvider } from 'react-i18next';
 import { describe, expect, it, vi } from 'vitest';
 import LanguageSelector from '../src/renderer/components/LanguageSelector';
-
-interface LanguageSelectorElementProps {
-  value: string;
-  children: React.ReactNode;
-  onChange: (event: React.ChangeEvent<HTMLSelectElement>) => void;
-}
+import { createTestI18n } from './helpers/renderWithI18n';
 
 describe('LanguageSelector', () => {
   it('renders both supported languages and reports a valid selection', () => {
     const onChange = vi.fn();
-    const element = LanguageSelector({
-      locale: 'en',
-      onChange,
-      ariaLabel: 'Language',
-    }) as React.ReactElement<LanguageSelectorElementProps>;
-    const options = React.Children.toArray(element.props.children);
+    render(
+      <I18nextProvider i18n={createTestI18n('en')}>
+        <LanguageSelector locale="en" onChange={onChange} ariaLabel="Language" />
+      </I18nextProvider>
+    );
 
-    expect(element.props.value).toBe('en');
-    expect(options.map((option) => (option as React.ReactElement).props.children)).toEqual([
+    const trigger = screen.getByRole('combobox', { name: 'Language' });
+    expect(trigger.textContent).toContain('English');
+
+    fireEvent.click(trigger);
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
       'English',
       '中文',
     ]);
 
-    element.props.onChange({
-      currentTarget: { value: 'zh-CN' },
-    } as React.ChangeEvent<HTMLSelectElement>);
+    fireEvent.click(screen.getByRole('option', { name: '中文' }));
     expect(onChange).toHaveBeenCalledWith('zh-CN');
   });
 
-  it('ignores unsupported values from the DOM', () => {
+  it('keeps the menu closed while disabled', () => {
     const onChange = vi.fn();
-    const element = LanguageSelector({
-      locale: 'en',
-      onChange,
-      ariaLabel: 'Language',
-    }) as React.ReactElement<LanguageSelectorElementProps>;
+    render(
+      <I18nextProvider i18n={createTestI18n('en')}>
+        <LanguageSelector locale="en" onChange={onChange} ariaLabel="Language" disabled />
+      </I18nextProvider>
+    );
 
-    element.props.onChange({
-      currentTarget: { value: 'fr' },
-    } as React.ChangeEvent<HTMLSelectElement>);
+    const trigger = screen.getByRole('combobox', { name: 'Language' }) as HTMLButtonElement;
+    expect(trigger.disabled).toBe(true);
+    fireEvent.click(trigger);
+    expect(screen.queryByRole('listbox')).toBeNull();
     expect(onChange).not.toHaveBeenCalled();
   });
 });

@@ -71,8 +71,8 @@ describe('PeriodToggle', () => {
 
     expect(markup).not.toContain('Date range');
     expect(markup).not.toContain('<strong>');
+    expect(markup).toContain('role="combobox"');
     expect(markup).toContain('English');
-    expect(markup).toContain('中文');
   });
 
   it('keeps the global toolbar focused on status and controls', () => {

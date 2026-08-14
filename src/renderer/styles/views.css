@@ -29,8 +29,7 @@ body {
 }
 
 button,
-input,
-select {
+input {
   font: inherit;
 }
 
@@ -1010,7 +1009,7 @@ code {
   font-size: var(--font-size-label);
 }
 
-.budget-filter-bar select {
+.budget-filter-bar .select-menu-trigger {
   height: 28px;
   min-width: 116px;
   padding: 0 26px 0 8px;
@@ -1362,6 +1361,22 @@ code {
 .budget-model-combobox-list:not([hidden]),
 .pricing-model-combobox-list:not([hidden]) {
   animation: combobox-menu-enter var(--duration-fast) var(--ease-motion-enter) both;
+}
+
+.budget-model-combobox-listbox,
+.pricing-model-combobox-listbox {
+  min-height: 0;
+}
+
+.model-combobox-status {
+  min-height: var(--control-height-default);
+  padding: var(--space-2) var(--space-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-body-small);
+  line-height: 1.35;
 }
 
 @keyframes combobox-menu-enter {
@@ -1724,8 +1739,8 @@ code {
   font-weight: 700;
 }
 
-.cost-optimization-toolbar select,
-.cost-optimization-drawer select {
+.cost-optimization-toolbar .select-menu-trigger,
+.cost-optimization-drawer .select-menu-trigger {
   min-height: 30px;
   padding: 0 28px 0 9px;
   color: var(--color-text);
@@ -1926,8 +1941,8 @@ code {
   font-weight: 700;
 }
 
-.cost-detail-filter-bar select,
-.cost-forecast-header select {
+.cost-detail-filter-bar .select-menu-trigger,
+.cost-forecast-header .select-menu-trigger {
   min-height: 29px;
   padding: 0 27px 0 8px;
   color: var(--color-text);
@@ -2126,7 +2141,7 @@ code {
   font-weight: 700;
 }
 
-.session-diagnosis-filters select {
+.session-diagnosis-filters .select-menu-trigger {
   min-height: 29px;
   padding: 0 27px 0 8px;
   color: var(--color-text);
@@ -2900,7 +2915,7 @@ code {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .session-diagnosis-filters select {
+  .session-diagnosis-filters .select-menu {
     width: 100%;
   }
 
@@ -3018,7 +3033,7 @@ code {
     justify-content: space-between;
   }
 
-  .budget-filter-bar select {
+  .budget-filter-bar .select-menu {
     min-width: 150px;
   }
 
@@ -3536,7 +3551,7 @@ code {
 }
 
 .project-list-controls input,
-.project-list-controls select {
+.project-list-controls .select-menu-trigger {
   min-height: var(--control-height-default);
   padding: 0 var(--space-3);
   color: var(--color-text);
@@ -3551,12 +3566,12 @@ code {
   width: min(18rem, 32vw);
 }
 
-.project-list-controls select {
+.project-list-controls .select-menu-trigger {
   padding-right: 1.75rem;
 }
 
 .project-list-controls input:focus-visible,
-.project-list-controls select:focus-visible,
+.project-list-controls .select-menu-trigger:focus-visible,
 .project-session-action:focus-visible,
 .project-search-empty button:focus-visible {
   outline: 2px solid var(--color-focus-ring);
@@ -3801,8 +3816,8 @@ code {
 }
 
 .session-filter-controls input,
-.session-filter-controls select,
-.session-pagination select {
+.session-filter-controls .select-menu-trigger,
+.session-pagination .select-menu-trigger {
   width: 100%;
   min-height: var(--control-height-compact);
   padding: 0 var(--space-2);
@@ -3813,14 +3828,14 @@ code {
   font: inherit;
 }
 
-.session-filter-controls select,
-.session-pagination select {
+.session-filter-controls .select-menu-trigger,
+.session-pagination .select-menu-trigger {
   padding-right: 1.75rem;
 }
 
 .session-filter-controls input:focus-visible,
-.session-filter-controls select:focus-visible,
-.session-pagination select:focus-visible,
+.session-filter-controls .select-menu-trigger:focus-visible,
+.session-pagination .select-menu-trigger:focus-visible,
 .session-filter-clear:focus-visible,
 .session-pagination button:focus-visible {
   outline: 2px solid var(--color-brand-700);
@@ -5062,7 +5077,7 @@ code {
   font-size: var(--font-size-label);
 }
 
-.budget-filter-bar select {
+.budget-filter-bar .select-menu-trigger {
   min-width: 7.25rem;
   height: var(--control-height-default);
   padding: 0 1.75rem 0 var(--space-2);
@@ -5309,8 +5324,7 @@ code {
   background: var(--color-warning-surface);
 }
 
-.pricing-editor input,
-.pricing-editor select {
+.pricing-editor input {
   min-height: var(--control-height-default);
 }
 
@@ -5337,7 +5351,7 @@ code {
   font-size: var(--font-size-label);
 }
 
-.cost-optimization-toolbar select {
+.cost-optimization-toolbar .select-menu-trigger {
   min-width: 11rem;
   height: var(--control-height-default);
   padding: 0 1.75rem 0 var(--space-2);
@@ -5479,7 +5493,7 @@ code {
     flex-direction: column;
   }
 
-  .cost-optimization-toolbar select,
+  .cost-optimization-toolbar .select-menu,
   .cost-optimization-summary-grid,
   .cost-optimization-metric-grid,
   .cost-detail-definition-grid {
@@ -5499,7 +5513,7 @@ code {
   }
 
   .budget-filter-bar label,
-  .budget-filter-bar select {
+  .budget-filter-bar .select-menu {
     width: 100%;
   }
 }

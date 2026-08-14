@@ -13,6 +13,7 @@ import type {
 } from '../../shared/costOptimizationTypes';
 import { resolveRendererLocale } from '../i18n';
 import { formatPercent, formatUsd } from '../utils/formatters';
+import SelectMenu, { type SelectMenuOption } from './SelectMenu';
 
 export type SavingsTypeFilter = SavingsRecommendationType | 'all';
 export type SavingsConfidenceFilter = RecommendationConfidence | 'all';
@@ -80,6 +81,7 @@ const SavingsRecommendations: React.FC<SavingsRecommendationsProps> = ({
   conservativeSavingsUsd,
 }) => {
   const { t, i18n } = useTranslation('costOptimization');
+  const { t: tCommon } = useTranslation('common');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const [type, setType] = useState<SavingsTypeFilter>('all');
   const [confidence, setConfidence] = useState<SavingsConfidenceFilter>('all');
@@ -90,6 +92,26 @@ const SavingsRecommendations: React.FC<SavingsRecommendationsProps> = ({
   const confidences = useMemo(
     () => [...new Set(recommendations.map((recommendation) => recommendation.confidence))],
     [recommendations]
+  );
+  const typeOptions = useMemo<SelectMenuOption<SavingsTypeFilter>[]>(
+    () => [
+      { value: 'all', label: t('filter.allTypes') },
+      ...types.map((option) => ({
+        value: option,
+        label: t(TITLE_KEYS[option]),
+      })),
+    ],
+    [t, types]
+  );
+  const confidenceOptions = useMemo<SelectMenuOption<SavingsConfidenceFilter>[]>(
+    () => [
+      { value: 'all', label: t('filter.allConfidence') },
+      ...confidences.map((option) => ({
+        value: option,
+        label: t(`savings.confidence.${option}`),
+      })),
+    ],
+    [confidences, t]
   );
   const filteredRecommendations = useMemo(
     () => filterSavingsRecommendations(recommendations, type, confidence),
@@ -133,31 +155,25 @@ const SavingsRecommendations: React.FC<SavingsRecommendationsProps> = ({
       <div className="cost-detail-filter-bar">
         <label>
           <span>{t('savings.typeFilter')}</span>
-          <select
+          <SelectMenu
             value={type}
-            onChange={(event) => setType(event.target.value as SavingsTypeFilter)}
-          >
-            <option value="all">{t('filter.allTypes')}</option>
-            {types.map((option) => (
-              <option key={option} value={option}>
-                {t(TITLE_KEYS[option])}
-              </option>
-            ))}
-          </select>
+            options={typeOptions}
+            onChange={setType}
+            ariaLabel={t('savings.typeFilter')}
+            loadingLabel={tCommon('state.loadingOptions')}
+            emptyLabel={tCommon('state.noOptions')}
+          />
         </label>
         <label>
           <span>{t('savings.confidenceFilter')}</span>
-          <select
+          <SelectMenu
             value={confidence}
-            onChange={(event) => setConfidence(event.target.value as SavingsConfidenceFilter)}
-          >
-            <option value="all">{t('filter.allConfidence')}</option>
-            {confidences.map((option) => (
-              <option key={option} value={option}>
-                {t(`savings.confidence.${option}`)}
-              </option>
-            ))}
-          </select>
+            options={confidenceOptions}
+            onChange={setConfidence}
+            ariaLabel={t('savings.confidenceFilter')}
+            loadingLabel={tCommon('state.loadingOptions')}
+            emptyLabel={tCommon('state.noOptions')}
+          />
         </label>
       </div>
 

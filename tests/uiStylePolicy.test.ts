@@ -122,17 +122,26 @@ describe('UI style policy', () => {
     expect(shell).toContain('.sidebar::-webkit-scrollbar-thumb');
   });
 
-  it('styles native selects and custom combobox options consistently', () => {
-    const base = readRendererStyle('styles/base.css');
+  it('styles editable combobox options and empty states consistently', () => {
     const views = readRendererStyle('styles/views.css');
 
-    expect(base).toContain('select:not([multiple])');
-    expect(base).toContain('select:not(:disabled):hover');
-    expect(base).toContain('select:disabled');
-    expect(base).toContain('select option:checked');
     expect(views).toContain('.budget-model-combobox-list:not([hidden])');
     expect(views).toContain('.budget-model-combobox-option:hover');
     expect(views).toContain('.pricing-model-combobox-option:not(.disabled):hover');
+    expect(views).toContain('.model-combobox-status');
+  });
+
+  it('styles the reusable select menu, its content states, and reduced motion', () => {
+    const components = readRendererStyle('styles/components.css');
+
+    expect(components).toContain('.select-menu-trigger');
+    expect(components).toContain('.select-menu-listbox');
+    expect(components).toContain('.select-menu-option.selected');
+    expect(components).toContain('.select-menu-status--loading');
+    expect(components).toContain('@keyframes select-menu-enter');
+    expect(components).toContain('.select-menu-loading-icon');
+    expect(components).toContain('.select-menu-trigger:not(:disabled):active');
+    expect(components).toContain('@media (prefers-reduced-motion: reduce)');
   });
 
   it('defines reusable motion tokens for entering and exiting surfaces', () => {

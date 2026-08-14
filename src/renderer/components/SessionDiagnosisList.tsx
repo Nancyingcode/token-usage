@@ -22,6 +22,7 @@ import {
   type SessionDiagnosisFilters,
 } from '../utils/sessionDiagnosisFilters';
 import { getSessionDiagnosisBaselineDeviationKey } from '../utils/sessionDiagnosisBaseline';
+import SelectMenu, { type SelectMenuOption } from './SelectMenu';
 
 interface SessionDiagnosisListProps {
   summaries: SessionDiagnosisSummary[];
@@ -76,7 +77,45 @@ const SessionDiagnosisList: React.FC<SessionDiagnosisListProps> = ({
   onOpen,
 }) => {
   const { t, i18n } = useTranslation('costOptimization');
+  const { t: tCommon } = useTranslation('common');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
+  const scopeOptions = useMemo<SelectMenuOption<SessionDiagnosisFilters['scope']>[]>(
+    () => [
+      { value: 'attention', label: t('diagnostics.scope.attention') },
+      { value: 'all', label: t('diagnostics.scope.all') },
+    ],
+    [t]
+  );
+  const causeOptions = useMemo<SelectMenuOption<SessionDiagnosisFilters['cause']>[]>(
+    () => [
+      { value: 'all', label: t('diagnostics.cause.all') },
+      ...CAUSES.map((cause) => ({
+        value: cause,
+        label: t(CAUSE_KEYS[cause]),
+      })),
+    ],
+    [t]
+  );
+  const severityOptions = useMemo<SelectMenuOption<SessionDiagnosisFilters['severity']>[]>(
+    () => [
+      { value: 'all', label: t('diagnostics.severity.all') },
+      ...SEVERITIES.map((severity) => ({
+        value: severity,
+        label: t(`diagnostics.severity.${severity}`),
+      })),
+    ],
+    [t]
+  );
+  const confidenceOptions = useMemo<SelectMenuOption<SessionDiagnosisFilters['confidence']>[]>(
+    () => [
+      { value: 'all', label: t('diagnostics.confidence.all') },
+      ...CONFIDENCE_LEVELS.map((confidence) => ({
+        value: confidence,
+        label: t(`diagnostics.confidence.${confidence}`),
+      })),
+    ],
+    [t]
+  );
   const filteredSummaries = useMemo(
     () => filterSessionDiagnosisSummaries({ summaries, ...filters }),
     [filters, summaries]
@@ -99,75 +138,67 @@ const SessionDiagnosisList: React.FC<SessionDiagnosisListProps> = ({
         <div className="session-diagnosis-filters">
           <label>
             <span>{t('diagnostics.scope.label')}</span>
-            <select
+            <SelectMenu
               value={filters.scope}
-              onChange={(event) =>
+              options={scopeOptions}
+              onChange={(scope) =>
                 onFiltersChange({
                   ...filters,
-                  scope: event.target.value as SessionDiagnosisFilters['scope'],
+                  scope,
                 })
               }
-            >
-              <option value="attention">{t('diagnostics.scope.attention')}</option>
-              <option value="all">{t('diagnostics.scope.all')}</option>
-            </select>
+              ariaLabel={t('diagnostics.scope.label')}
+              loadingLabel={tCommon('state.loadingOptions')}
+              emptyLabel={tCommon('state.noOptions')}
+            />
           </label>
           <label>
             <span>{t('diagnostics.cause.label')}</span>
-            <select
+            <SelectMenu
               value={filters.cause}
-              onChange={(event) =>
+              options={causeOptions}
+              onChange={(cause) =>
                 onFiltersChange({
                   ...filters,
-                  cause: event.target.value as SessionDiagnosisFilters['cause'],
+                  cause,
                 })
               }
-            >
-              <option value="all">{t('diagnostics.cause.all')}</option>
-              {CAUSES.map((cause) => (
-                <option key={cause} value={cause}>
-                  {t(CAUSE_KEYS[cause])}
-                </option>
-              ))}
-            </select>
+              ariaLabel={t('diagnostics.cause.label')}
+              loadingLabel={tCommon('state.loadingOptions')}
+              emptyLabel={tCommon('state.noOptions')}
+            />
           </label>
           <label>
             <span>{t('diagnostics.severity.label')}</span>
-            <select
+            <SelectMenu
               value={filters.severity}
-              onChange={(event) =>
+              options={severityOptions}
+              onChange={(severity) =>
                 onFiltersChange({
                   ...filters,
-                  severity: event.target.value as SessionDiagnosisFilters['severity'],
+                  severity,
                 })
               }
-            >
-              <option value="all">{t('diagnostics.severity.all')}</option>
-              {SEVERITIES.map((severity) => (
-                <option key={severity} value={severity}>
-                  {t(`diagnostics.severity.${severity}`)}
-                </option>
-              ))}
-            </select>
+              ariaLabel={t('diagnostics.severity.label')}
+              loadingLabel={tCommon('state.loadingOptions')}
+              emptyLabel={tCommon('state.noOptions')}
+            />
           </label>
           <label>
             <span>{t('diagnostics.confidence.label')}</span>
-            <select
+            <SelectMenu
               value={filters.confidence}
-              onChange={(event) =>
+              options={confidenceOptions}
+              onChange={(confidence) =>
                 onFiltersChange({
                   ...filters,
-                  confidence: event.target.value as SessionDiagnosisFilters['confidence'],
+                  confidence,
                 })
               }
-            >
-              <option value="all">{t('diagnostics.confidence.all')}</option>
-              {CONFIDENCE_LEVELS.map((confidence) => (
-                <option key={confidence} value={confidence}>
-                  {t(`diagnostics.confidence.${confidence}`)}
-                </option>
-              ))}
-            </select>
+              ariaLabel={t('diagnostics.confidence.label')}
+              loadingLabel={tCommon('state.loadingOptions')}
+              emptyLabel={tCommon('state.noOptions')}
+            />
           </label>
         </div>
       </header>
