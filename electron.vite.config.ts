@@ -2,8 +2,15 @@ import { resolve } from 'node:path';
 import { defineConfig } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 
+const sourceRoot = resolve(__dirname, 'src');
+
 export default defineConfig({
   main: {
+    resolve: {
+      alias: {
+        '@': sourceRoot,
+      },
+    },
     build: {
       rollupOptions: {
         input: {
@@ -13,6 +20,11 @@ export default defineConfig({
     },
   },
   preload: {
+    resolve: {
+      alias: {
+        '@': sourceRoot,
+      },
+    },
     build: {
       rollupOptions: {
         input: {
@@ -24,6 +36,11 @@ export default defineConfig({
   renderer: {
     plugins: [react()],
     root: '.',
+    resolve: {
+      alias: {
+        '@': sourceRoot,
+      },
+    },
     build: {
       rollupOptions: {
         input: {

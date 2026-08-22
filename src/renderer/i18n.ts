@@ -5,8 +5,8 @@
 
 import i18next, { type i18n } from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import { DEFAULT_LOCALE, isSupportedLocale, type SupportedLocale } from '../shared/i18n/locale';
-import { createI18nOptions } from '../shared/i18n/resources';
+import { DEFAULT_LOCALE, isSupportedLocale, type SupportedLocale } from '@/shared/i18n/locale';
+import { createI18nOptions } from '@/shared/i18n/resources';
 
 export type RendererI18nInstanceFactory = () => i18n;
 
