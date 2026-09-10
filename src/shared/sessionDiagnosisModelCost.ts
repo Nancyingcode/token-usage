@@ -135,7 +135,8 @@ const buildModelGroups = (
       slices: [],
     };
     existing.usage = addUsage(existing.usage, contribution);
-    existing.slices = [...existing.slices, toUsageSlice(contribution)];
+    // 分组切片仅属于本次检测，原地追加避免长会话反复复制已累积的切片。
+    existing.slices.push(toUsageSlice(contribution));
     groups.set(modelId, existing);
   });
 

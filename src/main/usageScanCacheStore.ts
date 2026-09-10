@@ -119,9 +119,7 @@ const isUsageSession = (value: unknown, sourceFile: string): value is UsageSessi
   Array.isArray(value.warnings) &&
   value.warnings.every(isWarning);
 
-const decodeCache = (content: string): UsageScanCache => {
-  const raw: unknown = JSON.parse(content);
-
+const validateCache = (raw: unknown): UsageScanCache => {
   if (
     !isRecord(raw) ||
     raw.schemaVersion !== USAGE_SCAN_CACHE_SCHEMA_VERSION ||
@@ -173,22 +171,19 @@ export const createUsageScanCacheStore = (cachePath: string): UsageScanCacheStor
     }
 
     try {
-      return decodeCache(content);
+      return validateCache(JSON.parse(content));
     } catch {
       return undefined;
     }
   },
   save: async (cache) => {
-    const validatedCache = decodeCache(JSON.stringify(cache));
+    // 首次等待 I/O 前固定已校验的快照；避免通过 JSON 往返复制整库占用主进程与内存。
+    const content = `${JSON.stringify(validateCache(cache), null, JSON_INDENT_SPACES)}\n`;
     const tempPath = `${cachePath}${TEMP_FILE_SUFFIX}`;
     await mkdir(dirname(cachePath), { recursive: true });
 
     try {
-      await writeFile(
-        tempPath,
-        `${JSON.stringify(validatedCache, null, JSON_INDENT_SPACES)}\n`,
-        'utf8'
-      );
+      await writeFile(tempPath, content, 'utf8');
       await rename(tempPath, cachePath);
     } finally {
       await rm(tempPath, { force: true });

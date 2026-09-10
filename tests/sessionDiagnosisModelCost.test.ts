@@ -25,6 +25,41 @@ const DIAGNOSIS_PRICING: ModelPricingEntry[] = [
 ];
 
 describe('model cost diagnosis', () => {
+  it('keeps array traversal linear when a single-model session doubles in length', () => {
+    const countArrayTraversal = (sliceCount: number): number => {
+      const current = makeDiagnosisObservationWithSlices(
+        Array.from({ length: sliceCount }, () =>
+          makeSlice('2026-07-24T10:00:00.000Z', { modelId: 'gpt-source' })
+        )
+      );
+      const context = makeDetectorContext(current, [], undefined, DIAGNOSIS_PRICING);
+      const original = structuredClone(context);
+      const originalIterator = Array.prototype[Symbol.iterator];
+      let traversedElements = 0;
+
+      // 按迭代输入规模检测重复复制，避免依赖机器负载影响的耗时阈值。
+      Object.defineProperty(Array.prototype, Symbol.iterator, {
+        value(this: unknown[]) {
+          traversedElements += this.length;
+          return originalIterator.call(this);
+        },
+      });
+      try {
+        detectModelCostDominance(context);
+      } finally {
+        Object.defineProperty(Array.prototype, Symbol.iterator, { value: originalIterator });
+      }
+
+      expect(context).toEqual(original);
+      return traversedElements;
+    };
+
+    const shorterTraversal = countArrayTraversal(128);
+    const longerTraversal = countArrayTraversal(256);
+
+    expect(longerTraversal).toBeLessThanOrEqual(shorterTraversal * 2.5);
+  });
+
   it('reports a dominant high-unit-cost model with complete pricing', () => {
     const current = makeDiagnosisObservationWithSlices([
       makeSlice('2026-07-24T10:00:00.000Z', {

@@ -8,7 +8,10 @@
  * - 总 Token 为零时不进行比例计算
  */
 import type { SessionDetectorResult, SessionDiagnosisBaseline } from './costOptimizationTypes';
-import { resolveDiagnosisBaseline, type NumericDiagnosisMetric } from './sessionDiagnosisBaselines';
+import {
+  createDiagnosisBaselineResolver,
+  type NumericDiagnosisMetric,
+} from './sessionDiagnosisBaselines';
 import type {
   SessionDiagnosisDetectorContext,
   SessionDiagnosisObservation,
@@ -56,11 +59,29 @@ const selectStrongerBaseline = (
   second: SessionDiagnosisBaseline
 ): SessionDiagnosisBaseline => (second.score > first.score ? second : first);
 
-export const detectGenerationConcentration = ({
-  current,
-  history,
-  settings,
-}: SessionDiagnosisDetectorContext): SessionDetectorResult => {
+const prepareGenerationHistory = (history: SessionDiagnosisObservation[]) => {
+  const historicalPercentages = history.flatMap((observation) => {
+    const percentages = getGenerationPercentages(observation);
+    return percentages ? [{ observation, percentages }] : [];
+  });
+  return {
+    resolveOutputBaseline: createDiagnosisBaselineResolver(
+      historicalPercentages.map(({ observation, percentages }) =>
+        toMetric(observation, percentages.outputPercentage)
+      )
+    ),
+    resolveReasoningBaseline: createDiagnosisBaselineResolver(
+      historicalPercentages.map(({ observation, percentages }) =>
+        toMetric(observation, percentages.reasoningPercentage)
+      )
+    ),
+  };
+};
+
+export const detectGenerationConcentration = (
+  { current, history, settings }: SessionDiagnosisDetectorContext,
+  preparedHistory?: ReturnType<typeof prepareGenerationHistory>
+): SessionDetectorResult => {
   const currentPercentages = getGenerationPercentages(current);
 
   if (!currentPercentages) {
@@ -71,10 +92,7 @@ export const detectGenerationConcentration = ({
     };
   }
 
-  const historicalPercentages = history.flatMap((observation) => {
-    const percentages = getGenerationPercentages(observation);
-    return percentages ? [{ observation, percentages }] : [];
-  });
+  const historyBaselines = preparedHistory ?? prepareGenerationHistory(history);
   const baselineInput = {
     scopeOrder: ['project-model', 'model', 'global'] as const,
     minimumSamples: settings.anomalyMinimumSamples,
@@ -82,18 +100,12 @@ export const detectGenerationConcentration = ({
     direction: 'positive' as const,
     zeroMadAbsoluteScale: MIN_PERCENTAGE_SCALE,
   };
-  const outputBaseline = resolveDiagnosisBaseline({
+  const outputBaseline = historyBaselines.resolveOutputBaseline({
     current: toMetric(current, currentPercentages.outputPercentage),
-    history: historicalPercentages.map(({ observation, percentages }) =>
-      toMetric(observation, percentages.outputPercentage)
-    ),
     ...baselineInput,
   });
-  const reasoningBaseline = resolveDiagnosisBaseline({
+  const reasoningBaseline = historyBaselines.resolveReasoningBaseline({
     current: toMetric(current, currentPercentages.reasoningPercentage),
-    history: historicalPercentages.map(({ observation, percentages }) =>
-      toMetric(observation, percentages.reasoningPercentage)
-    ),
     ...baselineInput,
   });
 
@@ -139,4 +151,11 @@ export const detectGenerationConcentration = ({
     },
     range: { start: current.startedAt, end: current.endedAt },
   };
+};
+
+export const createGenerationConcentrationDetector = (
+  history: SessionDiagnosisObservation[]
+): ((context: SessionDiagnosisDetectorContext) => SessionDetectorResult) => {
+  const preparedHistory = prepareGenerationHistory(history);
+  return (context) => detectGenerationConcentration(context, preparedHistory);
 };

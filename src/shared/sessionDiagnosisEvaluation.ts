@@ -23,14 +23,14 @@ import type {
   SessionDiagnosisTimelinePoint,
 } from './costOptimizationTypes';
 import type { ModelPricingEntry } from './budgetTypes';
-import { detectCacheDegradation } from './sessionDiagnosisCache';
+import { createCacheDegradationDetector } from './sessionDiagnosisCache';
 import {
   buildSessionDiagnosisObservations,
   selectDiagnosisCandidates,
 } from './sessionDiagnosisCandidates';
-import { detectGenerationConcentration } from './sessionDiagnosisGeneration';
-import { detectInputGrowth } from './sessionDiagnosisInput';
-import { detectInteractionAccumulation } from './sessionDiagnosisAccumulation';
+import { createGenerationConcentrationDetector } from './sessionDiagnosisGeneration';
+import { createInputGrowthDetector } from './sessionDiagnosisInput';
+import { createInteractionAccumulationDetector } from './sessionDiagnosisAccumulation';
 import { detectModelCostDominance } from './sessionDiagnosisModelCost';
 import type {
   SessionDiagnosisCandidate,
@@ -62,14 +62,6 @@ const PERIOD_DAY_COUNTS: Record<RollingUsagePeriod, number> = {
   week: 7,
   month: 30,
 };
-
-const DETECTORS = [
-  detectInputGrowth,
-  detectCacheDegradation,
-  detectGenerationConcentration,
-  detectModelCostDominance,
-  detectInteractionAccumulation,
-] as const;
 
 export interface EvaluateSessionDiagnosticsInput {
   index: CostOptimizationIndex;
@@ -206,7 +198,10 @@ const toSummary = (
   };
 };
 
-const evaluateSessions = (input: EvaluateSessionDiagnosticsInput): EvaluatedSessionDiagnosis[] => {
+const evaluateSessions = (
+  input: EvaluateSessionDiagnosticsInput,
+  diagnosisId?: string
+): EvaluatedSessionDiagnosis[] => {
   const observations = buildSessionDiagnosisObservations({
     index: input.index,
     pricing: input.pricing,
@@ -219,20 +214,36 @@ const evaluateSessions = (input: EvaluateSessionDiagnosticsInput): EvaluatedSess
     anomalies: input.anomalies,
     minimumPricingCoveragePercentage: input.settings.minimumPricingCoveragePercentage,
   });
+  const selectedCandidates =
+    diagnosisId === undefined
+      ? candidates
+      : candidates.filter((candidate) => candidate.diagnosisId === diagnosisId);
 
-  return candidates.map((candidate) => {
+  if (selectedCandidates.length === 0) {
+    return [];
+  }
+  // 所有候选共享本次评估的历史指标与基线索引，避免每个会话重新排序整个历史。
+  const detectors = [
+    createInputGrowthDetector(observations),
+    createCacheDegradationDetector(observations),
+    createGenerationConcentrationDetector(observations),
+    detectModelCostDominance,
+    createInteractionAccumulationDetector(observations),
+  ];
+
+  return selectedCandidates.map((candidate) => {
     const context = {
       current: candidate,
       history: observations,
       settings: input.settings,
       pricing: input.pricing,
     };
-    const detectors = DETECTORS.map((detector) => detector(context));
+    const results = detectors.map((detector) => detector(context));
 
     return {
       candidate,
-      detectors,
-      summary: toSummary(candidate, detectors, input.anomalies),
+      detectors: results,
+      summary: toSummary(candidate, results, input.anomalies),
     };
   });
 };
@@ -276,9 +287,7 @@ const buildTimeline = (
 export const evaluateSessionDiagnosisDetail = (
   input: EvaluateSessionDiagnosisDetailInput
 ): SessionDiagnosisDetailResult => {
-  const evaluated = evaluateSessions(input).find(
-    ({ candidate }) => candidate.diagnosisId === input.diagnosisId
-  );
+  const evaluated = evaluateSessions(input, input.diagnosisId)[0];
 
   if (!evaluated) {
     return {

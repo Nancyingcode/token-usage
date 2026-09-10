@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { rebuildCostOptimizationIndex } from '../src/shared/costOptimizationIndex';
 import type {
   SessionDiagnosisCause,
@@ -12,10 +12,60 @@ import {
   selectPrimaryFinding,
   type EvaluateSessionDiagnosticsInput,
 } from '../src/shared/sessionDiagnosisEvaluation';
+import * as modelCostDiagnosis from '../src/shared/sessionDiagnosisModelCost';
 import { FIXED_NOW, PRICING, SETTINGS } from './helpers/costOptimizationFixtures';
 import { makeDiagnosisSourceChange, makeSlice } from './helpers/sessionDiagnosisFixtures';
 
 describe('session diagnosis evaluation', () => {
+  it('runs detectors only for the requested session detail', () => {
+    const input = makeSessionDiagnosisEvaluationInput();
+    const detectModelCost = vi.spyOn(modelCostDiagnosis, 'detectModelCostDominance');
+    try {
+      expect(
+        evaluateSessionDiagnosisDetail({
+          ...input,
+          diagnosisId: 'expensive.jsonl\u001fexpensive',
+        })
+      ).toMatchObject({ kind: 'ready' });
+      expect(detectModelCost).toHaveBeenCalledTimes(1);
+    } finally {
+      detectModelCost.mockRestore();
+    }
+  });
+
+  it('keeps timestamp work linear when the session history doubles', () => {
+    const countTimestampReads = (sessionCount: number): number => {
+      const sources = Array.from({ length: sessionCount }, (_, index) => {
+        const start = Date.UTC(2026, 6, 1, index);
+        return makeDiagnosisSourceChange(
+          `synthetic-${index}.jsonl`,
+          `synthetic-${index}`,
+          new Date(start).toISOString(),
+          Array.from({ length: 3 }, (__, sliceIndex) =>
+            makeSlice(new Date(start + sliceIndex * 1_000).toISOString())
+          )
+        );
+      });
+      const input = {
+        ...makeSessionDiagnosisEvaluationInput(),
+        index: rebuildCostOptimizationIndex('synthetic-only', sources, FIXED_NOW),
+      };
+      const parse = vi.spyOn(Date, 'parse');
+      try {
+        expect(evaluateSessionDiagnostics(input)).toHaveLength(sessionCount);
+        return parse.mock.calls.length;
+      } finally {
+        parse.mockRestore();
+      }
+    };
+
+    const smallerCount = countTimestampReads(20);
+    const largerCount = countTimestampReads(40);
+
+    // 操作数比计时更稳定；增加同样大小的历史不得再次遍历每个候选的完整历史。
+    expect(largerCount).toBeLessThanOrEqual(smallerCount * 2.5);
+  });
+
   it('selects a deterministic primary finding and keeps all detector states', () => {
     const input = makeSessionDiagnosisEvaluationInput();
     const summaries = evaluateSessionDiagnostics(input);

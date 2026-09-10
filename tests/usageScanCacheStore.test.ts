@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createUsageScanCacheStore,
   USAGE_SCAN_CACHE_SCHEMA_VERSION,
@@ -45,6 +45,37 @@ describe('usage scan cache store', () => {
       `"schemaVersion": ${USAGE_SCAN_CACHE_SCHEMA_VERSION}`
     );
     await expect(readdir(testDirectory)).resolves.toEqual([CACHE_FILE_NAME]);
+  });
+
+  it('serializes a cache once without parsing a temporary full copy', async () => {
+    const store = createUsageScanCacheStore(cachePath);
+    const cache = makeCache();
+    const stringify = vi.spyOn(JSON, 'stringify');
+    const parse = vi.spyOn(JSON, 'parse');
+    try {
+      await store.save(cache);
+      const cacheSerializations = stringify.mock.calls.filter(
+        ([value]) => typeof value === 'object' && value !== null && 'entries' in value
+      );
+      expect(cacheSerializations).toHaveLength(1);
+      expect(parse.mock.calls.filter(([value]) => value.includes('"entries"'))).toHaveLength(0);
+    } finally {
+      stringify.mockRestore();
+      parse.mockRestore();
+    }
+    await expect(store.load()).resolves.toEqual(cache);
+  });
+
+  it('captures a validated snapshot before asynchronous file operations', async () => {
+    const store = createUsageScanCacheStore(cachePath);
+    const cache = makeCache();
+    const original = structuredClone(cache);
+    const saving = store.save(cache);
+    cache.entries['C:\\sessions\\cached.jsonl'].session.totalTokens = -1;
+    await saving;
+    await expect(store.load()).resolves.toEqual(original);
+    await expect(store.save(cache)).rejects.toThrow('invalid session');
+    await expect(store.load()).resolves.toEqual(original);
   });
 
   it('rejects an unsupported schema or invalid session data', async () => {

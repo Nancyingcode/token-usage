@@ -37,81 +37,126 @@ export interface ResolveDiagnosisBaselineInput {
 const getModelKey = (modelId: string | undefined): string | undefined =>
   modelId?.trim() ? normalizeModelId(modelId) : undefined;
 
-const matchesScope = (
+const getScopeKey = (
   scope: SessionDiagnosisBaselineScope,
-  current: NumericDiagnosisMetric,
-  candidate: NumericDiagnosisMetric
-): boolean => {
-  const currentModelId = getModelKey(current.dominantModelId);
-  const candidateModelId = getModelKey(candidate.dominantModelId);
-
+  metric: NumericDiagnosisMetric
+): string => {
   switch (scope) {
     case 'session':
-      return candidate.diagnosisId === current.diagnosisId;
+      return metric.diagnosisId;
     case 'project-model':
-      return candidate.projectPath === current.projectPath && candidateModelId === currentModelId;
+      return JSON.stringify([metric.projectPath, getModelKey(metric.dominantModelId)]);
     case 'model':
-      return candidateModelId === currentModelId;
+      return JSON.stringify(getModelKey(metric.dominantModelId) ?? null);
     case 'project':
-      return candidate.projectPath === current.projectPath;
+      return metric.projectPath;
     case 'global':
-      return true;
+      return '';
   }
 };
 
-export const resolveDiagnosisBaseline = ({
-  current,
-  history,
-  scopeOrder,
-  minimumSamples,
-  historyWindow,
-  direction,
-  zeroMadAbsoluteScale,
-}: ResolveDiagnosisBaselineInput): SessionDiagnosisBaseline | undefined => {
-  const currentTime = Date.parse(current.occurredAt);
+interface TimedDiagnosisMetric {
+  metric: NumericDiagnosisMetric;
+  time: number;
+}
 
-  if (!Number.isFinite(currentTime)) {
-    return undefined;
-  }
+export type DiagnosisBaselineResolver = (
+  input: Omit<ResolveDiagnosisBaselineInput, 'history'>
+) => SessionDiagnosisBaseline | undefined;
 
-  const priorHistory = history
+export const createDiagnosisBaselineResolver = (
+  history: NumericDiagnosisMetric[]
+): DiagnosisBaselineResolver => {
+  const orderedHistory = history
     .map((metric) => ({
       metric,
       time: Date.parse(metric.occurredAt),
     }))
-    .filter(
-      ({ metric, time }) =>
-        Number.isFinite(time) && time < currentTime && Number.isFinite(metric.value)
+    .filter(({ metric, time }) => Number.isFinite(time) && Number.isFinite(metric.value))
+    .sort(
+      (first, second) =>
+        first.time - second.time ||
+        first.metric.diagnosisId.localeCompare(second.metric.diagnosisId)
     );
+  // 索引只属于本次诊断评估；同一历史按范围复用，评估结束即释放，不跨数据刷新缓存。
+  const historiesByScope = new Map<
+    SessionDiagnosisBaselineScope,
+    Map<string, TimedDiagnosisMetric[]>
+  >();
 
-  for (const scope of scopeOrder) {
-    const samples = priorHistory
-      .filter(({ metric }) => matchesScope(scope, current, metric))
-      .sort(
-        (first, second) =>
-          first.time - second.time ||
-          first.metric.diagnosisId.localeCompare(second.metric.diagnosisId)
-      )
-      .slice(-Math.max(historyWindow, 0))
-      .map(({ metric }) => metric.value);
+  const getScopedHistory = (
+    scope: SessionDiagnosisBaselineScope,
+    current: NumericDiagnosisMetric
+  ): TimedDiagnosisMetric[] => {
+    let groups = historiesByScope.get(scope);
+    if (!groups) {
+      groups = new Map<string, TimedDiagnosisMetric[]>();
+      for (const entry of orderedHistory) {
+        const key = getScopeKey(scope, entry.metric);
+        const group = groups.get(key) ?? [];
+        group.push(entry);
+        groups.set(key, group);
+      }
+      historiesByScope.set(scope, groups);
+    }
+    return groups.get(getScopeKey(scope, current)) ?? [];
+  };
 
-    if (samples.length < minimumSamples) {
-      continue;
+  return ({
+    current,
+    scopeOrder,
+    minimumSamples,
+    historyWindow,
+    direction,
+    zeroMadAbsoluteScale,
+  }) => {
+    const currentTime = Date.parse(current.occurredAt);
+    if (!Number.isFinite(currentTime)) {
+      return undefined;
     }
 
-    const robustScore = getRobustScore(current.value, samples, {
-      zeroMadRelativeScale: ZERO_MAD_RELATIVE_SCALE,
-      zeroMadAbsoluteScale,
-    });
+    for (const scope of scopeOrder) {
+      const scopedHistory = getScopedHistory(scope, current);
+      let start = 0;
+      let end = scopedHistory.length;
+      // 取严格早于当前会话的前缀，排除同时刻及未来数据，防止历史基线泄漏。
+      while (start < end) {
+        const middle = Math.floor((start + end) / 2);
+        if (scopedHistory[middle].time < currentTime) {
+          start = middle + 1;
+        } else {
+          end = middle;
+        }
+      }
+      const windowSize = Math.trunc(Math.max(historyWindow, 0));
+      const samples = scopedHistory
+        .slice(windowSize > 0 ? Math.max(0, end - windowSize) : 0, end)
+        .map(({ metric }) => metric.value);
 
-    return {
-      scope,
-      sampleCount: samples.length,
-      median: robustScore.median,
-      mad: robustScore.mad,
-      score: direction === 'negative' ? -robustScore.score : robustScore.score,
-    };
-  }
+      if (samples.length < minimumSamples) {
+        continue;
+      }
 
-  return undefined;
+      const robustScore = getRobustScore(current.value, samples, {
+        zeroMadRelativeScale: ZERO_MAD_RELATIVE_SCALE,
+        zeroMadAbsoluteScale,
+      });
+
+      return {
+        scope,
+        sampleCount: samples.length,
+        median: robustScore.median,
+        mad: robustScore.mad,
+        score: direction === 'negative' ? -robustScore.score : robustScore.score,
+      };
+    }
+
+    return undefined;
+  };
 };
+
+export const resolveDiagnosisBaseline = ({
+  history,
+  ...input
+}: ResolveDiagnosisBaselineInput): SessionDiagnosisBaseline | undefined =>
+  createDiagnosisBaselineResolver(history)(input);

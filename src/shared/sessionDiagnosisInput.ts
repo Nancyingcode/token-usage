@@ -8,7 +8,10 @@
  * - 历史不足时必须同时满足相对和绝对保守阈值
  */
 import type { SessionDetectorResult, SessionDiagnosisFinding } from './costOptimizationTypes';
-import { resolveDiagnosisBaseline, type NumericDiagnosisMetric } from './sessionDiagnosisBaselines';
+import {
+  createDiagnosisBaselineResolver,
+  type NumericDiagnosisMetric,
+} from './sessionDiagnosisBaselines';
 import type {
   SessionDiagnosisDetectorContext,
   SessionDiagnosisObservation,
@@ -110,11 +113,26 @@ const buildFinding = (
   range: metric.range,
 });
 
-export const detectInputGrowth = ({
-  current,
-  history,
-  settings,
-}: SessionDiagnosisDetectorContext): SessionDetectorResult => {
+const prepareInputGrowthHistory = (history: SessionDiagnosisObservation[]) => {
+  const historicalMetrics = getHistoricalMetrics(history);
+  return {
+    resolveRatioBaseline: createDiagnosisBaselineResolver(
+      historicalMetrics.map(({ observation, metric }) =>
+        toNumericMetric(observation, metric.growthRatio)
+      )
+    ),
+    resolveAbsoluteBaseline: createDiagnosisBaselineResolver(
+      historicalMetrics.map(({ observation, metric }) =>
+        toNumericMetric(observation, metric.absoluteGrowthTokens)
+      )
+    ),
+  };
+};
+
+export const detectInputGrowth = (
+  { current, history, settings }: SessionDiagnosisDetectorContext,
+  preparedHistory?: ReturnType<typeof prepareInputGrowthHistory>
+): SessionDetectorResult => {
   const currentMetric = getInputGrowthMetric(current);
 
   if (!currentMetric) {
@@ -125,26 +143,20 @@ export const detectInputGrowth = ({
     };
   }
 
-  const historicalMetrics = getHistoricalMetrics(history);
+  const historyBaselines = preparedHistory ?? prepareInputGrowthHistory(history);
   const sharedBaselineInput = {
     scopeOrder: ['project-model', 'model', 'global'] as const,
     minimumSamples: settings.anomalyMinimumSamples,
     historyWindow: settings.anomalyHistoryWindow,
     direction: 'positive' as const,
   };
-  const ratioBaseline = resolveDiagnosisBaseline({
+  const ratioBaseline = historyBaselines.resolveRatioBaseline({
     current: toNumericMetric(current, currentMetric.growthRatio),
-    history: historicalMetrics.map(({ observation, metric }) =>
-      toNumericMetric(observation, metric.growthRatio)
-    ),
     ...sharedBaselineInput,
     zeroMadAbsoluteScale: MIN_RATIO_DENOMINATOR_TOKENS,
   });
-  const absoluteBaseline = resolveDiagnosisBaseline({
+  const absoluteBaseline = historyBaselines.resolveAbsoluteBaseline({
     current: toNumericMetric(current, currentMetric.absoluteGrowthTokens),
-    history: historicalMetrics.map(({ observation, metric }) =>
-      toNumericMetric(observation, metric.absoluteGrowthTokens)
-    ),
     ...sharedBaselineInput,
     zeroMadAbsoluteScale: MIN_ABSOLUTE_GROWTH_SCALE_TOKENS,
   });
@@ -192,4 +204,11 @@ export const detectInputGrowth = ({
       normalizeDiagnosisScore(currentMetric.absoluteGrowthTokens, INPUT_GROWTH_CRITICAL_MIN_TOKENS)
     ),
   });
+};
+
+export const createInputGrowthDetector = (
+  history: SessionDiagnosisObservation[]
+): ((context: SessionDiagnosisDetectorContext) => SessionDetectorResult) => {
+  const preparedHistory = prepareInputGrowthHistory(history);
+  return (context) => detectInputGrowth(context, preparedHistory);
 };

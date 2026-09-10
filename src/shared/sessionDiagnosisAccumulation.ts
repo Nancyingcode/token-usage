@@ -8,7 +8,10 @@
  * - 无效会话时间只移除持续时间证据，不影响事件数证据
  */
 import type { SessionDetectorResult, SessionDiagnosisBaseline } from './costOptimizationTypes';
-import { resolveDiagnosisBaseline, type NumericDiagnosisMetric } from './sessionDiagnosisBaselines';
+import {
+  createDiagnosisBaselineResolver,
+  type NumericDiagnosisMetric,
+} from './sessionDiagnosisBaselines';
 import type {
   SessionDiagnosisDetectorContext,
   SessionDiagnosisObservation,
@@ -74,11 +77,26 @@ const chooseBaseline = (
   return durationBaseline.score > eventBaseline.score ? durationBaseline : eventBaseline;
 };
 
-export const detectInteractionAccumulation = ({
-  current,
-  history,
-  settings,
-}: SessionDiagnosisDetectorContext): SessionDetectorResult => {
+const prepareAccumulationHistory = (history: SessionDiagnosisObservation[]) => {
+  const eventHistory = history.flatMap((observation) => {
+    const metric = toMetric(observation, observation.eventCount);
+    return metric ? [metric] : [];
+  });
+  const durationHistory = history.flatMap((observation) => {
+    const duration = getDurationMs(observation);
+    const metric = duration === undefined ? undefined : toMetric(observation, duration);
+    return metric ? [metric] : [];
+  });
+  return {
+    resolveEventBaseline: createDiagnosisBaselineResolver(eventHistory),
+    resolveDurationBaseline: createDiagnosisBaselineResolver(durationHistory),
+  };
+};
+
+export const detectInteractionAccumulation = (
+  { current, history, settings }: SessionDiagnosisDetectorContext,
+  preparedHistory?: ReturnType<typeof prepareAccumulationHistory>
+): SessionDetectorResult => {
   if (current.totalTokens <= 0) {
     return {
       state: 'not-applicable',
@@ -108,15 +126,7 @@ export const detectInteractionAccumulation = ({
   const currentDuration = getDurationMs(current);
   const currentDurationMetric =
     currentDuration === undefined ? undefined : toMetric(current, currentDuration);
-  const eventHistory = history.flatMap((observation) => {
-    const metric = toMetric(observation, observation.eventCount);
-    return metric ? [metric] : [];
-  });
-  const durationHistory = history.flatMap((observation) => {
-    const duration = getDurationMs(observation);
-    const metric = duration === undefined ? undefined : toMetric(observation, duration);
-    return metric ? [metric] : [];
-  });
+  const historyBaselines = preparedHistory ?? prepareAccumulationHistory(history);
   const baselineInput = {
     scopeOrder: ['project', 'global'] as const,
     minimumSamples: settings.anomalyMinimumSamples,
@@ -124,17 +134,15 @@ export const detectInteractionAccumulation = ({
     direction: 'positive' as const,
   };
   const eventBaseline = currentEventMetric
-    ? resolveDiagnosisBaseline({
+    ? historyBaselines.resolveEventBaseline({
         current: currentEventMetric,
-        history: eventHistory,
         ...baselineInput,
         zeroMadAbsoluteScale: MIN_EVENT_SCALE,
       })
     : undefined;
   const durationBaseline = currentDurationMetric
-    ? resolveDiagnosisBaseline({
+    ? historyBaselines.resolveDurationBaseline({
         current: currentDurationMetric,
-        history: durationHistory,
         ...baselineInput,
         zeroMadAbsoluteScale: MIN_DURATION_SCALE_MS,
       })
@@ -190,4 +198,11 @@ export const detectInteractionAccumulation = ({
           },
         }),
   };
+};
+
+export const createInteractionAccumulationDetector = (
+  history: SessionDiagnosisObservation[]
+): ((context: SessionDiagnosisDetectorContext) => SessionDetectorResult) => {
+  const preparedHistory = prepareAccumulationHistory(history);
+  return (context) => detectInteractionAccumulation(context, preparedHistory);
 };

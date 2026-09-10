@@ -1,8 +1,76 @@
 import { describe, expect, it } from 'vitest';
-import { resolveDiagnosisBaseline } from '../src/shared/sessionDiagnosisBaselines';
+import {
+  createDiagnosisBaselineResolver,
+  resolveDiagnosisBaseline,
+} from '../src/shared/sessionDiagnosisBaselines';
 import { makeNumericMetric } from './helpers/sessionDiagnosisFixtures';
 
 describe('session diagnosis baselines', () => {
+  it('uses deterministic recent ties while excluding same-time, future and invalid samples', () => {
+    const history = [
+      makeNumericMetric('b', '2026-07-19T12:00:00.000Z', 20),
+      makeNumericMetric('same-time', '2026-07-20T12:00:00.000Z', 1_000),
+      makeNumericMetric('older', '2026-07-18T12:00:00.000Z', 2),
+      makeNumericMetric('a', '2026-07-19T12:00:00.000Z', 10),
+      makeNumericMetric('future', '2026-07-21T12:00:00.000Z', 2_000),
+      makeNumericMetric('invalid-value', '2026-07-19T13:00:00.000Z', Number.NaN),
+      makeNumericMetric('invalid-time', 'invalid', 3_000),
+    ];
+    const original = structuredClone(history);
+    const resolveBaseline = createDiagnosisBaselineResolver(history);
+    const input = {
+      current: makeNumericMetric('current', '2026-07-20T12:00:00.000Z', 30),
+      scopeOrder: ['project-model', 'global'] as const,
+      minimumSamples: 1,
+      historyWindow: 1,
+      direction: 'positive' as const,
+      zeroMadAbsoluteScale: 1,
+    };
+
+    expect(resolveBaseline(input)).toMatchObject({
+      scope: 'project-model',
+      sampleCount: 1,
+      median: 20,
+    });
+    expect(resolveBaseline({ ...input, historyWindow: 2 })).toMatchObject({
+      sampleCount: 2,
+      median: 15,
+    });
+    expect(history).toEqual(original);
+  });
+
+  it('keeps blank models in the unknown model group and preserves an unlimited zero window', () => {
+    const unknown = makeNumericMetric('unknown', '2026-07-18T12:00:00.000Z', 10);
+    delete unknown.dominantModelId;
+    const history = [
+      unknown,
+      makeNumericMetric('blank', '2026-07-19T12:00:00.000Z', 20, {
+        dominantModelId: '  ',
+      }),
+      makeNumericMetric('priced', '2026-07-19T12:00:00.000Z', 100),
+    ];
+    const current = makeNumericMetric('current', '2026-07-20T12:00:00.000Z', 30, {
+      dominantModelId: '',
+    });
+    const input = {
+      current,
+      history,
+      scopeOrder: ['project-model', 'global'] as const,
+      minimumSamples: 2,
+      historyWindow: 0,
+      direction: 'positive' as const,
+      zeroMadAbsoluteScale: 1,
+    };
+
+    expect(resolveDiagnosisBaseline(input)).toMatchObject({
+      scope: 'project-model',
+      sampleCount: 2,
+      median: 15,
+    });
+    history[0].value = 30;
+    expect(resolveDiagnosisBaseline(input)).toMatchObject({ median: 25 });
+  });
+
   it('uses only prior project-model values and ignores future observations', () => {
     const current = makeNumericMetric('current', '2026-07-20T12:00:00.000Z', 30, {
       projectPath: 'C:\\repo',

@@ -12,7 +12,10 @@ import type {
   SessionDetectorResult,
   SessionDiagnosisConfidence,
 } from './costOptimizationTypes';
-import { resolveDiagnosisBaseline, type NumericDiagnosisMetric } from './sessionDiagnosisBaselines';
+import {
+  createDiagnosisBaselineResolver,
+  type NumericDiagnosisMetric,
+} from './sessionDiagnosisBaselines';
 import type {
   SessionDiagnosisDetectorContext,
   SessionDiagnosisObservation,
@@ -119,11 +122,18 @@ const toCacheMetric = (
 const capCacheConfidence = (confidence: SessionDiagnosisConfidence): SessionDiagnosisConfidence =>
   confidence === 'low' ? 'low' : 'medium';
 
-export const detectCacheDegradation = ({
-  current,
-  history,
-  settings,
-}: SessionDiagnosisDetectorContext): SessionDetectorResult => {
+const prepareCacheHistory = (history: SessionDiagnosisObservation[]) =>
+  createDiagnosisBaselineResolver(
+    history.flatMap((observation) => {
+      const metric = toCacheMetric(observation);
+      return metric ? [metric] : [];
+    })
+  );
+
+export const detectCacheDegradation = (
+  { current, history, settings }: SessionDiagnosisDetectorContext,
+  preparedBaseline?: ReturnType<typeof prepareCacheHistory>
+): SessionDetectorResult => {
   if (current.inputTokens <= 0) {
     return {
       state: 'not-applicable',
@@ -137,14 +147,10 @@ export const detectCacheDegradation = ({
   const targetGap = settings.targetCachePercentage - currentPercentage;
   const withinSessionDecline = halves.firstHalfPercentage - halves.secondHalfPercentage;
   const currentMetric = toCacheMetric(current);
-  const historyMetrics = history.flatMap((observation) => {
-    const metric = toCacheMetric(observation);
-    return metric ? [metric] : [];
-  });
+  const resolveBaseline = preparedBaseline ?? prepareCacheHistory(history);
   const baseline = currentMetric
-    ? resolveDiagnosisBaseline({
+    ? resolveBaseline({
         current: currentMetric,
-        history: historyMetrics,
         scopeOrder: ['project-model', 'model', 'project', 'global'],
         minimumSamples: settings.anomalyMinimumSamples,
         historyWindow: settings.anomalyHistoryWindow,
@@ -199,4 +205,11 @@ export const detectCacheDegradation = ({
     },
     ...(halves.range ? { range: halves.range } : {}),
   };
+};
+
+export const createCacheDegradationDetector = (
+  history: SessionDiagnosisObservation[]
+): ((context: SessionDiagnosisDetectorContext) => SessionDetectorResult) => {
+  const resolveBaseline = prepareCacheHistory(history);
+  return (context) => detectCacheDegradation(context, resolveBaseline);
 };
