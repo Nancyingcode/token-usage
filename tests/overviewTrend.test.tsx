@@ -7,7 +7,8 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import * as pricingCalculations from '../src/shared/pricing';
 import Overview, {
   buildOverviewMotionKey,
   buildTrendPoints,
@@ -18,6 +19,61 @@ import type { UsageDay, UsageSession } from '../src/shared/usageTypes';
 import { createTestI18n, renderWithI18n } from './helpers/renderWithI18n';
 
 describe('buildTrendPoints', () => {
+  it('reuses daily costs until sessions or pricing inputs change', () => {
+    const calculate = vi.spyOn(pricingCalculations, 'buildDailyCostEstimates');
+    const i18n = createTestI18n('en');
+    let props: React.ComponentProps<typeof Overview> = {
+      summary: buildUsageSummary([PRICED_SESSION]),
+      pricing: PRICING,
+      period: 'month',
+      scannedAt: '2026-07-20T12:00:00.000Z',
+    };
+    const view = () => (
+      <I18nextProvider i18n={i18n}>
+        <Overview {...props} />
+      </I18nextProvider>
+    );
+    try {
+      const { rerender } = render(view());
+      expect(calculate).toHaveBeenCalledTimes(1);
+
+      props = { ...props, summary: { ...props.summary }, scannedAt: '2026-07-21T12:00:00.000Z' };
+      rerender(view());
+      expect(calculate).toHaveBeenCalledTimes(1);
+
+      props = { ...props, summary: buildUsageSummary([PRICED_SESSION, UNKNOWN_SESSION]) };
+      rerender(view());
+      expect(calculate).toHaveBeenCalledTimes(2);
+
+      props = { ...props, pricing: [{ ...PRICING[0], inputUsdPerMillion: 4 }] };
+      rerender(view());
+      expect(calculate).toHaveBeenCalledTimes(3);
+
+      props = {
+        ...props,
+        unknownModelPricing: {
+          inputUsdPerMillion: 2,
+          cachedInputUsdPerMillion: 0.5,
+          outputUsdPerMillion: 10,
+          updatedAt: '2026-07-21T12:00:00.000Z',
+        },
+      };
+      rerender(view());
+      expect(calculate).toHaveBeenCalledTimes(4);
+      expect(calculate).toHaveBeenLastCalledWith(
+        props.summary.sessions,
+        props.pricing,
+        props.unknownModelPricing
+      );
+
+      props = { ...props, unknownModelPricing: undefined };
+      rerender(view());
+      expect(calculate).toHaveBeenCalledTimes(5);
+    } finally {
+      calculate.mockRestore();
+    }
+  });
+
   it.each([0, 1, 7, 9, 24])('aligns date labels with their points for %i days', (count) => {
     const days = Array.from({ length: count }, (_, index) =>
       makeDay(`2026-07-${String(index + 1).padStart(2, '0')}`, 100)

@@ -4,7 +4,7 @@
  * 展示令牌与成本摘要、每日趋势和活动分布，并计算图表所需的展示模型。
  */
 import { PricingQualityNotice } from './PricingQualityNotice';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Coins, FileCode2, LockKeyhole, MessageSquareText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type {
@@ -417,10 +417,14 @@ const Overview: React.FC<OverviewProps> = ({
   const pricingIncomplete = totalCost.unpricedTokens > 0;
   const assumedPricing = totalCost.assumedTokens > 0;
   const showAssumedPricing = !pricingIncomplete && assumedPricing;
-  const dailyCosts = new Map<string, CostEstimate>(
-    buildDailyCostEstimates(summary.sessions, pricing, unknownModelPricing).map(
-      ({ date, ...estimate }) => [date, estimate]
-    )
+  const dailyCosts = useMemo(
+    () =>
+      new Map<string, CostEstimate>(
+        buildDailyCostEstimates(summary.sessions, pricing, unknownModelPricing).map(
+          ({ date, ...estimate }) => [date, estimate]
+        )
+      ),
+    [summary.sessions, pricing, unknownModelPricing]
   );
   const cachePercentage = getCachePercentage(
     summary.totals.inputTokens,
