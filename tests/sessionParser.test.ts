@@ -1,7 +1,70 @@
 import { describe, expect, it } from 'vitest';
-import parseSessionJsonl from '../src/main/sessionParser';
+import parseSessionJsonl, { parseSessionJsonlAsync } from '../src/main/sessionParser';
 
 describe('sessionParser', () => {
+  it('preserves turn and model state across parsing batches', async () => {
+    const timestamp = '2026-07-11T01:00:00.000Z';
+    const content = [
+      JSON.stringify({ timestamp, type: 'turn_context', payload: { model: 'gpt-test' } }),
+      JSON.stringify({
+        timestamp,
+        type: 'event_msg',
+        payload: { type: 'task_started', turn_id: 'turn-1' },
+      }),
+      ...Array.from({ length: 300 }, () => ''),
+      JSON.stringify({
+        timestamp,
+        type: 'event_msg',
+        payload: { type: 'token_count', info: { last_token_usage: usage(10, 2, 3, 1, 13) } },
+      }),
+      JSON.stringify({
+        timestamp,
+        type: 'event_msg',
+        payload: { type: 'task_complete', turn_id: 'turn-1' },
+      }),
+    ].join('\n');
+    const session = await parseSessionJsonlAsync('turns.jsonl', content);
+    expect(session).toEqual(parseSessionJsonl('turns.jsonl', content));
+    expect(session.usageSlices[0].modelId).toBe('gpt-test');
+    expect(session.turnOutcomes).toEqual([
+      { turnId: 'turn-1', occurredAt: timestamp, status: 'completed' },
+    ]);
+  });
+  it('lets the main event loop run before a large session finishes parsing', async () => {
+    const record = JSON.stringify({
+      timestamp: '2026-07-11T01:00:00.000Z',
+      type: 'event_msg',
+      payload: { type: 'token_count', info: { last_token_usage: usage(10, 2, 3, 1, 13) } },
+    });
+    const content = [
+      JSON.stringify({
+        type: 'session_meta',
+        payload: { id: 'large', model: 'gpt-test', cwd: 'C:\\repo' },
+      }),
+      ...Array.from({ length: 2048 }, () => record),
+      '',
+      '{bad json',
+    ].join('\r\n');
+    const order: string[] = [];
+    const heartbeat = new Promise<void>((resolve) =>
+      setImmediate(() => {
+        order.push('heartbeat');
+        resolve();
+      })
+    );
+    const session = await parseSessionJsonlAsync('large.jsonl', content, 'Large thread');
+    order.push('parsed');
+    await heartbeat;
+    expect(order).toEqual(['heartbeat', 'parsed']);
+    expect(session).toEqual(parseSessionJsonl('large.jsonl', content, 'Large thread'));
+    expect(session.eventCount).toBe(2048);
+    expect(session.totalTokens).toBe(2048 * 13);
+    expect(session.warnings).toContainEqual({
+      sourceFile: 'large.jsonl',
+      line: 2051,
+      code: 'malformed-jsonl',
+    });
+  });
   it('sums last_token_usage events', () => {
     const content = [
       JSON.stringify({

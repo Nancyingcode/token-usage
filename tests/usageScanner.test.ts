@@ -207,6 +207,49 @@ describe('usageScanner', () => {
     await vi.waitFor(() => expect(onCacheError).toHaveBeenCalledWith(cacheError));
   });
 
+  it('skips unchanged cache writes but persists updates and removals', async () => {
+    const sessionFile = join(testDirectory, 'unchanged.jsonl');
+    await writeFile(sessionFile, validSession('unchanged', '2026-07-16T00:00:00.000Z'));
+    const save = vi.fn<UsageScanCacheStore['save']>(async () => undefined);
+    const scanner = createUsageScanner({ cacheStore: { load: async () => undefined, save } });
+    const options = { sessionsDir: testDirectory };
+    await scanner.scan(options);
+    await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    await scanner.scan(options);
+    expect(save).toHaveBeenCalledTimes(1);
+    await appendFile(sessionFile, '\n{}');
+    await scanner.scan(options);
+    await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+    await unlink(sessionFile);
+    await scanner.scan(options);
+    await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(3));
+    expect(save.mock.calls.at(-1)?.[0]).toMatchObject({ entries: {} });
+  });
+
+  it('retries failed cache writes on an unchanged scan', async () => {
+    await writeFile(
+      join(testDirectory, 'retry.jsonl'),
+      validSession('retry', '2026-07-16T00:00:00.000Z')
+    );
+    const error = new Error('temporary cache failure');
+    const save = vi
+      .fn<UsageScanCacheStore['save']>()
+      .mockRejectedValueOnce(error)
+      .mockResolvedValue(undefined);
+    const onCacheError = vi.fn();
+    const scanner = createUsageScanner({
+      cacheStore: { load: async () => undefined, save },
+      onCacheError,
+    });
+    const options = { sessionsDir: testDirectory };
+    await scanner.scan(options);
+    await vi.waitFor(() => expect(onCacheError).toHaveBeenCalledWith(error));
+    await scanner.scan(options);
+    await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+    await scanner.scan(options);
+    expect(save).toHaveBeenCalledTimes(2);
+  });
+
   it('publishes only changed and removed sources in scan cycles', async () => {
     const sessionFile = join(testDirectory, 'delta.jsonl');
     const missingIndexPath = join(testDirectory, 'missing-index.jsonl');

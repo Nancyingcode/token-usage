@@ -3,6 +3,7 @@
  * @description
  * 将 JSONL 会话记录转换为可聚合的用量会话，并收集无法解析或不完整记录的警告。
  */
+import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
 import getSessionId from '../shared/sessionId';
 import { isRecord } from '../shared/runtimeTypes';
 import type { UsagePricingContext } from '../shared/conditionalPricingTypes';
@@ -144,13 +145,16 @@ const getTurnEventTimestamp = (record: ParsedLine, field: unknown): string => {
   return record.timestamp || new Date(0).toISOString();
 };
 
-export const parseSessionJsonl = (
+// 限制单批行数和字符串长度（UTF-16 单元），避免大量短行或长行持续占用主进程。
+const MAX_PARSE_BATCH_LINES = 128;
+const MAX_PARSE_BATCH_CHARACTERS = 262_144;
+
+const parseSessionBatches = function* (
   sourceFile: string,
   content: string,
   threadName?: string
-): UsageSession => {
+): Generator<void, UsageSession, void> {
   const warnings: UsageWarning[] = [];
-  const lines = content.split(/\r?\n/);
 
   let sessionId = getSessionId(sourceFile);
   let projectPath = '';
@@ -196,7 +200,7 @@ export const parseSessionJsonl = (
     };
   };
 
-  lines.forEach((line, index) => {
+  const processLine = (line: string, index: number): void => {
     const trimmed = line.trim();
 
     if (!trimmed) {
@@ -359,7 +363,29 @@ export const parseSessionJsonl = (
         };
       }
     }
-  });
+  };
+
+  let offset = 0;
+  let lineIndex = 0;
+  let batchLines = 0;
+  let batchCharacters = 0;
+  while (offset <= content.length) {
+    const newline = content.indexOf('\n', offset);
+    const end = newline === -1 ? content.length : newline;
+    processLine(content.slice(offset, end), lineIndex);
+    lineIndex += 1;
+    batchLines += 1;
+    batchCharacters += end - offset;
+    if (batchLines >= MAX_PARSE_BATCH_LINES || batchCharacters >= MAX_PARSE_BATCH_CHARACTERS) {
+      yield;
+      batchLines = 0;
+      batchCharacters = 0;
+    }
+    if (newline === -1) {
+      break;
+    }
+    offset = newline + 1;
+  }
 
   const usage = hasIncrementalUsage ? summedUsage : largestTotalUsage;
   const fallbackTimestamp = new Date(0).toISOString();
@@ -388,10 +414,38 @@ export const parseSessionJsonl = (
   };
 };
 
+export const parseSessionJsonl = (
+  sourceFile: string,
+  content: string,
+  threadName?: string
+): UsageSession => {
+  const parser = parseSessionBatches(sourceFile, content, threadName);
+  let result = parser.next();
+  while (!result.done) {
+    result = parser.next();
+  }
+  return result.value;
+};
+
 const getUsageTimestamp = (recordTimestamp: string | undefined, endedAt: string): string =>
   recordTimestamp || endedAt || new Date(0).toISOString();
 
 export default parseSessionJsonl;
+
+export const parseSessionJsonlAsync = async (
+  sourceFile: string,
+  content: string,
+  threadName?: string
+): Promise<UsageSession> => {
+  const parser = parseSessionBatches(sourceFile, content, threadName);
+  let result = parser.next();
+  while (!result.done) {
+    // 必须让出到下一轮事件循环；仅 await 已完成的 Promise 无法处理窗口事件和 I/O。
+    await yieldToEventLoop();
+    result = parser.next();
+  }
+  return result.value;
+};
 
 const earliestTimestamp = (current: string, candidate: string): string => {
   if (!current) {

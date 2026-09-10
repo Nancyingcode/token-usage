@@ -11,7 +11,7 @@ import getSessionId from '../shared/sessionId';
 import { buildUsageSummary } from '../shared/usageMath';
 import type { UsageScanResult, UsageSession, UsageWarning } from '../shared/usageTypes';
 import { getDefaultCodexSessionsDir, getSessionIndexPathForSessionsDir } from './codexPaths';
-import parseSessionJsonl from './sessionParser';
+import { parseSessionJsonlAsync } from './sessionParser';
 import {
   USAGE_SCAN_CACHE_SCHEMA_VERSION,
   type UsageScanCache,
@@ -85,6 +85,8 @@ export const createUsageScanner = (
   // 扫描器拥有水合与写入队列；首次扫描等待一次水合，缓存写入按扫描顺序后台串行保存。
   let cacheHydration: Promise<void> | undefined;
   let cacheWriteQueue: Promise<void> = Promise.resolve();
+  // 扫描器实例拥有脏标记；有变更时写入，写入失败后保留重试需求，避免空刷新序列化全库。
+  let cacheDirty = true;
 
   const hydrateCache = (sessionsDir: string): Promise<void> => {
     if (!cacheStore) {
@@ -122,14 +124,16 @@ export const createUsageScanner = (
   });
 
   const persistCache = (sessionsDir: string): void => {
-    if (!cacheStore) {
+    if (!cacheStore || !cacheDirty) {
       return;
     }
 
     const snapshot = getPersistedCache(sessionsDir);
+    cacheDirty = false;
     cacheWriteQueue = cacheWriteQueue
       .then(() => cacheStore.save(snapshot))
       .catch((error: unknown) => {
+        cacheDirty = true;
         try {
           onCacheError(error);
         } catch {
@@ -153,7 +157,10 @@ export const createUsageScanner = (
       [...previousCachedPaths].filter((path) => !discoveredPaths.has(path))
     );
 
-    removedSourceFiles.forEach((path) => cache.delete(path));
+    removedSourceFiles.forEach((path) => {
+      cache.delete(path);
+      cacheDirty = true;
+    });
 
     const fileResults = await mapWithConcurrency(
       discovery.files,
@@ -167,9 +174,12 @@ export const createUsageScanner = (
           const parsedSession =
             cacheHit && cached
               ? cached.session
-              : parseSessionJsonl(file, await readFile(file, 'utf8'));
+              : await parseSessionJsonlAsync(file, await readFile(file, 'utf8'));
 
           cache.set(file, { fingerprint, session: parsedSession });
+          if (!cacheHit) {
+            cacheDirty = true;
+          }
 
           const session = {
             ...parsedSession,
@@ -183,6 +193,7 @@ export const createUsageScanner = (
 
           if (wasCached && sourceWasRemoved) {
             cache.delete(file);
+            cacheDirty = true;
             removedSourceFiles.add(file);
           }
 
@@ -222,6 +233,7 @@ export const createUsageScanner = (
     const scannedAt = new Date().toISOString();
 
     const requiresFullRebuild = lastSessionsDir !== undefined && lastSessionsDir !== sessionsDir;
+    cacheDirty ||= requiresFullRebuild;
     lastSessionsDir = sessionsDir;
     persistCache(sessionsDir);
 
