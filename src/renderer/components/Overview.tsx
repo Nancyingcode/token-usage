@@ -12,8 +12,7 @@ import type {
   ModelPricingEntry,
   UnknownModelPricing,
 } from '../../shared/budgetTypes';
-import type { SupportedLocale } from '../../shared/i18n/locale';
-import { buildDailyCostEstimates, getSummaryCostEstimate } from '../../shared/pricing';
+import { buildOverviewCostEstimates } from '../../shared/pricing';
 import { getCachePercentage } from '../../shared/usageMetrics';
 import type { UsageDay, UsagePeriod, UsageSummary } from '../../shared/usageTypes';
 import { resolveRendererLocale } from '../i18n';
@@ -147,24 +146,9 @@ const parseActivityDate = (value: string): Date | null => {
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
-const formatActivityDate = (value: string, locale: SupportedLocale): string => {
+const formatActivityDate = (value: string, formatter: Intl.DateTimeFormat): string => {
   const date = parseActivityDate(value);
-  return date
-    ? new Intl.DateTimeFormat(locale, {
-        dateStyle: 'long',
-        timeZone: 'UTC',
-      }).format(date)
-    : value;
-};
-
-const formatActivityMonth = (value: string, locale: SupportedLocale): string => {
-  const date = parseActivityDate(value);
-  return date
-    ? new Intl.DateTimeFormat(locale, {
-        month: 'short',
-        timeZone: 'UTC',
-      }).format(date)
-    : value;
+  return date ? formatter.format(date) : value;
 };
 
 const getActivityTooltipPlacement = (cell: ActivityCell): TooltipPlacement => {
@@ -321,9 +305,32 @@ const ActivityGrid: React.FC<ActivityGridProps> = ({ days, period, anchorDate })
   const { t, i18n } = useTranslation('analytics');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const [activeDate, setActiveDate] = useState<string | null>(null);
-  const cells = buildActivityCells(days, period, anchorDate);
-  const monthLabels = new Map(
-    buildActivityMonthLabels(cells).map(({ date, weekIndex }) => [weekIndex, date])
+  // 日历使用 UTC 保留日期键的自然日语义；格式化器随组件卸载释放，语言变化时重建。
+  const dateFormatters = useMemo(
+    () => ({
+      day: new Intl.DateTimeFormat(locale, { dateStyle: 'long', timeZone: 'UTC' }),
+      month: new Intl.DateTimeFormat(locale, { month: 'short', timeZone: 'UTC' }),
+    }),
+    [locale]
+  );
+  const cells = useMemo(
+    () =>
+      buildActivityCells(days, period, anchorDate).map((cell) => ({
+        ...cell,
+        formattedDate: cell.inPeriod ? formatActivityDate(cell.date, dateFormatters.day) : '',
+        formattedTokens: cell.inPeriod ? formatNumber(cell.tokens, locale) : '',
+      })),
+    [days, period, anchorDate, locale, dateFormatters]
+  );
+  const monthLabels = useMemo(
+    () =>
+      new Map(
+        buildActivityMonthLabels(cells).map(({ date, weekIndex }) => [
+          weekIndex,
+          formatActivityDate(date, dateFormatters.month),
+        ])
+      ),
+    [cells, dateFormatters]
   );
 
   return (
@@ -332,9 +339,7 @@ const ActivityGrid: React.FC<ActivityGridProps> = ({ days, period, anchorDate })
         <div className="activity-months" aria-hidden="true">
           {Array.from({ length: ACTIVITY_WEEK_COUNT }, (_, weekIndex) => {
             const monthDate = monthLabels.get(weekIndex);
-            return (
-              <span key={weekIndex}>{monthDate ? formatActivityMonth(monthDate, locale) : ''}</span>
-            );
+            return <span key={weekIndex}>{monthDate ?? ''}</span>;
           })}
         </div>
         <div className="activity-wrap">
@@ -353,8 +358,7 @@ const ActivityGrid: React.FC<ActivityGridProps> = ({ days, period, anchorDate })
             {cells.map((cell) => {
               const active = activeDate === cell.date;
               const placement = getActivityTooltipPlacement(cell);
-              const formattedDate = formatActivityDate(cell.date, locale);
-              const formattedTokens = formatNumber(cell.tokens, locale);
+              const { formattedDate, formattedTokens } = cell;
 
               return (
                 <span key={cell.date} className="activity-cell-slot">
@@ -413,19 +417,13 @@ const Overview: React.FC<OverviewProps> = ({
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const days = summary.byDay.slice(-TREND_HISTORY_DAYS);
   const maxDay = Math.max(1, ...days.map((day) => day.totalTokens));
-  const totalCost = getSummaryCostEstimate(summary, pricing, unknownModelPricing);
+  const { totalCost, dailyCosts } = useMemo(
+    () => buildOverviewCostEstimates(summary.sessions, pricing, unknownModelPricing),
+    [summary.sessions, pricing, unknownModelPricing]
+  );
   const pricingIncomplete = totalCost.unpricedTokens > 0;
   const assumedPricing = totalCost.assumedTokens > 0;
   const showAssumedPricing = !pricingIncomplete && assumedPricing;
-  const dailyCosts = useMemo(
-    () =>
-      new Map<string, CostEstimate>(
-        buildDailyCostEstimates(summary.sessions, pricing, unknownModelPricing).map(
-          ({ date, ...estimate }) => [date, estimate]
-        )
-      ),
-    [summary.sessions, pricing, unknownModelPricing]
-  );
   const cachePercentage = getCachePercentage(
     summary.totals.inputTokens,
     summary.totals.cachedInputTokens

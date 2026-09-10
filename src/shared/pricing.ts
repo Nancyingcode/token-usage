@@ -164,49 +164,60 @@ export const calculateEstimatedCost = (
   unknownModelPricing?: UnknownModelPricing
 ): CostEstimate => {
   const context = createPricingContext(pricingEntries, unknownModelPricing);
+  return calculateEstimatedCostWithContext(slices, context);
+};
 
+const calculateEstimatedCostWithContext = (
+  slices: UsageSlice[],
+  context: PricingContext
+): CostEstimate => {
   return slices.reduce<CostEstimate>(
-    (estimate, slice) => {
-      const pricingResult = priceTokenUsage(slice, slice.modelId, context);
-
-      if (pricingResult.kind === 'unpriced') {
-        return {
-          ...estimate,
-          unpricedTokens: estimate.unpricedTokens + slice.totalTokens,
-          unpricedModelIds: appendUniqueModelId(estimate.unpricedModelIds, slice.modelId),
-        };
-      }
-
-      return {
-        ...estimate,
-        pricedCostUsd: estimate.pricedCostUsd + pricingResult.costUsd,
-        ...(pricingResult.kind === 'exact' && (pricingResult.conditionAssumedTokens ?? 0) > 0
-          ? {
-              conditionAssumedTokens:
-                (estimate.conditionAssumedTokens ?? 0) +
-                (pricingResult.conditionAssumedTokens ?? 0),
-              conditionAssumedCostUsd:
-                (estimate.conditionAssumedCostUsd ?? 0) +
-                (pricingResult.conditionAssumedCostUsd ?? 0),
-              pricingIssues: [
-                ...new Set([...(estimate.pricingIssues ?? []), ...(pricingResult.issues ?? [])]),
-              ],
-            }
-          : {}),
-        assumedCostUsd:
-          estimate.assumedCostUsd + (pricingResult.kind === 'assumed' ? pricingResult.costUsd : 0),
-        assumedTokens:
-          estimate.assumedTokens + (pricingResult.kind === 'assumed' ? slice.totalTokens : 0),
-      };
-    },
-    {
-      pricedCostUsd: 0,
-      assumedCostUsd: 0,
-      assumedTokens: 0,
-      unpricedTokens: 0,
-      unpricedModelIds: [],
-    }
+    (estimate, slice) =>
+      appendCostEstimate(estimate, slice, priceTokenUsage(slice, slice.modelId, context)),
+    createEmptyCostEstimate()
   );
+};
+
+const createEmptyCostEstimate = (): CostEstimate => ({
+  pricedCostUsd: 0,
+  assumedCostUsd: 0,
+  assumedTokens: 0,
+  unpricedTokens: 0,
+  unpricedModelIds: [],
+});
+
+const appendCostEstimate = (
+  estimate: CostEstimate,
+  slice: UsageSlice,
+  pricingResult: UsagePricingResult
+): CostEstimate => {
+  if (pricingResult.kind === 'unpriced') {
+    return {
+      ...estimate,
+      unpricedTokens: estimate.unpricedTokens + slice.totalTokens,
+      unpricedModelIds: appendUniqueModelId(estimate.unpricedModelIds, slice.modelId),
+    };
+  }
+
+  return {
+    ...estimate,
+    pricedCostUsd: estimate.pricedCostUsd + pricingResult.costUsd,
+    ...(pricingResult.kind === 'exact' && (pricingResult.conditionAssumedTokens ?? 0) > 0
+      ? {
+          conditionAssumedTokens:
+            (estimate.conditionAssumedTokens ?? 0) + (pricingResult.conditionAssumedTokens ?? 0),
+          conditionAssumedCostUsd:
+            (estimate.conditionAssumedCostUsd ?? 0) + (pricingResult.conditionAssumedCostUsd ?? 0),
+          pricingIssues: [
+            ...new Set([...(estimate.pricingIssues ?? []), ...(pricingResult.issues ?? [])]),
+          ],
+        }
+      : {}),
+    assumedCostUsd:
+      estimate.assumedCostUsd + (pricingResult.kind === 'assumed' ? pricingResult.costUsd : 0),
+    assumedTokens:
+      estimate.assumedTokens + (pricingResult.kind === 'assumed' ? slice.totalTokens : 0),
+  };
 };
 
 export const getSessionUsageSlices = (session: UsageSession): UsageSlice[] => {
@@ -258,6 +269,8 @@ export const buildDailyCostEstimates = (
   unknownModelPricing?: UnknownModelPricing
 ): DailyCostEstimate[] => {
   const slicesByDate = new Map<string, UsageSlice[]>();
+  // 同一次汇总使用相同价格快照；索引仅在本次调用内复用，下一次调用重新读取价格。
+  const context = createPricingContext(pricingEntries, unknownModelPricing);
 
   sessions.flatMap(getSessionUsageSlices).forEach((slice) => {
     const date = toLocalDateKey(slice.occurredAt);
@@ -275,6 +288,34 @@ export const buildDailyCostEstimates = (
     .sort(([firstDate], [secondDate]) => firstDate.localeCompare(secondDate))
     .map(([date, slices]) => ({
       date,
-      ...calculateEstimatedCost(slices, pricingEntries, unknownModelPricing),
+      ...calculateEstimatedCostWithContext(slices, context),
     }));
+};
+
+export const buildOverviewCostEstimates = (
+  sessions: UsageSession[],
+  pricingEntries: ModelPricingEntry[],
+  unknownModelPricing?: UnknownModelPricing
+): { totalCost: CostEstimate; dailyCosts: Map<string, CostEstimate> } => {
+  const context = createPricingContext(pricingEntries, unknownModelPricing);
+  let totalCost = createEmptyCostEstimate();
+  const dailyCosts = new Map<string, CostEstimate>();
+
+  // 每条用量只执行一次条件计价，分别按原始顺序累加，保持总计和每日金额的浮点求和顺序。
+  for (const session of sessions) {
+    for (const slice of getSessionUsageSlices(session)) {
+      const result = priceTokenUsage(slice, slice.modelId, context);
+      totalCost = appendCostEstimate(totalCost, slice, result);
+      const date = toLocalDateKey(slice.occurredAt);
+      // 无效日期仍计入总费用，但不能归属到任何自然日。
+      if (date) {
+        dailyCosts.set(
+          date,
+          appendCostEstimate(dailyCosts.get(date) ?? createEmptyCostEstimate(), slice, result)
+        );
+      }
+    }
+  }
+
+  return { totalCost, dailyCosts };
 };

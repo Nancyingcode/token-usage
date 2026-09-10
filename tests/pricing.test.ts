@@ -1,16 +1,19 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_MODEL_PRICING } from '../src/main/defaultModelPricing';
 import {
   buildDailyCostEstimates,
+  buildOverviewCostEstimates,
   calculateEstimatedCost,
   mergeModelPricing,
   normalizeModelId,
   calculateUsageCost,
   calculateUsageCostBreakdown,
+  getSessionUsageSlices,
 } from '../src/shared/pricing';
 import type { ModelPricingEntry, ModelPricingOverride } from '../src/shared/budgetTypes';
 import type { UsageSlice } from '../src/shared/usageTypes';
 import { getLatestModelSeriesIds } from '../src/shared/latestModelSeries';
+import { astraPricing, requestUsage } from './helpers/conditionalPricingFixture';
 
 const TEST_PRICING: ModelPricingEntry = {
   modelId: 'gpt-test',
@@ -24,6 +27,92 @@ const TEST_PRICING: ModelPricingEntry = {
 };
 
 describe('pricing', () => {
+  it.each([false, true])(
+    'keeps combined totals and daily estimates equivalent (fallback: %s)',
+    (useFallback) => {
+      const firstDate = new Date(2026, 8, 9, 23, 30).toISOString();
+      const secondDate = new Date(2026, 8, 10, 0, 30).toISOString();
+      const slices: UsageSlice[] = [
+        { ...requestUsage(300000), occurredAt: secondDate },
+        { ...requestUsage(200000), occurredAt: firstDate, pricingContext: undefined },
+        { ...requestUsage(), occurredAt: secondDate, modelId: ' Future-Model ' },
+        { ...requestUsage(), occurredAt: firstDate, modelId: 'future-model' },
+        { ...requestUsage(), occurredAt: secondDate, modelId: undefined },
+        { ...requestUsage(), occurredAt: 'invalid-date' },
+        {
+          ...requestUsage(),
+          occurredAt: secondDate,
+          pricingRequests: {
+            first: requestUsage(200000),
+            second: requestUsage(300000),
+          },
+        },
+      ];
+      const sessions = [
+        makeSession(slices),
+        { ...makeSession([]), endedAt: firstDate, inputTokens: 100, totalTokens: 100 },
+      ];
+      const pricing = [astraPricing];
+      const fallback = useFallback
+        ? {
+            inputUsdPerMillion: 1,
+            cachedInputUsdPerMillion: 0.5,
+            outputUsdPerMillion: 2,
+            updatedAt: '2026-09-10',
+          }
+        : undefined;
+      const original = structuredClone(sessions);
+      slices.forEach(Object.freeze);
+      sessions.forEach(Object.freeze);
+      const { totalCost, dailyCosts } = buildOverviewCostEstimates(sessions, pricing, fallback);
+      expect(totalCost).toEqual(
+        calculateEstimatedCost(sessions.flatMap(getSessionUsageSlices), pricing, fallback)
+      );
+      expect([...dailyCosts].sort(([a], [b]) => a.localeCompare(b))).toEqual(
+        buildDailyCostEstimates(sessions, pricing, fallback).map(({ date, ...estimate }) => [
+          date,
+          estimate,
+        ])
+      );
+      expect(totalCost.unpricedModelIds).toEqual(
+        useFallback ? ['Future-Model'] : ['Future-Model', 'Unknown model']
+      );
+      expect(totalCost.pricingIssues).toContain('mode-unknown');
+      expect(dailyCosts.has('invalid-date')).toBe(false);
+      expect(totalCost.pricedCostUsd).toBeCloseTo(
+        [...dailyCosts.values()].reduce((sum, day) => sum + day.pricedCostUsd, 0) +
+          calculateUsageCost(slices[5], astraPricing),
+        10
+      );
+      expect(sessions).toEqual(original);
+    }
+  );
+
+  it('returns empty independent totals for an empty overview', () => {
+    const first = buildOverviewCostEstimates([], []);
+    const second = buildOverviewCostEstimates([], []);
+    expect(first.totalCost).toEqual(calculateEstimatedCost([], []));
+    expect(first.dailyCosts.size).toBe(0);
+    expect(first.totalCost).not.toBe(second.totalCost);
+    expect(first.dailyCosts).not.toBe(second.dailyCosts);
+  });
+
+  it('builds the model index once for all daily estimates', () => {
+    const aliases = vi.fn(() => TEST_PRICING.aliases);
+    const pricing = {
+      ...TEST_PRICING,
+      get aliases() {
+        return aliases();
+      },
+    };
+    const slices = [19, 20, 21].map((day) =>
+      makeSlice(new Date(2026, 6, day, 12).toISOString(), 'gpt-test', 100, 0, 0, 0, 100)
+    );
+    const estimates = buildDailyCostEstimates([makeSession(slices)], [pricing]);
+    expect(estimates).toHaveLength(3);
+    expect(estimates.map(({ pricedCostUsd }) => pricedCostUsd)).toEqual([0.0002, 0.0002, 0.0002]);
+    expect(aliases).toHaveBeenCalledTimes(1);
+  });
   it('splits regular input, cached input, and output cost without changing the total', () => {
     const usage = makeSlice('2026-07-20T00:00:00.000Z', 'gpt-test', 100, 40, 20, 5, 120);
     const frozenUsage = Object.freeze({ ...usage });

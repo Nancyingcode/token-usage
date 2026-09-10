@@ -9,6 +9,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { describe, expect, it, vi } from 'vitest';
 import * as pricingCalculations from '../src/shared/pricing';
+import * as conditionalPricing from '../src/shared/conditionalPricing';
 import Overview, {
   buildOverviewMotionKey,
   buildTrendPoints,
@@ -19,8 +20,24 @@ import type { UsageDay, UsageSession } from '../src/shared/usageTypes';
 import { createTestI18n, renderWithI18n } from './helpers/renderWithI18n';
 
 describe('buildTrendPoints', () => {
-  it('reuses daily costs until sessions or pricing inputs change', () => {
-    const calculate = vi.spyOn(pricingCalculations, 'buildDailyCostEstimates');
+  it('prices each slice once for both the total and daily trend', () => {
+    const evaluate = vi.spyOn(conditionalPricing, 'evaluateConditionalUsage');
+    try {
+      renderWithI18n(
+        <Overview
+          summary={buildUsageSummary([PRICED_SESSION])}
+          pricing={PRICING}
+          period="month"
+          scannedAt="2026-07-20T12:00:00.000Z"
+        />
+      );
+      expect(evaluate).toHaveBeenCalledTimes(PRICED_SESSION.usageSlices.length);
+    } finally {
+      evaluate.mockRestore();
+    }
+  });
+  it('reuses overview costs until sessions or pricing inputs change', () => {
+    const calculate = vi.spyOn(pricingCalculations, 'buildOverviewCostEstimates');
     const i18n = createTestI18n('en');
     let props: React.ComponentProps<typeof Overview> = {
       summary: buildUsageSummary([PRICED_SESSION]),
@@ -37,7 +54,11 @@ describe('buildTrendPoints', () => {
       const { rerender } = render(view());
       expect(calculate).toHaveBeenCalledTimes(1);
 
-      props = { ...props, summary: { ...props.summary }, scannedAt: '2026-07-21T12:00:00.000Z' };
+      props = { ...props, scannedAt: '2026-07-21T12:00:00.000Z' };
+      rerender(view());
+      expect(calculate).toHaveBeenCalledTimes(1);
+
+      props = { ...props, summary: { ...props.summary } };
       rerender(view());
       expect(calculate).toHaveBeenCalledTimes(1);
 
@@ -71,6 +92,32 @@ describe('buildTrendPoints', () => {
       expect(calculate).toHaveBeenCalledTimes(5);
     } finally {
       calculate.mockRestore();
+    }
+  });
+
+  it('reuses activity date formatters across cells and hover updates', () => {
+    const DateFormatter = Intl.DateTimeFormat;
+    const dates = vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(function (locales, options) {
+      return new DateFormatter(locales, options);
+    });
+    try {
+      render(
+        <I18nextProvider i18n={createTestI18n('en')}>
+          <Overview
+            summary={buildUsageSummary([PRICED_SESSION])}
+            pricing={PRICING}
+            period="month"
+            scannedAt="2026-07-20T12:00:00.000Z"
+          />
+        </I18nextProvider>
+      );
+      expect(dates.mock.calls.length).toBeLessThanOrEqual(2);
+      const initialCalls = dates.mock.calls.length;
+      fireEvent.mouseEnter(screen.getByTestId('activity-day-2026-07-20'));
+      expect(screen.getByRole('tooltip').textContent).toContain('July 20, 2026');
+      expect(dates).toHaveBeenCalledTimes(initialCalls);
+    } finally {
+      dates.mockRestore();
     }
   });
 
