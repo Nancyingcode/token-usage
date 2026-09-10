@@ -953,3 +953,39 @@
     transition: none;
   }
 }
+
+.pricing-sync-card {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+}
+
+.pricing-sync-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
+.pricing-sync-controls label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pricing-sync-metadata {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.pricing-sync-metadata div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pricing-sync-metadata dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}

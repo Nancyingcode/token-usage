@@ -23,6 +23,9 @@ import { createCostOptimizationCacheStore } from './costOptimizationCacheStore';
 import { createCostOptimizationConfigStore } from './costOptimizationConfigStore';
 import { createCostOptimizationRuntime } from './costOptimizationRuntime';
 import { DEFAULT_MODEL_PRICING } from './defaultModelPricing';
+import { createPricingStore } from './pricingStore';
+import { createPricingSyncService } from './pricingSyncService';
+import { registerPricingIpc } from './pricingIpc';
 import type { SupportedLocale } from '../shared/i18n/locale';
 import { createMainI18n } from './i18n';
 import registerUsageIpc from './ipc';
@@ -55,6 +58,10 @@ const LOCALE_PREFERENCES_FILENAME = 'locale-preferences.json';
 const THEME_PREFERENCES_FILENAME = 'theme-preferences.json';
 const USAGE_DATA_PATH_FILENAME = 'usage-data-path.json';
 const USAGE_SCAN_CACHE_FILENAME = 'usage-scan-cache.json';
+const PRICING_CACHE_FILENAME = 'pricing-cache.json';
+
+// 价格同步资源由应用入口拥有，退出时统一释放订阅、IPC、定时器和在途请求。
+let disposePricing: (() => void) | undefined;
 
 let mainWindow: BrowserWindow | null = null;
 let budgetRuntime: BudgetRuntime | undefined;
@@ -183,11 +190,17 @@ const initializeApplication = async (): Promise<void> => {
     defaultPricing: DEFAULT_MODEL_PRICING,
     notify: notificationService.notify,
   });
+  const pricingService = createPricingSyncService({
+    store: createPricingStore(join(userDataPath, PRICING_CACHE_FILENAME)),
+    builtIn: DEFAULT_MODEL_PRICING,
+    applyPrices: currentBudgetRuntime.replacePricing,
+  });
+  await pricingService.initialize();
   const costRuntime = createCostOptimizationRuntime({
     configStore: costConfigStore,
     cacheStore: costCacheStore,
     sessionsDir: initialSessionsDir,
-    defaultPricing: DEFAULT_MODEL_PRICING,
+    defaultPricing: currentBudgetRuntime.getSnapshot().pricing,
   });
   const currentApplicationRuntime = createApplicationRuntime({
     usageRuntime,
@@ -205,6 +218,15 @@ const initializeApplication = async (): Promise<void> => {
   applicationThemeService = themeService;
 
   await currentApplicationRuntime.initialize();
+  const unregisterPricing = registerPricingIpc(pricingService, () => mainWindow);
+  const unsubscribePricingBudget = currentBudgetRuntime.subscribe((snapshot) => {
+    void pricingService.check(snapshot.unpricedModels.length > 0);
+  });
+  disposePricing = () => {
+    unregisterPricing();
+    unsubscribePricingBudget();
+    pricingService.destroy();
+  };
   unregisterIpc = registerUsageIpc({
     applicationRuntime: currentApplicationRuntime,
     usageRuntime,
@@ -225,6 +247,7 @@ const initializeApplication = async (): Promise<void> => {
 
   createWindow(currentApplicationRuntime, themeService, initialLocale);
   currentApplicationRuntime.start();
+  pricingService.start();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -236,6 +259,8 @@ const initializeApplication = async (): Promise<void> => {
 void app.whenReady().then(initializeApplication);
 
 app.on('before-quit', () => {
+  disposePricing?.();
+  disposePricing = undefined;
   applicationRuntime?.stop();
   applicationThemeService?.destroy();
   applicationThemeService = undefined;

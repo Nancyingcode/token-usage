@@ -69,7 +69,12 @@ export const mergeModelPricing = (
 const buildPricingIndex = (pricingEntries: ModelPricingEntry[]): Map<string, ModelPricingEntry> => {
   const index = new Map<string, ModelPricingEntry>();
 
-  pricingEntries.forEach((entry) => {
+  // 用户显式指定的别名必须优先于目录更新新增的同名模型，不能因目录顺序改变估算假设。
+  const orderedEntries = [
+    ...pricingEntries.filter((entry) => entry.sourceKind !== 'override'),
+    ...pricingEntries.filter((entry) => entry.sourceKind === 'override'),
+  ];
+  orderedEntries.forEach((entry) => {
     [entry.modelId, ...entry.aliases].forEach((modelId) => {
       const normalizedModelId = normalizeModelId(modelId);
 

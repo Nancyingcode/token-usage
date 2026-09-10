@@ -20,6 +20,7 @@ import type {
 } from '../shared/usageDataPathTypes';
 import type { WindowState } from '../shared/windowTypes';
 import type { ThemePreference, ThemeSnapshot } from '../shared/theme';
+import type { PricingSyncApi } from '../shared/pricingCatalogTypes';
 
 interface BudgetApi {
   getSnapshot: () => Promise<BudgetSnapshot>;
@@ -63,6 +64,7 @@ interface WindowControlApi {
 }
 
 interface CodexUsageApi {
+  pricing: PricingSyncApi;
   getInitialUsage: () => Promise<UsageScanResult>;
   scan: () => Promise<UsageScanResult>;
   onUsageUpdated: (listener: (result: UsageScanResult) => void) => () => void;

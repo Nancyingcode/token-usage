@@ -108,24 +108,30 @@ const getHighestThresholdAlert = (alerts: BudgetAlert[]): BudgetAlert | undefine
     undefined
   );
 
-export const createBudgetRuntime = (dependencies: BudgetRuntimeDependencies): BudgetRuntime => {
+export const createBudgetRuntime = (
+  dependencies: BudgetRuntimeDependencies
+): BudgetRuntime & {
+  replacePricing: (pricing: ModelPricingEntry[]) => void;
+} => {
   const now = dependencies.now ?? (() => new Date());
   const createId = dependencies.createId ?? randomUUID;
   const listeners = new Set<RuntimeListener>();
   const navigationListeners = new Set<RuntimeNavigationListener>();
   let config = cloneDefaultConfig();
+  // 当前基础目录由预算实例拥有，联网更新整体替换；用户覆盖仍单独保存在预算配置中。
+  let defaultPricing = dependencies.defaultPricing;
   let lastUsageResult: UsageScanResult | undefined;
   let snapshot = evaluateBudgets({
     sessions: [],
     policies: config.policies,
     thresholds: config.thresholds,
-    pricing: mergeModelPricing(dependencies.defaultPricing, config.pricingOverrides),
+    pricing: mergeModelPricing(defaultPricing, config.pricingOverrides),
     now: now(),
     dataState: 'fresh',
   });
 
   const getCurrentPricing = (): ModelPricingEntry[] =>
-    mergeModelPricing(dependencies.defaultPricing, config.pricingOverrides);
+    mergeModelPricing(defaultPricing, config.pricingOverrides);
 
   const publish = (): void => {
     listeners.forEach((listener) => listener(snapshot));
@@ -187,9 +193,11 @@ export const createBudgetRuntime = (dependencies: BudgetRuntimeDependencies): Bu
   };
 
   const reevaluateAndPublish = async (): Promise<BudgetSnapshot> => {
+    const evaluatedPricing = defaultPricing;
     const nextSnapshot = buildSnapshot('fresh');
     await processNotifications(nextSnapshot);
-    snapshot = nextSnapshot;
+    // 通知持久化期间可能收到新目录；恢复执行时不能把旧价格重新发布给所有分析视图。
+    snapshot = evaluatedPricing === defaultPricing ? nextSnapshot : buildSnapshot('fresh');
     publish();
     return snapshot;
   };
@@ -363,6 +371,12 @@ export const createBudgetRuntime = (dependencies: BudgetRuntimeDependencies): Bu
 
   return {
     initialize,
+    replacePricing: (pricing) => {
+      defaultPricing = pricing;
+      // 价格刷新不代表用量扫描恢复，也不能单独触发桌面预算通知。
+      snapshot = buildSnapshot(snapshot.dataState, snapshot.staleReason);
+      publish();
+    },
     applyUsageResult,
     markUsageStale,
     getSnapshot: () => snapshot,

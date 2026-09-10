@@ -3,6 +3,10 @@
  * @description 集中定义主进程、preload 与 Renderer 共用的稳定通道名称。
  */
 export const USAGE_SCAN_CHANNEL = 'usage:scan';
+export const PRICING_GET_CHANNEL = 'pricing:get';
+export const PRICING_REFRESH_CHANNEL = 'pricing:refresh';
+export const PRICING_SET_AUTO_CHANNEL = 'pricing:set-auto';
+export const PRICING_UPDATED_CHANNEL = 'pricing:updated';
 export const USAGE_GET_INITIAL_CHANNEL = 'usage:get-initial';
 export const USAGE_UPDATED_CHANNEL = 'usage:updated';
 export const USAGE_DATA_PATH_GET_CHANNEL = 'usage-data-path:get';

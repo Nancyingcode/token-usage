@@ -573,6 +573,32 @@ export const en = {
       deleteMessage: 'The policy and its notification history will be removed.',
     },
     pricing: {
+      remote: 'Online',
+      sync: {
+        title: 'Online pricing',
+        description:
+          'Local estimates use current standard base rates for all history. Long-context, Fast, Batch and cache-write charges are not included. Prices update independently of the app; no session data is uploaded.',
+        autoUpdate: 'Automatically update prices',
+        refresh: 'Update prices now',
+        version: 'Catalog version',
+        checked: 'Last checked',
+        source: 'Catalog source',
+        never: 'Not checked yet',
+        builtIn: 'Built-in catalog',
+        unavailable: 'Pricing service is unavailable.',
+        states: {
+          loading: 'Loading pricing status…',
+          idle: 'Using built-in prices.',
+          refreshing: 'Checking for prices…',
+          ready: 'Online price catalog is available.',
+          error: 'Price update failed; previous prices are retained.',
+        },
+        errors: {
+          network: 'Network update failed; previous prices are retained.',
+          'invalid-catalog': 'Invalid price catalog; previous prices are retained.',
+          storage: 'Price cache could not be read or saved; available local prices are retained.',
+        },
+      },
       title: 'Model pricing',
       description: 'USD per one million standard text tokens.',
       addPrice: 'Add price',

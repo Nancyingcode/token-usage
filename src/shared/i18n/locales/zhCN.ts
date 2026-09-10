@@ -565,6 +565,32 @@ export const zhCN = {
       deleteMessage: '该策略及其通知历史记录将被删除。',
     },
     pricing: {
+      remote: '联网',
+      sync: {
+        title: '联网价格',
+        description:
+          '所有历史用量按当前标准基础价格进行本地估算，不包含长上下文、Fast、Batch 和缓存写入等差异费用。价格独立于应用更新，不上传会话数据。',
+        autoUpdate: '自动更新价格',
+        refresh: '立即更新价格',
+        version: '目录版本',
+        checked: '最后检查',
+        source: '目录来源',
+        never: '尚未检查',
+        builtIn: '内置目录',
+        unavailable: '价格同步服务不可用。',
+        states: {
+          loading: '正在读取价格状态…',
+          idle: '正在使用内置价格。',
+          refreshing: '正在检查价格更新…',
+          ready: '联网价格目录可用。',
+          error: '价格更新失败，已保留原有价格。',
+        },
+        errors: {
+          network: '网络更新失败，已保留原有价格。',
+          'invalid-catalog': '价格目录无效，已保留原有价格。',
+          storage: '无法读取或保存价格缓存，继续使用可用的本地价格。',
+        },
+      },
       title: '模型价格',
       description: '每一百万标准文本 Token 的美元价格。',
       addPrice: '添加价格',

@@ -31,6 +31,7 @@ import {
 import { formatNumber, formatShortDateTime, formatUsd } from '../utils/formatters';
 import { translateValidationIssue } from '../utils/validationIssues';
 import PricingModelCombobox from './PricingModelCombobox';
+import { PricingSyncPanel } from './PricingSyncPanel';
 
 interface ModelPricingViewProps {
   pricing: ModelPricingEntry[];
@@ -462,6 +463,7 @@ const ModelPricingView: React.FC<ModelPricingViewProps> = ({
         </button>
       </div>
 
+      <PricingSyncPanel />
       <section className="unknown-pricing-card panel">
         <div>
           <h4>{t('pricing.fallbackTitle')}</h4>
@@ -599,7 +601,11 @@ const ModelPricingView: React.FC<ModelPricingViewProps> = ({
               </span>
               <div className="pricing-source-cell">
                 <span className={`pricing-source ${entry.sourceKind}`}>
-                  {isOverride ? t('pricing.custom') : t('pricing.builtIn')}
+                  {isOverride
+                    ? t('pricing.custom')
+                    : entry.sourceKind === 'remote'
+                      ? t('pricing.remote')
+                      : t('pricing.builtIn')}
                 </span>
                 {sourceAction}
               </div>

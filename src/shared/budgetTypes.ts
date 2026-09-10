@@ -5,7 +5,7 @@ export type BudgetPeriod = 'day' | 'week' | 'month';
 export type BudgetMetric = 'token' | 'cost';
 export type BudgetSeverity = 'normal' | 'warning' | 'critical' | 'over';
 export type BudgetDataState = 'fresh' | 'stale';
-export type ModelPricingSourceKind = 'built-in' | 'override';
+export type ModelPricingSourceKind = 'built-in' | 'remote' | 'override';
 export type BudgetModelTarget =
   { kind: 'all' } | { kind: 'unknown' } | { kind: 'model'; modelId: string };
 export type ValidationIssueCode =

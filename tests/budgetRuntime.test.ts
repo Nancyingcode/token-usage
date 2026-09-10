@@ -21,6 +21,35 @@ const TEST_PRICING: ModelPricingEntry = {
 };
 
 describe('budget runtime', () => {
+  it('does not publish an older catalog when an ongoing scan finishes', async () => {
+    const runtime = createBudgetRuntime(makeRuntimeDependencies());
+    await runtime.initialize();
+    const pending = runtime.applyUsageResult(makeScanResult(150));
+    runtime.replacePricing([{ ...TEST_PRICING, inputUsdPerMillion: 20, sourceKind: 'remote' }]);
+    await pending;
+    expect(runtime.getSnapshot().pricing[0].inputUsdPerMillion).toBe(20);
+  });
+  it('replaces catalog prices without changing overrides, scan state or sending notifications', async () => {
+    const notify = vi.fn();
+    const runtime = createBudgetRuntime(makeRuntimeDependencies({ notify }));
+    await runtime.initialize();
+    await runtime.applyUsageResult(makeScanResult(150));
+    await runtime.savePricingOverride({ ...TEST_PRICING, inputUsdPerMillion: 9 });
+    runtime.markUsageStale(new Error('scan failed'));
+    const listener = vi.fn();
+    runtime.subscribe(listener);
+    const previousNotifications = notify.mock.calls.length;
+    runtime.replacePricing([{ ...TEST_PRICING, inputUsdPerMillion: 20, sourceKind: 'remote' }]);
+    expect(runtime.getSnapshot().pricing[0].inputUsdPerMillion).toBe(9);
+    expect(runtime.getSnapshot().dataState).toBe('stale');
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(notify).toHaveBeenCalledTimes(previousNotifications);
+    await runtime.resetPricingOverride(TEST_PRICING.modelId);
+    expect(runtime.getSnapshot().pricing[0]).toMatchObject({
+      inputUsdPerMillion: 20,
+      sourceKind: 'remote',
+    });
+  });
   it('persists a policy, reevaluates, and notifies only once per reached level', async () => {
     const notify = vi.fn();
     const dependencies = makeRuntimeDependencies({ notify });

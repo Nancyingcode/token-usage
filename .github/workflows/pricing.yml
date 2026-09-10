@@ -1,0 +1,37 @@
+name: Update pricing catalog
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 3 * * *'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pricing-catalog
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: github.repository == 'Nancyingcode/token-usage'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Configure SSH remote
+        run: git remote set-url origin git@github.com:Nancyingcode/token-usage.git
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm test -- tests/pricingCatalog.test.ts tests/pricingCollector.test.ts tests/pricingPublisher.test.ts
+      - run: npm run pricing:update
+      - run: npm run pricing:validate
+      - name: Publish validated catalog
+        run: node scripts/publish-pricing.cjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

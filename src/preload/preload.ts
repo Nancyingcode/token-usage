@@ -3,6 +3,13 @@
  * @description 通过 contextBridge 暴露类型化 IPC API，不向 Renderer 提供直接文件系统访问能力。
  */
 import { contextBridge, ipcRenderer } from 'electron';
+import type { PricingSyncSnapshot } from '../shared/pricingCatalogTypes';
+import {
+  PRICING_GET_CHANNEL,
+  PRICING_REFRESH_CHANNEL,
+  PRICING_SET_AUTO_CHANNEL,
+  PRICING_UPDATED_CHANNEL,
+} from '../shared/ipcChannels';
 import {
   BUDGET_DELETE_POLICY_CHANNEL,
   BUDGET_DELETE_UNKNOWN_MODEL_PRICING_CHANNEL,
@@ -141,6 +148,14 @@ const invokeUsageDataPath = async <Result>(channel: string, input?: string): Pro
 };
 
 contextBridge.exposeInMainWorld('codexUsage', {
+  pricing: {
+    get: (): Promise<PricingSyncSnapshot> => ipcRenderer.invoke(PRICING_GET_CHANNEL),
+    refresh: (): Promise<PricingSyncSnapshot> => ipcRenderer.invoke(PRICING_REFRESH_CHANNEL),
+    setAutoUpdate: (enabled: boolean): Promise<PricingSyncSnapshot> =>
+      ipcRenderer.invoke(PRICING_SET_AUTO_CHANNEL, enabled),
+    onUpdated: (listener: (snapshot: PricingSyncSnapshot) => void): (() => void) =>
+      subscribe(PRICING_UPDATED_CHANNEL, listener),
+  },
   getInitialUsage: (): Promise<UsageScanResult> => ipcRenderer.invoke(USAGE_GET_INITIAL_CHANNEL),
   scan: (): Promise<UsageScanResult> => ipcRenderer.invoke(USAGE_SCAN_CHANNEL),
   onUsageUpdated: (listener: (result: UsageScanResult) => void): (() => void) =>
