@@ -18,7 +18,12 @@ import type {
   ModelPricingEntry,
   UnpricedModelSummary,
 } from './budgetTypes';
-import { calculateEstimatedCost, getSessionUsageSlices } from './pricing';
+import {
+  calculateEstimatedCost,
+  createPricingContext,
+  getSessionUsageSlices,
+  priceTokenUsage,
+} from './pricing';
 import type { UsageSession, UsageSlice } from './usageTypes';
 
 const PERCENTAGE_SCALE = 100;
@@ -206,11 +211,13 @@ const buildUnpricedModels = (
   unknownModelPricing: EvaluateBudgetsInput['unknownModelPricing']
 ): UnpricedModelSummary[] => {
   const summariesByModel = new Map<string, UnpricedModelSummary>();
+  // 价格更新在主进程同步评估；索引仅属于本次评估，避免逐切片重建目录阻塞窗口，也不复用旧价格。
+  const context = createPricingContext(pricing, unknownModelPricing);
 
   sessions.flatMap(getSessionUsageSlices).forEach((slice) => {
-    const estimate = calculateEstimatedCost([slice], pricing, unknownModelPricing);
+    const result = priceTokenUsage(slice, slice.modelId, context);
 
-    if (estimate.unpricedTokens === 0) {
+    if (result.kind !== 'unpriced' || slice.totalTokens === 0) {
       return;
     }
 
@@ -219,7 +226,7 @@ const buildUnpricedModels = (
     const current = summariesByModel.get(key);
     summariesByModel.set(key, {
       modelId: slice.modelId?.trim() || undefined,
-      totalTokens: (current?.totalTokens ?? 0) + estimate.unpricedTokens,
+      totalTokens: (current?.totalTokens ?? 0) + slice.totalTokens,
     });
   });
 

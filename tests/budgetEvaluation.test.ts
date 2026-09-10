@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { astraPricing, requestUsage } from './helpers/conditionalPricingFixture';
 import { evaluateBudgets } from '../src/shared/budgetEvaluation';
 import type {
@@ -10,6 +10,37 @@ import { addTokenUsage, emptyTokenUsage, getProjectName } from '../src/shared/us
 import type { TokenUsage, UsageSession, UsageSlice } from '../src/shared/usageTypes';
 
 describe('budget evaluation', () => {
+  it('does not rebuild the catalog for every usage slice when prices change', () => {
+    const entry: ModelPricingEntry = {
+      ...makePricing('gpt-test'),
+      get aliases() {
+        return [];
+      },
+    };
+    const readAliases = vi.spyOn(entry, 'aliases', 'get');
+    const input: EvaluateBudgetsInput = {
+      sessions: [makeSession('fixture', [sliceAt(2026, 6, 20, 100, 'gpt-test')])],
+      policies: [],
+      pricing: [entry],
+      thresholds: { warningPercent: 80, criticalPercent: 100 },
+      dataState: 'fresh',
+    };
+    expect(evaluateBudgets(input).unpricedModels).toEqual([]);
+    const singleSliceReads = readAliases.mock.calls.length;
+    readAliases.mockClear();
+
+    const slices = Array.from({ length: 100 }, () => sliceAt(2026, 6, 20, 100, 'gpt-test'));
+    expect(
+      evaluateBudgets({ ...input, sessions: [makeSession('fixture', slices)] }).unpricedModels
+    ).toEqual([]);
+    expect(readAliases.mock.calls.length).toBe(singleSliceReads);
+    readAliases.mockRestore();
+
+    expect(evaluateBudgets({ ...input, pricing: [] }).unpricedModels).toEqual([
+      { modelId: 'gpt-test', totalTokens: 100 },
+    ]);
+  });
+
   it('keeps long-request reference costs and labels conditional budget alerts separately', () => {
     const usage = requestUsage(300_000);
     usage.pricingContext = { ...usage.pricingContext!, mode: 'unknown', modeSource: 'missing' };
