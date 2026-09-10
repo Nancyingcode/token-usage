@@ -105,6 +105,8 @@ export const zhCN = {
       cost: '费用',
     },
     reached: '{{metric}} 预算已达到 {{thresholdPercent}}%。',
+    reachedWithConditionalAssumption:
+      '{{metric}} 已达到预算的 {{thresholdPercent}}%（参考估算包含计价假设）。',
     reachedWithUnknownAssumption:
       '{{metric}} 预算已达到 {{thresholdPercent}}%，其中包含未知模型兜底计价。',
   },
@@ -565,6 +567,30 @@ export const zhCN = {
       deleteMessage: '该策略及其通知历史记录将被删除。',
     },
     pricing: {
+      qualityTitle: '包含条件计价假设',
+      qualityDescription:
+        '{{tokens}} Token 的费用为参考估算。条件假设与未知模型兜底价格分别统计；货币化节省建议和诊断排除这些请求。',
+      useConditions: '对这些基础单价应用目录条件规则',
+      flatOverride: '手动价格默认按固定单价估算，只有勾选后才应用目录条件规则。',
+      ruleTitle: '计价条件',
+      ruleUnavailable: '条件规则尚未核实，标准价格仅供参考。',
+      ruleVerified: '规则核实日期：{{date}}',
+      cacheWrite: '缓存写入',
+      writeRate: '缓存写入：每百万 Token {{price}}（输入单价的 {{multiplier}} 倍）。',
+      longRule:
+        '单次请求输入超过 {{threshold}} Token：普通输入 ×{{input}}、缓存读取 ×{{cached}}、缓存写入 ×{{write}}、输出 ×{{output}}。',
+      modeRule: '{{mode}}：×{{multiplier}}',
+      modeLabels: { standard: '标准', fast: 'Fast / Priority', flex: 'Flex', batch: 'Batch' },
+      issues: {
+        'rules-unavailable': '条件规则尚未核实。',
+        'request-granularity': '缺少逐请求边界，无法确认长上下文费用。',
+        'mode-unknown': '缺少实际服务模式，按标准模式假设。',
+        'mode-unsupported': '实际服务模式尚无已核实价格。',
+        'cache-write-missing': '缺少缓存写入用量。',
+        'cache-write-unverified': '缓存写入分区语义尚未核实。',
+        'cache-partition-invalid': '缓存 Token 分区不一致。',
+        'manual-flat': '按用户手动固定单价假设。',
+      },
       remote: '联网',
       sync: {
         title: '联网价格',

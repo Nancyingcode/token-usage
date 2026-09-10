@@ -8,6 +8,8 @@ import {
   createEmptyCostOptimizationIndex,
 } from '../src/shared/costOptimizationIndex';
 import * as costOptimizationIndexModule from '../src/shared/costOptimizationIndex';
+import { astraPricing, requestUsage } from './helpers/conditionalPricingFixture';
+import { evaluateModelCosts } from '../src/shared/costOptimizationCost';
 import { FIXED_NOW, makeSourceChange } from './helpers/costOptimizationFixtures';
 
 const TEST_DIRECTORY_PREFIX = 'codex-cost-cache-';
@@ -25,6 +27,32 @@ describe('cost optimization cache store', () => {
 
   afterEach(async () => {
     await rm(testDirectory, { recursive: true, force: true });
+  });
+
+  it('round-trips mixed long and short requests and rejects changed request conditions', async () => {
+    const source = makeSourceChange('usage.jsonl', '1', 300_200);
+    source.session.usageSlices = [requestUsage(300_000), requestUsage(100)];
+    const index = applyUsageChangeSet(
+      createEmptyCostOptimizationIndex('fixtures', FIXED_NOW),
+      {
+        upserted: [source],
+        removedSourceFiles: [],
+        requiresFullRebuild: false,
+      },
+      FIXED_NOW
+    );
+    const store = createCostOptimizationCacheStore(cachePath);
+    await store.save(index);
+    const restored = await store.load();
+    expect(restored.warning).toBeUndefined();
+    expect(restored.index).toEqual(index);
+    expect(
+      evaluateModelCosts(restored.index!, { period: 'total' }, [astraPricing])[0].pricedCostUsd
+    ).toBeCloseTo(6.0135, 8);
+    const requests = Object.values(index.dayModelBuckets)[0].pricingRequests!;
+    Object.values(requests)[0].pricingContext!.mode = 'fast';
+    await writeFile(cachePath, JSON.stringify(index), 'utf8');
+    expect((await store.load()).warning).toBe(REBUILD_WARNING);
   });
 
   it('returns no warning when the cache file does not exist', async () => {

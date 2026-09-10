@@ -3,6 +3,7 @@
  * @description 按主要原因、时间线、其他发现和完整检测器状态展示会话消耗证据。
  */
 
+import { PricingQualityNotice } from './PricingQualityNotice';
 import React from 'react';
 import { ArrowLeft, AlertTriangle, CircleAlert } from 'lucide-react';
 import type { TFunction } from 'i18next';
@@ -318,13 +319,16 @@ const SessionDiagnosisDetailView: React.FC<SessionDiagnosisDetailProps> = ({ det
     (result): result is SessionDiagnosisFinding =>
       result.state === 'finding' && result.cause !== primaryFinding?.cause
   );
-  const isFullyPriced = detail.summary.coverage.percentage >= FULL_PRICING_COVERAGE_PERCENTAGE;
+  const isFullyPriced =
+    (detail.summary.coverage.conditionPercentage ?? detail.summary.coverage.percentage) >=
+    FULL_PRICING_COVERAGE_PERCENTAGE;
   const costLabel = isFullyPriced
     ? t('diagnostics.list.fullEstimatedCost')
     : t('diagnostics.list.pricedCost');
 
   return (
     <article className="session-diagnosis-detail">
+      <PricingQualityNotice quality={detail.summary.coverage} />
       <header className="session-diagnosis-detail-heading">
         <button type="button" onClick={onBack}>
           <ArrowLeft size={ICON_SIZE_SMALL} aria-hidden="true" />
@@ -354,7 +358,11 @@ const SessionDiagnosisDetailView: React.FC<SessionDiagnosisDetailProps> = ({ det
           <div>
             <dt>{t('diagnostics.list.pricingCoverage')}</dt>
             <dd>
-              {formatPercent(detail.summary.coverage.percentage, locale, 1)}
+              {formatPercent(
+                detail.summary.coverage.conditionPercentage ?? detail.summary.coverage.percentage,
+                locale,
+                1
+              )}
               {detail.summary.coverage.unpricedModelIds.length > 0 ? (
                 <small>{detail.summary.coverage.unpricedModelIds.join(', ')}</small>
               ) : null}

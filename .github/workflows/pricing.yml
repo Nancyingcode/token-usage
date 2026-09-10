@@ -28,7 +28,7 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
-      - run: npm test -- tests/pricingCatalog.test.ts tests/pricingCollector.test.ts tests/pricingPublisher.test.ts
+      - run: npm test -- tests/pricingCatalog.test.ts tests/pricingCollector.test.ts tests/pricingPublisher.test.ts tests/conditionalCatalog.test.ts tests/conditionalPricing.test.ts
       - run: npm run pricing:update
       - run: npm run pricing:validate
       - name: Publish validated catalog

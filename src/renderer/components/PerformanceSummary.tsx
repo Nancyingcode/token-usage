@@ -63,6 +63,7 @@ const PerformanceSummary: React.FC<PerformanceSummaryProps> = ({
   hourlyActivity,
   errorRateDetail,
 }) => {
+  const { t: tBudgets } = useTranslation('budgets');
   const { t, i18n } = useTranslation('analytics');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const cacheRate =
@@ -136,7 +137,14 @@ const PerformanceSummary: React.FC<PerformanceSummaryProps> = ({
             coverage: coverageRate,
           }
         )}
-        status={costStatus}
+        status={[
+          costStatus,
+          costEfficiency.coverage.conditionAssumedTokens
+            ? tBudgets('pricing.qualityTitle')
+            : undefined,
+        ]
+          .filter(Boolean)
+          .join(' · ')}
         tone={pricingIncomplete ? 'warning' : undefined}
       />
       <PerformanceSummaryCard

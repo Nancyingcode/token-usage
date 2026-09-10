@@ -1,4 +1,5 @@
 import type { UsageSession } from './usageTypes';
+import type { ConditionalPricingFields, PricingIssue } from './conditionalPricingTypes';
 
 export type BudgetScope = 'global' | 'project';
 export type BudgetPeriod = 'day' | 'week' | 'month';
@@ -48,6 +49,7 @@ export interface BudgetThresholds {
 }
 
 export interface ModelPricingOverrideInput {
+  useCatalogConditions?: boolean;
   modelId: string;
   aliases: string[];
   inputUsdPerMillion: number;
@@ -69,7 +71,7 @@ export interface UnknownModelPricing extends UnknownModelPricingInput {
   updatedAt: string;
 }
 
-export interface ModelPricingEntry extends ModelPricingOverrideInput {
+export interface ModelPricingEntry extends ModelPricingOverrideInput, ConditionalPricingFields {
   effectiveAt: string;
   sourceKind: ModelPricingSourceKind;
   sourceUrl?: string;
@@ -84,6 +86,8 @@ export interface BudgetProgress {
 }
 
 export interface BudgetPolicyStatus {
+  conditionAssumedTokens?: number;
+  pricingIssues?: PricingIssue[];
   policy: BudgetPolicy;
   periodStart: string;
   periodEnd: string;
@@ -95,6 +99,7 @@ export interface BudgetPolicyStatus {
 }
 
 export interface BudgetAlert {
+  usesConditionalAssumptions?: boolean;
   id: string;
   policyId: string;
   period: BudgetPeriod;
@@ -156,6 +161,9 @@ export interface EvaluateBudgetsInput {
 }
 
 export interface CostEstimate {
+  conditionAssumedTokens?: number;
+  conditionAssumedCostUsd?: number;
+  pricingIssues?: PricingIssue[];
   pricedCostUsd: number;
   assumedCostUsd: number;
   assumedTokens: number;

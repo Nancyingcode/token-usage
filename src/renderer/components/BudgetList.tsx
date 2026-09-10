@@ -3,6 +3,7 @@
  * @description
  * 按状态组展示令牌和成本预算进度，并将编辑、删除操作交由上层处理。
  */
+import { PricingQualityNotice } from './PricingQualityNotice';
 import React from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -93,7 +94,10 @@ const TokenCell: React.FC<{ progress?: BudgetProgress }> = ({ progress }) => {
   );
 };
 
-const CostCell: React.FC<{ model: CostCellModel }> = ({ model }) => {
+const CostCell: React.FC<{ model: CostCellModel; quality: BudgetPolicyStatus }> = ({
+  model,
+  quality,
+}) => {
   const { t, i18n } = useTranslation('budgets');
   const { t: tCommon } = useTranslation('common');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
@@ -106,6 +110,7 @@ const CostCell: React.FC<{ model: CostCellModel }> = ({ model }) => {
 
   return (
     <div className="budget-progress-cell">
+      <PricingQualityNotice quality={quality} />
       <div>
         <strong>{formatPercent(model.progress.percent, locale)}</strong>
         <span>
@@ -184,7 +189,7 @@ const BudgetRow: React.FC<{
       <span className="budget-model-cell">{modelLabel}</span>
       <span className="budget-period-cell">{t(`period.${status.policy.period}`)}</span>
       <TokenCell progress={status.token} />
-      <CostCell model={costModel} />
+      <CostCell model={costModel} quality={status} />
       <span className={`status-label budget-status budget-status-label ${severity}`}>
         {t(`severity.${severity}`)}
       </span>

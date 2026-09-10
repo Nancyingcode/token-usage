@@ -107,6 +107,8 @@ export const en = {
       cost: 'Cost',
     },
     reached: '{{metric}} budget reached {{thresholdPercent}}%.',
+    reachedWithConditionalAssumption:
+      '{{metric}} has reached {{thresholdPercent}}% of the budget (reference estimate includes pricing assumptions).',
     reachedWithUnknownAssumption:
       '{{metric}} budget reached {{thresholdPercent}}% and includes unknown-model fallback pricing.',
   },
@@ -573,6 +575,33 @@ export const en = {
       deleteMessage: 'The policy and its notification history will be removed.',
     },
     pricing: {
+      qualityTitle: 'Includes conditional pricing assumptions',
+      qualityDescription:
+        'Reference estimate for {{tokens}} tokens. Conditional assumptions are separate from unknown-model fallback prices. Monetary savings and diagnostics exclude these requests.',
+      useConditions: 'Apply catalog conditions to these base prices',
+      flatOverride:
+        'Manual prices use flat rates by default. Catalog conditions apply only when selected.',
+      ruleTitle: 'Pricing conditions',
+      ruleUnavailable:
+        'Conditional rules are not verified; standard prices are reference estimates.',
+      ruleVerified: 'Rules verified: {{date}}',
+      cacheWrite: 'Cache write input',
+      writeRate: 'Cache writes: {{price}} per million tokens ({{multiplier}}× input rate).',
+      longRule:
+        'Per request, above {{threshold}} input tokens: ordinary input ×{{input}}, cache reads ×{{cached}}, cache writes ×{{write}}, output ×{{output}}.',
+      modeRule: '{{mode}}: ×{{multiplier}}',
+      modeLabels: { standard: 'Standard', fast: 'Fast / Priority', flex: 'Flex', batch: 'Batch' },
+      issues: {
+        'rules-unavailable': 'Conditional rules are not verified.',
+        'request-granularity':
+          'Request boundaries are missing; long-context charges cannot be confirmed.',
+        'mode-unknown': 'Actual service mode is missing; Standard is assumed.',
+        'mode-unsupported': 'The observed service mode has no verified price.',
+        'cache-write-missing': 'Cache write usage is missing.',
+        'cache-write-unverified': 'Cache write partition semantics are unverified.',
+        'cache-partition-invalid': 'Cache token partitions are inconsistent.',
+        'manual-flat': 'Manual flat-rate assumption.',
+      },
       remote: 'Online',
       sync: {
         title: 'Online pricing',

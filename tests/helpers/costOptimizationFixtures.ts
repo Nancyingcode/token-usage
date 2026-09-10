@@ -66,7 +66,7 @@ export const makeBucket = (
 });
 
 export const makeIndex = (buckets: IndexedUsageBucket[]): CostOptimizationIndex => ({
-  schemaVersion: 2,
+  schemaVersion: 3,
   sessionsDir: 'C:\\sessions',
   generatedAt: FIXED_NOW_ISO,
   sources: {},

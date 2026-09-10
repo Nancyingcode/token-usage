@@ -57,9 +57,11 @@ export const createNotificationService = (
     const notification = adapter.create({
       title: i18n.t('notifications:title'),
       body: i18n.t(
-        alert.usesUnknownModelPricing
-          ? 'notifications:reachedWithUnknownAssumption'
-          : 'notifications:reached',
+        alert.usesConditionalAssumptions
+          ? 'notifications:reachedWithConditionalAssumption'
+          : alert.usesUnknownModelPricing
+            ? 'notifications:reachedWithUnknownAssumption'
+            : 'notifications:reached',
         {
           metric,
           thresholdPercent: alert.thresholdPercent,

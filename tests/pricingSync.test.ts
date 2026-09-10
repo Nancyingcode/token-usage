@@ -9,6 +9,7 @@ import {
   PRICING_MAX_BYTES,
   PRICING_RETRY_INTERVAL_MS,
   decodePricingCatalog,
+  addCatalogConditions,
 } from '../src/shared/pricingCatalog';
 import { catalogFixture } from './helpers/pricingFixture';
 
@@ -28,6 +29,21 @@ afterEach(() => {
 });
 
 describe('pricing sync', () => {
+  it('retains v2 cache when a newer v1 response would discard its rules', async () => {
+    const h = createHarness();
+    await h.service.initialize();
+    h.download.mockResolvedValueOnce(addCatalogConditions(decodePricingCatalog(catalogFixture())));
+    await h.service.refresh();
+    const saves = h.store.save.mock.calls.length;
+    h.download.mockResolvedValueOnce(
+      decodePricingCatalog({ ...catalogFixture(), publishedAt: '2026-09-12' })
+    );
+    await h.service.refresh();
+    expect(h.service.getSnapshot()).toMatchObject({ status: 'error', error: 'invalid-catalog' });
+    expect(h.store.save).toHaveBeenCalledTimes(saves);
+    expect(h.applyPrices.mock.lastCall?.[0][0].conditions).toBeDefined();
+    h.service.destroy();
+  });
   it('deduplicates refresh, persists before applying and keeps valid data on failure', async () => {
     const h = createHarness();
     await h.service.initialize();
@@ -119,7 +135,7 @@ describe('pricing storage and transport', () => {
       currency: 'USD',
     });
     expect(fetcher.mock.calls[0][0]).toBe(
-      'https://raw.githubusercontent.com/Nancyingcode/token-usage/pricing/catalog.json'
+      'https://raw.githubusercontent.com/Nancyingcode/token-usage/pricing/catalog-v2.json'
     );
     expect(fetcher.mock.calls[0][1]).toMatchObject({ redirect: 'error', credentials: 'omit' });
     fetcher.mockResolvedValueOnce(new Response('x'.repeat(PRICING_MAX_BYTES + 1)));

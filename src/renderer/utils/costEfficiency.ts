@@ -2,6 +2,7 @@
  * @file 费用效率视图模型
  * @description 从当前筛选后的本地用量和价格表构建不可变的费用、覆盖率、构成与每日趋势数据。
  */
+import type { PricingIssue } from '../../shared/conditionalPricingTypes';
 import type {
   CostEstimate,
   ModelPricingEntry,
@@ -18,9 +19,11 @@ import {
 import { getLocalDateKey } from '../../shared/usageMath';
 import type { UsageSlice, UsageSummary } from '../../shared/usageTypes';
 
-export type CostBreakdownKind = 'regular-input' | 'cached-input' | 'output';
+export type CostBreakdownKind = 'regular-input' | 'cached-input' | 'cache-write' | 'output';
 
 export interface CostEfficiencyCoverage {
+  conditionAssumedTokens?: number;
+  pricingIssues?: PricingIssue[];
   totalTokens: number;
   pricedTokens: number;
   exactPricedTokens: number;
@@ -72,9 +75,18 @@ const buildCoverage = (slices: UsageSlice[], estimate: CostEstimate): CostEffici
   const unpricedTokens = Math.min(totalTokens, Math.max(0, estimate.unpricedTokens));
   const pricedTokens = Math.max(0, totalTokens - unpricedTokens);
   const assumedTokens = Math.min(pricedTokens, Math.max(0, estimate.assumedTokens));
-  const exactPricedTokens = Math.max(0, pricedTokens - assumedTokens);
+  const exactPricedTokens = Math.max(
+    0,
+    pricedTokens - assumedTokens - (estimate.conditionAssumedTokens ?? 0)
+  );
 
   return {
+    ...(estimate.conditionAssumedTokens
+      ? {
+          conditionAssumedTokens: estimate.conditionAssumedTokens,
+          pricingIssues: estimate.pricingIssues,
+        }
+      : {}),
     totalTokens,
     pricedTokens,
     exactPricedTokens,
@@ -110,15 +122,19 @@ const buildBreakdown = (
       return {
         regularInputCostUsd: breakdown.regularInputCostUsd + sliceBreakdown.regularInputCostUsd,
         cachedInputCostUsd: breakdown.cachedInputCostUsd + sliceBreakdown.cachedInputCostUsd,
+        cacheWriteCostUsd: breakdown.cacheWriteCostUsd + (sliceBreakdown.cacheWriteCostUsd ?? 0),
         outputCostUsd: breakdown.outputCostUsd + sliceBreakdown.outputCostUsd,
       };
     },
-    { regularInputCostUsd: 0, cachedInputCostUsd: 0, outputCostUsd: 0 }
+    { regularInputCostUsd: 0, cachedInputCostUsd: 0, cacheWriteCostUsd: 0, outputCostUsd: 0 }
   );
 
   return [
     { kind: 'regular-input' as const, costUsd: totals.regularInputCostUsd },
     { kind: 'cached-input' as const, costUsd: totals.cachedInputCostUsd },
+    ...(totals.cacheWriteCostUsd > 0
+      ? [{ kind: 'cache-write' as const, costUsd: totals.cacheWriteCostUsd }]
+      : []),
     { kind: 'output' as const, costUsd: totals.outputCostUsd },
   ].map((item) => ({
     ...item,

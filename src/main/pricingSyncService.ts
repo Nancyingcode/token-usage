@@ -7,6 +7,7 @@ import {
   decodePricingCatalog,
   mergePricingCatalog,
   PRICING_CATALOG_URL,
+  CONDITIONAL_PRICING_CATALOG_URL,
   PRICING_REFRESH_INTERVAL_MS,
   PRICING_RETRY_INTERVAL_MS,
 } from '../shared/pricingCatalog';
@@ -34,7 +35,7 @@ export const createPricingSyncService = ({
   let snapshot: PricingSyncSnapshot = {
     autoUpdate: true,
     status: 'idle',
-    sourceUrl: PRICING_CATALOG_URL,
+    sourceUrl: CONDITIONAL_PRICING_CATALOG_URL,
   };
   let queue: Promise<unknown> = Promise.resolve();
   let inFlight: Promise<PricingSyncSnapshot> | undefined;
@@ -65,6 +66,10 @@ export const createPricingSyncService = ({
       publish({
         status: loaded.catalog ? 'ready' : 'idle',
         version: loaded.catalog?.version,
+        sourceUrl:
+          loaded.catalog?.schemaVersion === 1
+            ? PRICING_CATALOG_URL
+            : CONDITIONAL_PRICING_CATALOG_URL,
         lastCheckedAt: loaded.lastCheckedAt,
       });
     } catch {
@@ -97,7 +102,8 @@ export const createPricingSyncService = ({
         // 目录发布方必须保留历史模型；异常删减和时间倒退不能让已计价用量突然丢失。
         if (
           state.catalog &&
-          (Date.parse(catalog.publishedAt) < Date.parse(state.catalog.publishedAt) ||
+          (catalog.schemaVersion < state.catalog.schemaVersion ||
+            Date.parse(catalog.publishedAt) < Date.parse(state.catalog.publishedAt) ||
             state.catalog.models.some(
               (entry) => !catalog.models.some((next) => next.modelId === entry.modelId)
             ))
@@ -113,7 +119,13 @@ export const createPricingSyncService = ({
         }
         state = next;
         applyPrices(prices);
-        return publish({ status: 'ready', version: catalog.version, error: undefined });
+        return publish({
+          status: 'ready',
+          version: catalog.version,
+          error: undefined,
+          sourceUrl:
+            catalog.schemaVersion === 1 ? PRICING_CATALOG_URL : CONDITIONAL_PRICING_CATALOG_URL,
+        });
       } catch {
         return publish({ status: 'error', error: errorKind });
       }

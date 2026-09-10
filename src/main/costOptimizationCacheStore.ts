@@ -3,6 +3,7 @@
  * @description
  * 对可重建的成本索引执行结构校验和原子读写；无效缓存只触发重建，不备份或修改会话数据。
  */
+import { hasValidPricingMetadata } from '../shared/conditionalPricingValidation';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import {
@@ -58,7 +59,7 @@ const isPositiveIntegerRecord = (value: unknown): value is Record<string, number
   );
 
 const isContribution = (value: unknown): value is IndexedUsageContribution => {
-  if (!isRecord(value) || !hasTokenUsage(value)) {
+  if (!isRecord(value) || !hasTokenUsage(value) || !hasValidPricingMetadata(value)) {
     return false;
   }
 
@@ -90,7 +91,7 @@ const isSessionMetadata = (
   value.sourceFile === sourceFile;
 
 const isBucket = (value: unknown): value is IndexedUsageBucket => {
-  if (!isRecord(value) || !hasTokenUsage(value)) {
+  if (!isRecord(value) || !hasTokenUsage(value) || !hasValidPricingMetadata(value)) {
     return false;
   }
 
@@ -184,6 +185,7 @@ const getCanonicalBuckets = (
         bucket.occurredAt ?? null,
         bucket.modelId ?? null,
         ...TOKEN_USAGE_KEYS.map((key) => bucket[key]),
+        Object.entries(bucket.pricingRequests ?? {}).sort(([a], [b]) => a.localeCompare(b)),
         getSortedCountEntries(bucket.memberCounts),
         getSortedCountEntries(bucket.contributionCounts),
       ],
@@ -215,6 +217,7 @@ const toSourceChange = (
       usageSlices: source.contributions.map((contribution) => ({
         occurredAt: contribution.occurredAt,
         modelId: contribution.modelId,
+        ...(contribution.pricingContext ? { pricingContext: contribution.pricingContext } : {}),
         inputTokens: contribution.inputTokens,
         cachedInputTokens: contribution.cachedInputTokens,
         outputTokens: contribution.outputTokens,

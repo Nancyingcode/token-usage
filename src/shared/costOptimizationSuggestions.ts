@@ -7,6 +7,9 @@
  * - 定价覆盖不足时不得输出货币化建议
  * - 建议只携带结构化证据和 i18n key，不生成最终展示文案
  */
+import { calculateUsageCost } from './pricing';
+import { evaluateConditionalUsage } from './conditionalPricing';
+import type { PriceableUsage } from './conditionalPricingTypes';
 import type { ModelPricingEntry } from './budgetTypes';
 import type {
   CostAnomaly,
@@ -17,9 +20,7 @@ import type {
   SavingsRecommendation,
   SavingsRecommendationType,
 } from './costOptimizationTypes';
-import type { TokenUsage } from './usageTypes';
 
-const TOKENS_PER_MILLION = 1_000_000;
 const PERCENTAGE_DIVISOR = 100;
 const MINIMUM_HIGH_CONFIDENCE_SESSIONS = 7;
 const HIGH_CONFIDENCE_BASELINE_SAMPLES = 28;
@@ -58,15 +59,8 @@ const buildPricingIndex = (pricingEntries: ModelPricingEntry[]): Map<string, Mod
   return pricingById;
 };
 
-const getUsageCost = (usage: TokenUsage, pricing: ModelPricingEntry): number => {
-  const regularInputTokens = Math.max(usage.inputTokens - usage.cachedInputTokens, 0);
-  return (
-    (regularInputTokens * pricing.inputUsdPerMillion +
-      usage.cachedInputTokens * pricing.cachedInputUsdPerMillion +
-      usage.outputTokens * pricing.outputUsdPerMillion) /
-    TOKENS_PER_MILLION
-  );
-};
+const getUsageCost = (usage: PriceableUsage, pricing: ModelPricingEntry): number =>
+  calculateUsageCost(usage, pricing);
 
 const sumContributionSavings = (contributionSavings: Record<string, number>): number =>
   Object.values(contributionSavings).reduce((total, savings) => total + savings, 0);
@@ -252,12 +246,24 @@ const buildCacheImprovementRecommendations = (
         contribution.inputTokens * (input.settings.targetCachePercentage / PERCENTAGE_DIVISOR);
       const additionalCachedInputTokens = Math.min(
         Math.max(targetCachedInputTokens - boundedCachedInputTokens, 0),
-        contribution.inputTokens - boundedCachedInputTokens
+        Math.max(
+          contribution.inputTokens -
+            boundedCachedInputTokens -
+            (contribution.pricingContext?.cacheWriteInputTokens ?? 0),
+          0
+        )
       );
-      const savings =
-        (additionalCachedInputTokens *
-          (pricing.inputUsdPerMillion - pricing.cachedInputUsdPerMillion)) /
-        TOKENS_PER_MILLION;
+      const savings = Math.max(
+        0,
+        getUsageCost(contribution, pricing) -
+          getUsageCost(
+            {
+              ...contribution,
+              cachedInputTokens: boundedCachedInputTokens + additionalCachedInputTokens,
+            },
+            pricing
+          )
+      );
 
       inputTokens += contribution.inputTokens;
       cachedInputTokens += boundedCachedInputTokens;
@@ -303,16 +309,28 @@ const buildCacheImprovementRecommendations = (
 export const buildSavingsRecommendations = (
   input: SavingsRecommendationInput
 ): SavingsRecommendation[] => {
-  if (input.coverage.percentage < input.settings.minimumPricingCoveragePercentage) {
+  if (
+    (input.coverage.conditionPercentage ?? input.coverage.percentage) <
+    input.settings.minimumPricingCoveragePercentage
+  ) {
     return [];
   }
 
   const pricingById = buildPricingIndex(input.pricing);
-  const contributionsById = getContributionMap(input.contributions);
+  const eligibleInput = {
+    ...input,
+    contributions: input.contributions.filter((contribution) => {
+      const pricing = contribution.modelId
+        ? pricingById.get(normalizeModelId(contribution.modelId))
+        : undefined;
+      return pricing && evaluateConditionalUsage(contribution, pricing).issues.length === 0;
+    }),
+  };
+  const contributionsById = getContributionMap(eligibleInput.contributions);
   const recommendations = [
-    ...buildModelSubstitutionRecommendations(input, pricingById, contributionsById),
-    ...buildAnomalyRecoveryRecommendations(input, pricingById, contributionsById),
-    ...buildCacheImprovementRecommendations(input, pricingById),
+    ...buildModelSubstitutionRecommendations(eligibleInput, pricingById, contributionsById),
+    ...buildAnomalyRecoveryRecommendations(eligibleInput, pricingById, contributionsById),
+    ...buildCacheImprovementRecommendations(eligibleInput, pricingById),
   ];
 
   const confidenceAdjustedRecommendations =

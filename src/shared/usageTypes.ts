@@ -1,3 +1,5 @@
+import type { PriceableUsage } from './conditionalPricingTypes';
+
 export type UsageWarningCode =
   | 'malformed-jsonl'
   | 'invalid-jsonl-record'
@@ -21,7 +23,7 @@ export interface UsageWarning {
   details?: string;
 }
 
-export interface UsageSlice extends TokenUsage {
+export interface UsageSlice extends PriceableUsage {
   occurredAt: string;
   modelId?: string;
 }

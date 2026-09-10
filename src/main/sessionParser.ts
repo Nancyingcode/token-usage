@@ -5,6 +5,7 @@
  */
 import getSessionId from '../shared/sessionId';
 import { isRecord } from '../shared/runtimeTypes';
+import type { UsagePricingContext } from '../shared/conditionalPricingTypes';
 import {
   addTokenUsage,
   emptyTokenUsage,
@@ -84,6 +85,25 @@ const toTokenUsage = (raw: unknown): TokenUsage | undefined => {
 
 const getOptionalString = (value: unknown): string | undefined =>
   typeof value === 'string' && value.trim() ? value : undefined;
+
+const getPricingContext = (
+  raw: unknown,
+  granularity: UsagePricingContext['granularity']
+): UsagePricingContext => {
+  const writes = isRecord(raw) ? raw.cache_write_input_tokens : undefined;
+  const validWrites = typeof writes === 'number' && Number.isFinite(writes) && writes >= 0;
+  // 当前 Codex 日志未证明实际服务等级与正数写入分区语义；保留事实，不把 API 字段或请求意图冒充响应证据。
+  return {
+    granularity,
+    mode: 'unknown',
+    modeSource: 'missing',
+    ...(writes === undefined
+      ? {}
+      : validWrites
+        ? { cacheWriteInputTokens: writes, cacheWriteSemantics: 'unverified' }
+        : { cacheWriteInvalid: true }),
+  };
+};
 
 const getErrorCode = (value: unknown): string | undefined => {
   const directCode = getOptionalString(value);
@@ -323,6 +343,7 @@ export const parseSessionJsonl = (
         summedUsage = addTokenUsage(summedUsage, lastUsage);
         incrementalSlices.push({
           ...lastUsage,
+          pricingContext: getPricingContext(lastTokenUsage, 'request'),
           occurredAt: getUsageTimestamp(record.timestamp, endedAt),
           modelId: activeModelId,
         });
@@ -332,6 +353,7 @@ export const parseSessionJsonl = (
         largestTotalUsage = totalUsage;
         largestTotalSlice = {
           ...totalUsage,
+          pricingContext: getPricingContext(totalTokenUsage, 'aggregate'),
           occurredAt: getUsageTimestamp(record.timestamp, endedAt),
           modelId: activeModelId,
         };

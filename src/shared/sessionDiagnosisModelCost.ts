@@ -7,6 +7,8 @@
  * - 任一参与模型未计价时不得输出模型费用结论
  * - 有效单位费用必须按当前会话实际 Token 构成加权
  */
+import { evaluateConditionalUsage } from './conditionalPricing';
+import type { PriceableUsage } from './conditionalPricingTypes';
 import type { ModelPricingEntry } from './budgetTypes';
 import type { IndexedUsageContribution, SessionDetectorResult } from './costOptimizationTypes';
 import { calculateEstimatedCost, normalizeModelId } from './pricing';
@@ -20,6 +22,7 @@ const HIGH_UNIT_COST_RATIO = 1.5;
 const MODEL_SWITCH_COST_RATIO = 1.5;
 const MODEL_SWITCH_MIN_COST_SHARE = 0.2;
 const MODEL_COST_CRITICAL_RATIO = 3;
+const TOKENS_PER_MILLION = 1_000_000;
 const UNKNOWN_MODEL_KEY = '__unknown_model__';
 
 interface ModelUsageGroup {
@@ -66,6 +69,8 @@ const addUsage = (first: TokenUsage, second: TokenUsage): TokenUsage => ({
 const toUsageSlice = (contribution: IndexedUsageContribution): UsageSlice => ({
   occurredAt: contribution.occurredAt,
   modelId: contribution.modelId,
+  ...(contribution.pricingContext ? { pricingContext: contribution.pricingContext } : {}),
+  ...(contribution.pricingRequests ? { pricingRequests: contribution.pricingRequests } : {}),
   inputTokens: contribution.inputTokens,
   cachedInputTokens: contribution.cachedInputTokens,
   outputTokens: contribution.outputTokens,
@@ -91,7 +96,7 @@ const getPricingIndex = (pricing: readonly ModelPricingEntry[]): Map<string, Mod
 const getModelKey = (modelId: string | undefined): string =>
   modelId?.trim() ? normalizeModelId(modelId) : UNKNOWN_MODEL_KEY;
 
-const getEffectiveUnitCost = (usage: TokenUsage, pricing: ModelPricingEntry): number => {
+const getEffectiveUnitCost = (usage: PriceableUsage, pricing: ModelPricingEntry): number => {
   const boundedCachedInput = Math.min(
     Math.max(usage.cachedInputTokens, 0),
     Math.max(usage.inputTokens, 0)
@@ -103,12 +108,7 @@ const getEffectiveUnitCost = (usage: TokenUsage, pricing: ModelPricingEntry): nu
     return 0;
   }
 
-  return (
-    (regularInput * pricing.inputUsdPerMillion +
-      boundedCachedInput * pricing.cachedInputUsdPerMillion +
-      Math.max(usage.outputTokens, 0) * pricing.outputUsdPerMillion) /
-    pricedTokens
-  );
+  return (evaluateConditionalUsage(usage, pricing).costUsd * TOKENS_PER_MILLION) / pricedTokens;
 };
 
 const buildModelGroups = (
@@ -149,12 +149,13 @@ const hasCompletePricing = (groups: readonly ModelUsageGroup[]): boolean =>
   groups.every(
     ({ pricingEntry, slices }) =>
       pricingEntry !== undefined &&
-      calculateEstimatedCost(slices, [pricingEntry]).unpricedModelIds.length === 0
+      calculateEstimatedCost(slices, [pricingEntry]).unpricedModelIds.length === 0 &&
+      !calculateEstimatedCost(slices, [pricingEntry]).conditionAssumedTokens
   );
 
 const getDominantSignal = (
   groups: readonly ModelUsageGroup[],
-  sessionUsage: TokenUsage,
+  sessionUsage: PriceableUsage,
   referenceUnitCost: number,
   sessionCostUsd: number
 ): ModelCostSignal | undefined => {
@@ -180,7 +181,7 @@ const getDominantSignal = (
 const getSwitchSignals = (
   contributions: readonly IndexedUsageContribution[],
   groups: readonly ModelUsageGroup[],
-  sessionUsage: TokenUsage,
+  sessionUsage: PriceableUsage,
   sessionCostUsd: number,
   pricing: readonly ModelPricingEntry[]
 ): ModelSwitchSignal[] => {
@@ -266,10 +267,19 @@ export const detectModelCostDominance = ({
     };
   }
 
-  const sessionUsage = current.contributions.reduce<TokenUsage>(addUsage, EMPTY_USAGE);
+  const sessionUsage: PriceableUsage = {
+    ...current.contributions.reduce<TokenUsage>(addUsage, EMPTY_USAGE),
+    pricingRequests: Object.fromEntries(current.contributions.map((entry) => [entry.id, entry])),
+  };
+  const referencePricing = pricing.filter(
+    (entry) => evaluateConditionalUsage(sessionUsage, entry).issues.length === 0
+  );
+  if (referencePricing.length === 0) {
+    return { state: 'not-applicable', cause: 'model-cost-dominance', reason: 'pricing-incomplete' };
+  }
   const sessionCostUsd = groups.reduce((total, group) => total + group.costUsd, 0);
   const referenceUnitCost = median(
-    pricing.map((entry) => getEffectiveUnitCost(sessionUsage, entry))
+    referencePricing.map((entry) => getEffectiveUnitCost(sessionUsage, entry))
   );
   const dominantSignal = getDominantSignal(groups, sessionUsage, referenceUnitCost, sessionCostUsd);
   const switchSignal = getSwitchSignals(

@@ -5,6 +5,7 @@ import {
 } from '../src/shared/costOptimizationIndex';
 import { evaluateCostOptimization } from '../src/shared/costOptimizationEvaluation';
 import type { CostOptimizationIndex, UsageSourceChange } from '../src/shared/costOptimizationTypes';
+import { astraPricing, requestUsage } from './helpers/conditionalPricingFixture';
 import { DEFAULT_MODEL_PRICING } from '../src/main/defaultModelPricing';
 import { FIXED_NOW, PRICING, SETTINGS } from './helpers/costOptimizationFixtures';
 import type { BudgetPolicyStatus, ModelPricingEntry } from '../src/shared/budgetTypes';
@@ -24,6 +25,34 @@ const LATEST_SETTINGS = {
 };
 
 describe('cost optimization evaluation', () => {
+  it('uses long-context request costs in forecast history as well as model totals', () => {
+    const changes = Array.from({ length: HISTORY_DAYS }, (_, offset) => {
+      const source = makeSourceChange(
+        `long-${offset}.jsonl`,
+        `2026-07-${offset + 17}`,
+        astraPricing.modelId,
+        1_000_000,
+        0
+      );
+      source.session.usageSlices[0].pricingContext = requestUsage().pricingContext;
+      return source;
+    });
+    const index = applyUsageChangeSet(
+      createEmptyCostOptimizationIndex('fixtures', FIXED_NOW),
+      { upserted: changes, removedSourceFiles: [], requiresFullRebuild: false },
+      FIXED_NOW
+    );
+    const snapshot = evaluateCostOptimization({
+      ...makeEvaluationInput(),
+      index,
+      pricing: [astraPricing],
+    });
+    expect(snapshot.currentCostUsd).toBe(160);
+    expect(snapshot.forecast.kind).toBe('ready');
+    if (snapshot.forecast.kind === 'ready') {
+      expect(snapshot.forecast.points[0].predictedCostUsd).toBeCloseTo(20, 8);
+    }
+  });
   it('combines comparison, anomalies, forecast and de-duplicated savings', () => {
     const snapshot = evaluateCostOptimization(makeEvaluationInput());
 
@@ -80,7 +109,7 @@ describe('cost optimization evaluation', () => {
     ]);
   });
 
-  it('excludes every legacy built-in target from model substitution recommendations', () => {
+  it('keeps reference costs but excludes legacy models with unverified conditions', () => {
     const latestSessions = Array.from({ length: 7 }, (_, index) =>
       makeSourceChange(`latest-${index}.jsonl`, '2026-07-24', 'gpt-5.6-sol', 1_000_000, 0)
     );
@@ -109,15 +138,15 @@ describe('cost optimization evaluation', () => {
         sourceModelId,
         targetModelId,
       }))
-    ).toEqual([
-      { sourceModelId: 'gpt-5.6-sol', targetModelId: 'gpt-5.6-luna' },
-      { sourceModelId: 'gpt-5.6-sol', targetModelId: 'gpt-5.6-terra' },
-    ]);
+    ).toEqual([]);
+    expect(snapshot.currentCostUsd).toBe(35);
+    expect(snapshot.coverage.conditionAssumedTokens).toBe(7_000_000);
+    expect(snapshot.coverage.conditionPercentage).toBe(0);
     expect(
       snapshot.recommendations
         .filter(({ type }) => type === 'model-substitution')
         .map(({ scopeLabel }) => scopeLabel)
-    ).toEqual(['gpt-5.6-sol → gpt-5.6-luna', 'gpt-5.6-sol → gpt-5.6-terra']);
+    ).toEqual([]);
   });
 
   it('includes lightweight session diagnosis summaries without timeline data', () => {

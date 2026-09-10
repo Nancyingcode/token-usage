@@ -329,7 +329,10 @@ export const forecastCostTrend = ({
     budgetCrossings: [],
   };
 
-  if (coverage.percentage < settings.minimumPricingCoveragePercentage) {
+  if (
+    (coverage.conditionAssumedTokens ?? 0) > 0 ||
+    coverage.percentage < settings.minimumPricingCoveragePercentage
+  ) {
     return { kind: 'pricing-incomplete', ...insufficientBase };
   }
   if (actualHistoryDays < settings.forecastMinimumHistoryDays) {

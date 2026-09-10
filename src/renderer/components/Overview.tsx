@@ -3,6 +3,7 @@
  * @description
  * 展示令牌与成本摘要、每日趋势和活动分布，并计算图表所需的展示模型。
  */
+import { PricingQualityNotice } from './PricingQualityNotice';
 import React, { useState } from 'react';
 import { Coins, FileCode2, LockKeyhole, MessageSquareText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -81,6 +82,7 @@ export interface TrendPoint {
   cost: number;
   pricingIncomplete: boolean;
   assumedPricing: boolean;
+  conditionalPricing?: boolean;
   placement: TooltipPlacement;
 }
 
@@ -107,6 +109,7 @@ export const buildTrendPoints = (
       cost: costEstimate?.pricedCostUsd ?? 0,
       pricingIncomplete: (costEstimate?.unpricedTokens ?? 0) > 0,
       assumedPricing: (costEstimate?.assumedTokens ?? 0) > 0,
+      ...(costEstimate?.conditionAssumedTokens ? { conditionalPricing: true } : {}),
       placement: getTooltipPlacement(x),
     };
   });
@@ -176,6 +179,7 @@ const getActivityTooltipPlacement = (cell: ActivityCell): TooltipPlacement => {
 };
 
 const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
+  const { t: tBudgets } = useTranslation('budgets');
   const { t, i18n } = useTranslation('analytics');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const [activeDate, setActiveDate] = useState<string | null>(null);
@@ -223,7 +227,12 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
               date: point.day.date,
               tokens: formatNumber(point.day.totalTokens, locale),
               cost: formatUsd(point.cost, locale),
-              pricingState,
+              pricingState: [
+                pricingState,
+                point.conditionalPricing ? tBudgets('pricing.qualityTitle') : '',
+              ]
+                .filter(Boolean)
+                .join(' · '),
             });
 
             return (
@@ -266,6 +275,9 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
               <span className="pricing-incomplete-label">{t('overview.pricingIncomplete')}</span>
             ) : activePoint.assumedPricing ? (
               <span className="pricing-assumed-label">{t('overview.assumedPricing')}</span>
+            ) : null}
+            {activePoint.conditionalPricing ? (
+              <span>{tBudgets('pricing.qualityTitle')}</span>
             ) : null}
             <dl>
               <div>
@@ -403,17 +415,7 @@ const Overview: React.FC<OverviewProps> = ({
   const showAssumedPricing = !pricingIncomplete && assumedPricing;
   const dailyCosts = new Map<string, CostEstimate>(
     buildDailyCostEstimates(summary.sessions, pricing, unknownModelPricing).map(
-      ({
-        date,
-        pricedCostUsd,
-        assumedCostUsd,
-        assumedTokens,
-        unpricedTokens,
-        unpricedModelIds,
-      }) => [
-        date,
-        { pricedCostUsd, assumedCostUsd, assumedTokens, unpricedTokens, unpricedModelIds },
-      ]
+      ({ date, ...estimate }) => [date, estimate]
     )
   );
   const cachePercentage = getCachePercentage(
@@ -426,6 +428,7 @@ const Overview: React.FC<OverviewProps> = ({
   return (
     <section className="page-stack">
       <PageHeader title={tCommon('navigation.overview')} description={t('overview.description')} />
+      <PricingQualityNotice quality={totalCost} />
       <div key={motionKey} className="overview-grid" data-motion="overview-story">
         <div className="metric-grid">
           <MetricCard

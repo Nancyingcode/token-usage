@@ -4,6 +4,8 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { describe, expect, it, vi } from 'vitest';
+import { PricingQualityNotice } from '../src/renderer/components/PricingQualityNotice';
+import { astraPricing } from './helpers/conditionalPricingFixture';
 import ModelPricingView from '../src/renderer/components/ModelPricingView';
 import type { BudgetActions } from '../src/renderer/hooks/useBudgetSnapshot';
 import type { BudgetSnapshot, ModelPricingEntry } from '../src/shared/budgetTypes';
@@ -33,6 +35,47 @@ const PRICING: ModelPricingEntry[] = [
 ];
 
 describe('ModelPricingView', () => {
+  it.each(['en', 'zh-CN'] as const)(
+    'shows localized conditional reasons without mislabeling them as fallback in %s',
+    (locale) => {
+      const markup = renderWithI18n(
+        <PricingQualityNotice
+          quality={{
+            conditionAssumedTokens: 1000,
+            pricingIssues: ['mode-unknown', 'cache-write-missing'],
+          }}
+        />,
+        locale
+      );
+      expect(markup).toContain('<summary>');
+      expect(markup).toContain(
+        locale === 'en'
+          ? 'Actual service mode is missing; Standard is assumed.'
+          : '缺少实际服务模式，按标准模式假设。'
+      );
+      expect(markup).toContain(
+        locale === 'en' ? 'Cache write usage is missing.' : '缺少缓存写入用量。'
+      );
+      expect(
+        renderWithI18n(<PricingQualityNotice quality={{ conditionAssumedTokens: 0 }} />, locale)
+      ).toBe('');
+    }
+  );
+  it('keeps manual prices flat until catalog conditions are explicitly selected', () => {
+    renderInteractive(
+      <ModelPricingView pricing={[astraPricing]} unpricedModels={[]} actions={ACTIONS} />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Edit model price' }));
+    const checkbox = screen.getByRole('checkbox', {
+      name: 'Apply catalog conditions to these base prices',
+    });
+    expect((checkbox as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(checkbox);
+    fireEvent.click(screen.getByRole('button', { name: 'Save price' }));
+    expect(ACTIONS.savePricingOverride).toHaveBeenCalledWith(
+      expect.objectContaining({ useCatalogConditions: true })
+    );
+  });
   it('marks overridden prices and exposes restore default', () => {
     const markup = renderWithI18n(
       <ModelPricingView pricing={PRICING} unpricedModels={[]} actions={ACTIONS} />

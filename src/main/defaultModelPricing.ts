@@ -2,11 +2,23 @@
  * @file 内置模型定价目录
  * @description 维护带来源与生效日期的本地估算价格，不将估算结果描述为实际账单。
  */
+import { MODEL_PRICING_CONDITIONS } from '../shared/modelPricingConditions';
 import type { ModelPricingEntry } from '../shared/budgetTypes';
 
 const PRICING_EFFECTIVE_AT = '2026-07-20';
 
 export const DEFAULT_MODEL_PRICING: ModelPricingEntry[] = [
+  {
+    modelId: 'gpt-6-astra',
+    aliases: [],
+    inputUsdPerMillion: 10,
+    cachedInputUsdPerMillion: 1,
+    outputUsdPerMillion: 50,
+    effectiveAt: '2026-09-10',
+    sourceKind: 'built-in',
+    sourceUrl: 'https://developers.openai.com/api/docs/models/gpt-6-astra',
+    conditions: MODEL_PRICING_CONDITIONS['gpt-6-astra'],
+  },
   {
     modelId: 'gpt-5.5',
     aliases: [],
@@ -15,6 +27,7 @@ export const DEFAULT_MODEL_PRICING: ModelPricingEntry[] = [
     outputUsdPerMillion: 30,
     effectiveAt: PRICING_EFFECTIVE_AT,
     sourceKind: 'built-in',
+    rulesStatus: 'unavailable',
     sourceUrl: 'https://developers.openai.com/api/docs/models/gpt-5.5',
   },
   {
@@ -25,6 +38,7 @@ export const DEFAULT_MODEL_PRICING: ModelPricingEntry[] = [
     outputUsdPerMillion: 30,
     effectiveAt: PRICING_EFFECTIVE_AT,
     sourceKind: 'built-in',
+    rulesStatus: 'unavailable',
     sourceUrl: 'https://developers.openai.com/api/docs/models/gpt-5.6-sol',
   },
   {
@@ -35,6 +49,7 @@ export const DEFAULT_MODEL_PRICING: ModelPricingEntry[] = [
     outputUsdPerMillion: 15,
     effectiveAt: PRICING_EFFECTIVE_AT,
     sourceKind: 'built-in',
+    rulesStatus: 'unavailable',
     sourceUrl: 'https://developers.openai.com/api/docs/models/gpt-5.6-terra',
   },
   {
@@ -45,6 +60,7 @@ export const DEFAULT_MODEL_PRICING: ModelPricingEntry[] = [
     outputUsdPerMillion: 6,
     effectiveAt: PRICING_EFFECTIVE_AT,
     sourceKind: 'built-in',
+    rulesStatus: 'unavailable',
     sourceUrl: 'https://developers.openai.com/api/docs/models/gpt-5.6-luna',
   },
   {
@@ -55,6 +71,7 @@ export const DEFAULT_MODEL_PRICING: ModelPricingEntry[] = [
     outputUsdPerMillion: 14,
     effectiveAt: PRICING_EFFECTIVE_AT,
     sourceKind: 'built-in',
+    rulesStatus: 'unavailable',
     sourceUrl: 'https://developers.openai.com/api/docs/models/gpt-5.3-codex',
   },
   {
@@ -65,6 +82,7 @@ export const DEFAULT_MODEL_PRICING: ModelPricingEntry[] = [
     outputUsdPerMillion: 14,
     effectiveAt: PRICING_EFFECTIVE_AT,
     sourceKind: 'built-in',
+    rulesStatus: 'unavailable',
     sourceUrl: 'https://developers.openai.com/api/docs/models/gpt-5.2-codex',
   },
   {
@@ -75,6 +93,7 @@ export const DEFAULT_MODEL_PRICING: ModelPricingEntry[] = [
     outputUsdPerMillion: 10,
     effectiveAt: PRICING_EFFECTIVE_AT,
     sourceKind: 'built-in',
+    rulesStatus: 'unavailable',
     sourceUrl: 'https://developers.openai.com/api/docs/models/gpt-5.1-codex',
   },
   {
@@ -85,6 +104,7 @@ export const DEFAULT_MODEL_PRICING: ModelPricingEntry[] = [
     outputUsdPerMillion: 10,
     effectiveAt: PRICING_EFFECTIVE_AT,
     sourceKind: 'built-in',
+    rulesStatus: 'unavailable',
     sourceUrl: 'https://developers.openai.com/api/docs/models/gpt-5.1-codex-max',
   },
   {
@@ -95,6 +115,7 @@ export const DEFAULT_MODEL_PRICING: ModelPricingEntry[] = [
     outputUsdPerMillion: 2,
     effectiveAt: PRICING_EFFECTIVE_AT,
     sourceKind: 'built-in',
+    rulesStatus: 'unavailable',
     sourceUrl: 'https://developers.openai.com/api/docs/models/gpt-5.1-codex-mini',
   },
   {
@@ -105,6 +126,7 @@ export const DEFAULT_MODEL_PRICING: ModelPricingEntry[] = [
     outputUsdPerMillion: 10,
     effectiveAt: PRICING_EFFECTIVE_AT,
     sourceKind: 'built-in',
+    rulesStatus: 'unavailable',
     sourceUrl: 'https://developers.openai.com/api/docs/models/gpt-5-codex',
   },
   {
@@ -115,6 +137,7 @@ export const DEFAULT_MODEL_PRICING: ModelPricingEntry[] = [
     outputUsdPerMillion: 6,
     effectiveAt: PRICING_EFFECTIVE_AT,
     sourceKind: 'built-in',
+    rulesStatus: 'unavailable',
     sourceUrl: 'https://developers.openai.com/api/docs/models/codex-mini-latest',
   },
 ];

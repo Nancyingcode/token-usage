@@ -5,10 +5,13 @@
 import {
   decodePricingCatalog,
   PRICING_CATALOG_URL,
+  CONDITIONAL_PRICING_CATALOG_URL,
   PRICING_MAX_BYTES,
   PRICING_REQUEST_TIMEOUT_MS,
 } from '../shared/pricingCatalog';
 import type { PricingCatalog } from '../shared/pricingCatalogTypes';
+
+const HTTP_NOT_FOUND = 404;
 
 export const fetchPricingCatalog = async (
   signal: AbortSignal,
@@ -22,12 +25,17 @@ export const fetchPricingCatalog = async (
   }
   const timeout = setTimeout(abort, PRICING_REQUEST_TIMEOUT_MS);
   try {
-    const response = await fetcher(PRICING_CATALOG_URL, {
+    const options: RequestInit = {
       signal: controller.signal,
       redirect: 'error',
       credentials: 'omit',
       headers: { Accept: 'application/json' },
-    });
+    };
+    let response = await fetcher(CONDITIONAL_PRICING_CATALOG_URL, options);
+    if (response.status === HTTP_NOT_FOUND) {
+      await response.body?.cancel();
+      response = await fetcher(PRICING_CATALOG_URL, options);
+    }
     if (!response.ok || !response.body) {
       throw new Error('Pricing download failed.');
     }

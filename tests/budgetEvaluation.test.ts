@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { astraPricing, requestUsage } from './helpers/conditionalPricingFixture';
 import { evaluateBudgets } from '../src/shared/budgetEvaluation';
 import type {
   BudgetPolicy,
@@ -9,6 +10,27 @@ import { addTokenUsage, emptyTokenUsage, getProjectName } from '../src/shared/us
 import type { TokenUsage, UsageSession, UsageSlice } from '../src/shared/usageTypes';
 
 describe('budget evaluation', () => {
+  it('keeps long-request reference costs and labels conditional budget alerts separately', () => {
+    const usage = requestUsage(300_000);
+    usage.pricingContext = { ...usage.pricingContext!, mode: 'unknown', modeSource: 'missing' };
+    const snapshot = evaluateBudgets({
+      sessions: [makeSession('fixture', [usage])],
+      policies: [makePolicy({ costLimitUsd: 1, tokenLimit: undefined })],
+      pricing: [astraPricing],
+      thresholds: { warningPercent: 80, criticalPercent: 100 },
+      now: new Date('2026-09-10T12:00:00Z'),
+      dataState: 'fresh',
+    });
+    expect(snapshot.statuses[0].cost?.used).toBeCloseTo(6.0075, 8);
+    expect(snapshot.statuses[0]).toMatchObject({
+      conditionAssumedTokens: 300100,
+      pricingIssues: ['mode-unknown'],
+      assumedTokens: 0,
+      unpricedTokens: 0,
+    });
+    expect(snapshot.alerts.some((alert) => alert.usesConditionalAssumptions)).toBe(true);
+    expect(snapshot.alerts.every((alert) => !alert.usesUnknownModelPricing)).toBe(true);
+  });
   it('evaluates project day budgets from slices inside the natural day', () => {
     const snapshot = evaluateBudgets({
       sessions: [

@@ -23,7 +23,7 @@ describe('cost optimization index', () => {
       FIXED_NOW
     );
 
-    expect(indexed.schemaVersion).toBe(2);
+    expect(indexed.schemaVersion).toBe(3);
     expect(indexed.sources['usage.jsonl'].metadata).toEqual({
       sessionId: 'usage.jsonl',
       threadName: 'Investigate budget spike',

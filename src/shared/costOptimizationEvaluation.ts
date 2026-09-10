@@ -51,6 +51,8 @@ const getBucketTimestamp = (bucket: IndexedUsageBucket): string =>
 const toUsageSlice = (bucket: IndexedUsageBucket): UsageSlice => ({
   occurredAt: getBucketTimestamp(bucket),
   modelId: bucket.modelId,
+  ...(bucket.pricingContext ? { pricingContext: bucket.pricingContext } : {}),
+  ...(bucket.pricingRequests ? { pricingRequests: bucket.pricingRequests } : {}),
   inputTokens: bucket.inputTokens,
   cachedInputTokens: bucket.cachedInputTokens,
   outputTokens: bucket.outputTokens,
@@ -147,7 +149,8 @@ export const evaluateCostOptimization = (
     input.now
   );
   const pricingCoverageIsSafe =
-    coverage.percentage >= input.settings.minimumPricingCoveragePercentage;
+    (coverage.conditionPercentage ?? coverage.percentage) >=
+    input.settings.minimumPricingCoveragePercentage;
   const anomalies = pricingCoverageIsSafe
     ? detectCostAnomalies(
         input.index,

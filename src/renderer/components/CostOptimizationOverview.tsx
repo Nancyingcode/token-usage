@@ -2,6 +2,7 @@
  * @file 成本优化总览
  * @description 汇总当前费用、定价覆盖、预测、异常和保守节省建议。
  */
+import { PricingQualityNotice } from './PricingQualityNotice';
 import React from 'react';
 import { CircleDollarSign, PiggyBank, ShieldCheck, TriangleAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -21,7 +22,8 @@ const CostOptimizationOverview: React.FC<CostOptimizationOverviewProps> = ({ sna
   const { t, i18n } = useTranslation('costOptimization');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const pricingCoverageReady =
-    snapshot.coverage.percentage >= snapshot.settings.minimumPricingCoveragePercentage;
+    (snapshot.coverage.conditionPercentage ?? snapshot.coverage.percentage) >=
+    snapshot.settings.minimumPricingCoveragePercentage;
   const forecastValue =
     snapshot.forecast.kind === 'ready'
       ? formatUsd(snapshot.forecast.periodEndProjectedCostUsd, locale)
@@ -38,13 +40,19 @@ const CostOptimizationOverview: React.FC<CostOptimizationOverviewProps> = ({ sna
 
   return (
     <div className="cost-optimization-overview">
+      <PricingQualityNotice quality={snapshot.coverage} />
       <section className="cost-optimization-metric-grid" aria-label={t('overview.metrics')}>
         <article className="metric-card metric-card--featured">
           <div className="metric-copy">
             <span>{t('overview.currentCost')}</span>
             <strong>{formatUsd(snapshot.currentCostUsd, locale)}</strong>
             <small>{t('overview.pricingCoverage')}</small>
-            <em className="status-label">{formatPercent(snapshot.coverage.percentage, locale)}</em>
+            <em className="status-label">
+              {formatPercent(
+                snapshot.coverage.conditionPercentage ?? snapshot.coverage.percentage,
+                locale
+              )}
+            </em>
             {snapshot.coverage.assumedTokens > 0 ? (
               <small>
                 {t('overview.assumedPricingCoverage', {
@@ -93,7 +101,7 @@ const CostOptimizationOverview: React.FC<CostOptimizationOverviewProps> = ({ sna
           <strong>{t('overview.pricingGateTitle')}</strong>
           <span>
             {t('overview.pricingGateDescription', {
-              current: snapshot.coverage.percentage,
+              current: snapshot.coverage.conditionPercentage ?? snapshot.coverage.percentage,
               required: snapshot.settings.minimumPricingCoveragePercentage,
             })}
           </span>

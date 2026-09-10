@@ -11,9 +11,14 @@ import type {
   UnknownModelPricing,
   UnknownModelPricingInput,
 } from './budgetTypes';
-import type { TokenUsage, UsageSession, UsageSlice, UsageSummary } from './usageTypes';
+import type { UsageSession, UsageSlice, UsageSummary } from './usageTypes';
+import {
+  evaluateConditionalUsage,
+  type ConditionalCostBreakdown,
+  type ConditionalCostResult,
+} from './conditionalPricing';
+import type { PriceableUsage, ConditionalPricingFields } from './conditionalPricingTypes';
 
-const TOKENS_PER_MILLION = 1_000_000;
 const UNKNOWN_MODEL_ID = 'Unknown model';
 const DATE_PART_LENGTH = 2;
 
@@ -23,27 +28,42 @@ export interface PricingContext {
 }
 
 export type UsagePricingResult =
-  | { kind: 'exact'; costUsd: number; pricing: ModelPricingEntry }
+  | ({
+      kind: 'exact';
+      costUsd: number;
+      pricing: ModelPricingEntry;
+    } & Partial<ConditionalCostResult>)
   | { kind: 'assumed'; costUsd: number; pricing: UnknownModelPricingInput }
   | { kind: 'unpriced'; costUsd: 0 };
 
-export interface UsageCostBreakdown {
-  regularInputCostUsd: number;
-  cachedInputCostUsd: number;
-  outputCostUsd: number;
-}
+export type UsageCostBreakdown = ConditionalCostBreakdown;
 
 export const normalizeModelId = (modelId: string): string =>
   modelId.trim().toLocaleLowerCase('en-US');
 
-const toOverrideEntry = (override: ModelPricingOverride, sourceUrl?: string): ModelPricingEntry => {
+const toOverrideEntry = (
+  override: ModelPricingOverride,
+  base?: ModelPricingEntry
+): ModelPricingEntry => {
   const { updatedAt, ...pricing } = override;
 
   return {
-    ...pricing,
+    modelId: pricing.modelId,
+    aliases: [...pricing.aliases],
+    inputUsdPerMillion: pricing.inputUsdPerMillion,
+    cachedInputUsdPerMillion: pricing.cachedInputUsdPerMillion,
+    outputUsdPerMillion: pricing.outputUsdPerMillion,
+    ...(pricing.useCatalogConditions ? { useCatalogConditions: true } : {}),
     effectiveAt: updatedAt,
     sourceKind: 'override',
-    ...(sourceUrl ? { sourceUrl } : {}),
+    ...(!override.useCatalogConditions ? { manualFlat: true } : {}),
+    ...(base?.sourceUrl ? { sourceUrl: base.sourceUrl } : {}),
+    ...(base?.conditions ? { availableConditions: base.conditions } : {}),
+    ...(override.useCatalogConditions
+      ? base?.conditions
+        ? { conditions: base.conditions }
+        : { rulesStatus: 'unavailable' as const }
+      : {}),
   };
 };
 
@@ -57,7 +77,7 @@ export const mergeModelPricing = (
   const defaultIds = new Set(defaults.map(({ modelId }) => normalizeModelId(modelId)));
   const mergedDefaults = defaults.map((entry) => {
     const override = overridesById.get(normalizeModelId(entry.modelId));
-    return override ? toOverrideEntry(override, entry.sourceUrl) : entry;
+    return override ? toOverrideEntry(override, entry) : entry;
   });
   const customEntries = overrides
     .filter(({ modelId }) => !defaultIds.has(normalizeModelId(modelId)))
@@ -96,30 +116,17 @@ export const createPricingContext = (
 });
 
 export const calculateUsageCostBreakdown = (
-  usage: TokenUsage,
-  pricing: UnknownModelPricingInput
-): UsageCostBreakdown => {
-  const regularInputTokens = Math.max(usage.inputTokens - usage.cachedInputTokens, 0);
-
-  return {
-    regularInputCostUsd: (regularInputTokens * pricing.inputUsdPerMillion) / TOKENS_PER_MILLION,
-    cachedInputCostUsd:
-      (usage.cachedInputTokens * pricing.cachedInputUsdPerMillion) / TOKENS_PER_MILLION,
-    outputCostUsd: (usage.outputTokens * pricing.outputUsdPerMillion) / TOKENS_PER_MILLION,
-  };
-};
+  usage: PriceableUsage,
+  pricing: UnknownModelPricingInput & ConditionalPricingFields
+): UsageCostBreakdown => evaluateConditionalUsage(usage, pricing).breakdown;
 
 export const calculateUsageCost = (
-  usage: TokenUsage,
-  pricing: UnknownModelPricingInput
-): number => {
-  const breakdown = calculateUsageCostBreakdown(usage, pricing);
-
-  return breakdown.regularInputCostUsd + breakdown.cachedInputCostUsd + breakdown.outputCostUsd;
-};
+  usage: PriceableUsage,
+  pricing: UnknownModelPricingInput & ConditionalPricingFields
+): number => evaluateConditionalUsage(usage, pricing).costUsd;
 
 export const priceTokenUsage = (
-  usage: TokenUsage,
+  usage: PriceableUsage,
   modelId: string | undefined,
   context: PricingContext
 ): UsagePricingResult => {
@@ -128,7 +135,7 @@ export const priceTokenUsage = (
   if (trimmedModelId) {
     const pricing = context.pricingById.get(normalizeModelId(trimmedModelId));
     return pricing
-      ? { kind: 'exact', costUsd: calculateUsageCost(usage, pricing), pricing }
+      ? { kind: 'exact', ...evaluateConditionalUsage(usage, pricing), pricing }
       : { kind: 'unpriced', costUsd: 0 };
   }
 
@@ -173,6 +180,19 @@ export const calculateEstimatedCost = (
       return {
         ...estimate,
         pricedCostUsd: estimate.pricedCostUsd + pricingResult.costUsd,
+        ...(pricingResult.kind === 'exact' && (pricingResult.conditionAssumedTokens ?? 0) > 0
+          ? {
+              conditionAssumedTokens:
+                (estimate.conditionAssumedTokens ?? 0) +
+                (pricingResult.conditionAssumedTokens ?? 0),
+              conditionAssumedCostUsd:
+                (estimate.conditionAssumedCostUsd ?? 0) +
+                (pricingResult.conditionAssumedCostUsd ?? 0),
+              pricingIssues: [
+                ...new Set([...(estimate.pricingIssues ?? []), ...(pricingResult.issues ?? [])]),
+              ],
+            }
+          : {}),
         assumedCostUsd:
           estimate.assumedCostUsd + (pricingResult.kind === 'assumed' ? pricingResult.costUsd : 0),
         assumedTokens:

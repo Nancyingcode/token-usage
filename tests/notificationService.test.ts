@@ -15,6 +15,24 @@ const ALERT: BudgetAlert = {
 };
 
 describe('notification service', () => {
+  it.each(['en', 'zh-CN'] as const)(
+    'labels conditional cost assumptions in %s notifications',
+    async (locale) => {
+      const i18n = await createMainI18n(locale);
+      const create = vi.fn(() => ({ onClick: vi.fn(), show: vi.fn() }));
+      const service = createNotificationService(vi.fn(), { isSupported: () => true, create }, i18n);
+      service.notify({ ...ALERT, metric: 'cost', usesConditionalAssumptions: true });
+      expect(create.mock.calls[0]).toEqual([
+        expect.objectContaining({
+          body: expect.stringContaining(
+            locale === 'en'
+              ? 'reference estimate includes pricing assumptions'
+              : '参考估算包含计价假设'
+          ),
+        }),
+      ]);
+    }
+  );
   it('returns false when system notifications are unavailable', async () => {
     const i18n = await createMainI18n('en');
     const service = createNotificationService(

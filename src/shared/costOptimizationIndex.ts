@@ -18,7 +18,7 @@ import type {
 } from './costOptimizationTypes';
 import type { TokenUsage } from './usageTypes';
 
-export const COST_OPTIMIZATION_INDEX_SCHEMA_VERSION = 2;
+export const COST_OPTIMIZATION_INDEX_SCHEMA_VERSION = 3;
 const UNKNOWN_MODEL_KEY = 'unknown-model';
 const KEY_SEPARATOR = '\u001f';
 const DATE_PART_LENGTH = 2;
@@ -68,6 +68,7 @@ const toLocalDateKey = (timestamp: string): string => {
 
 const cloneBucket = (bucket: IndexedUsageBucket): IndexedUsageBucket => ({
   ...bucket,
+  pricingRequests: { ...bucket.pricingRequests },
   memberCounts: { ...bucket.memberCounts },
   contributionCounts: { ...bucket.contributionCounts },
 });
@@ -98,7 +99,7 @@ class BucketCollectionDraft {
     direction: 1 | -1
   ): void {
     const existing = this.buckets[bucketId];
-    const bucket =
+    const bucket: IndexedUsageBucket =
       existing && this.touchedBucketIds.has(bucketId)
         ? existing
         : existing
@@ -115,6 +116,22 @@ class BucketCollectionDraft {
     TOKEN_USAGE_KEYS.forEach((key) => {
       bucket[key] += contribution[key] * direction;
     });
+    // 聚合桶保留每次请求的计价输入，撤销来源时同步撤销，避免把累计输入套用长上下文倍率。
+    bucket.pricingRequests ??= {};
+    if (direction === 1) {
+      bucket.pricingRequests[contribution.id] = {
+        inputTokens: contribution.inputTokens,
+        cachedInputTokens: contribution.cachedInputTokens,
+        outputTokens: contribution.outputTokens,
+        reasoningOutputTokens: contribution.reasoningOutputTokens,
+        totalTokens: contribution.totalTokens,
+        ...(contribution.pricingContext
+          ? { pricingContext: { ...contribution.pricingContext } }
+          : {}),
+      };
+    } else {
+      delete bucket.pricingRequests[contribution.id];
+    }
     const nextMemberCount = (bucket.memberCounts[contribution.sessionId] ?? 0) + direction;
     const nextContributionCount = (bucket.contributionCounts[contribution.id] ?? 0) + direction;
 
@@ -157,6 +174,7 @@ const getSourceContributions = (sourceChange: UsageSourceChange): IndexedUsageCo
     projectPath: sourceChange.session.projectPath,
     projectName: sourceChange.session.projectName,
     modelId: slice.modelId,
+    ...(slice.pricingContext ? { pricingContext: { ...slice.pricingContext } } : {}),
     inputTokens: slice.inputTokens,
     cachedInputTokens: slice.cachedInputTokens,
     outputTokens: slice.outputTokens,

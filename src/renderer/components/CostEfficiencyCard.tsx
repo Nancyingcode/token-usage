@@ -3,6 +3,7 @@
  * @description Displays cost coverage, composition, and keyboard-accessible daily cost details.
  */
 
+import { PricingQualityNotice } from './PricingQualityNotice';
 import React, { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SupportedLocale } from '../../shared/i18n/locale';
@@ -40,6 +41,7 @@ const formatDateKey = (value: string, locale: SupportedLocale): string => {
 };
 
 const CostEfficiencyCard: React.FC<CostEfficiencyCardProps> = ({ efficiency }) => {
+  const { t: tBudgets } = useTranslation('budgets');
   const { t, i18n } = useTranslation('analytics');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const chartDescriptionId = useId();
@@ -84,11 +86,30 @@ const CostEfficiencyCard: React.FC<CostEfficiencyCardProps> = ({ efficiency }) =
         unitCost: formatUnitCost(day.unitCostUsdPerMillion),
         pricedTokens: formatNumber(day.coverage.pricedTokens, locale),
         coverage: formatRate(day.coverage.percentage),
-        pricingState,
+        pricingState: [
+          pricingState,
+          day.coverage.conditionAssumedTokens ? tBudgets('pricing.qualityTitle') : '',
+        ]
+          .filter(Boolean)
+          .join(' · '),
       }
     );
   };
   const coverageItems = [
+    ...(efficiency.coverage.conditionAssumedTokens
+      ? [
+          {
+            kind: 'conditional',
+            label: tBudgets('pricing.qualityTitle'),
+            tokens: efficiency.coverage.conditionAssumedTokens,
+            percentage:
+              efficiency.coverage.totalTokens > 0
+                ? (efficiency.coverage.conditionAssumedTokens / efficiency.coverage.totalTokens) *
+                  PERCENT_SCALE
+                : null,
+          },
+        ]
+      : []),
     {
       kind: 'exact',
       label: t('performance.exactPricing'),
@@ -111,6 +132,7 @@ const CostEfficiencyCard: React.FC<CostEfficiencyCardProps> = ({ efficiency }) =
   const breakdownLabels: Record<CostEfficiencyBreakdownItem['kind'], string> = {
     'regular-input': t('performance.regularInputCost'),
     'cached-input': t('performance.cachedInputCost'),
+    'cache-write': tBudgets('pricing.cacheWrite'),
     output: t('performance.outputCost'),
   };
 
@@ -126,6 +148,7 @@ const CostEfficiencyCard: React.FC<CostEfficiencyCardProps> = ({ efficiency }) =
             {formatUsd(efficiency.pricedCostUsd, locale)}
           </strong>
           <p>{t('performance.costLocalEstimate')}</p>
+          <PricingQualityNotice quality={efficiency.coverage} />
         </div>
 
         <dl className="cost-efficiency-stats">

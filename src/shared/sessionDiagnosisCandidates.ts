@@ -45,6 +45,8 @@ const sumContributions = (contributions: readonly IndexedUsageContribution[]): T
 const toUsageSlice = (contribution: IndexedUsageContribution): UsageSlice => ({
   occurredAt: contribution.occurredAt,
   modelId: contribution.modelId,
+  ...(contribution.pricingContext ? { pricingContext: contribution.pricingContext } : {}),
+  ...(contribution.pricingRequests ? { pricingRequests: contribution.pricingRequests } : {}),
   inputTokens: contribution.inputTokens,
   cachedInputTokens: contribution.cachedInputTokens,
   outputTokens: contribution.outputTokens,
@@ -106,7 +108,16 @@ export const buildSessionDiagnosisObservations = ({
         pricedCostUsd: estimate.pricedCostUsd,
         coverage: {
           pricedTokens,
-          exactPricedTokens: pricedTokens,
+          exactPricedTokens: pricedTokens - (estimate.conditionAssumedTokens ?? 0),
+          ...(estimate.conditionAssumedTokens
+            ? {
+                conditionAssumedTokens: estimate.conditionAssumedTokens,
+                pricingIssues: estimate.pricingIssues,
+                conditionPercentage:
+                  ((pricedTokens - estimate.conditionAssumedTokens) / usage.totalTokens) *
+                  PERCENTAGE_SCALE,
+              }
+            : {}),
           assumedTokens: 0,
           unpricedTokens,
           totalTokens: usage.totalTokens,
@@ -116,7 +127,8 @@ export const buildSessionDiagnosisObservations = ({
               : PERCENTAGE_SCALE,
           exactPercentage:
             usage.totalTokens > 0
-              ? (pricedTokens / usage.totalTokens) * PERCENTAGE_SCALE
+              ? ((pricedTokens - (estimate.conditionAssumedTokens ?? 0)) / usage.totalTokens) *
+                PERCENTAGE_SCALE
               : PERCENTAGE_SCALE,
           assumedPercentage: 0,
           unpricedModelIds: [...estimate.unpricedModelIds],
@@ -168,7 +180,9 @@ export const selectDiagnosisCandidates = ({
     observations.map(({ totalTokens }) => totalTokens)
   );
   const safeCostCandidates = observations.filter(
-    ({ coverage }) => coverage.percentage >= minimumPricingCoveragePercentage
+    ({ coverage }) =>
+      (coverage.conditionAssumedTokens ?? 0) === 0 &&
+      coverage.percentage >= minimumPricingCoveragePercentage
   );
   const safeCostPercentiles = getMidrankPercentiles(
     safeCostCandidates.map(({ pricedCostUsd }) => pricedCostUsd)

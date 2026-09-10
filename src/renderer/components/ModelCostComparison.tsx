@@ -2,6 +2,7 @@
  * @file 模型成本对比
  * @description 展示实际模型成本和仅基于价格的替代情景，并明确能力不等价边界。
  */
+import { PricingQualityNotice } from './PricingQualityNotice';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ModelCostRow, ModelSubstitutionScenario } from '../../shared/costOptimizationTypes';
@@ -48,6 +49,7 @@ const ModelCostComparison: React.FC<ModelCostComparisonProps> = ({ rows, scenari
                   <tr key={row.modelId ?? 'unknown'}>
                     <td>
                       {row.modelId ?? t('comparison.unknownModel')}
+                      <PricingQualityNotice quality={row.coverage} />
                       {row.coverage.assumedTokens > 0 ? (
                         <small>{t('comparison.assumedPricing')}</small>
                       ) : null}
@@ -74,7 +76,10 @@ const ModelCostComparison: React.FC<ModelCostComparisonProps> = ({ rows, scenari
                         : t('comparison.pricingIncomplete')}
                     </td>
                     <td>
-                      {formatPercent(row.coverage.percentage, locale)}
+                      {formatPercent(
+                        row.coverage.conditionPercentage ?? row.coverage.percentage,
+                        locale
+                      )}
                       {row.coverage.assumedTokens > 0 ? (
                         <small>
                           {t('comparison.exactCoverage', {

@@ -125,6 +125,12 @@ const buildPolicyStatus = (
             costEstimate.unpricedTokens > 0
           ),
         }),
+    ...(costEstimate.conditionAssumedTokens
+      ? {
+          conditionAssumedTokens: costEstimate.conditionAssumedTokens,
+          pricingIssues: costEstimate.pricingIssues,
+        }
+      : {}),
     assumedTokens: costEstimate.assumedTokens,
     unpricedTokens: costEstimate.unpricedTokens,
     unpricedModelIds: costEstimate.unpricedModelIds,
@@ -147,6 +153,9 @@ const buildAlert = (
     metric,
     thresholdPercent,
     severity,
+    ...(metric === 'cost' && (status.conditionAssumedTokens ?? 0) > 0
+      ? { usesConditionalAssumptions: true }
+      : {}),
     ...(metric === 'cost' && status.assumedTokens > 0 ? { usesUnknownModelPricing: true } : {}),
   };
 };

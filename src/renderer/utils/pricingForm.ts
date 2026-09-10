@@ -7,6 +7,7 @@ import type {
 import { getPricingOverrideIssues } from '../../shared/budgetValidation';
 
 export interface PricingFormState {
+  useCatalogConditions?: boolean;
   modelId: string;
   aliases: string;
   inputUsdPerMillion: string;
@@ -39,6 +40,7 @@ export const createPricingFormState = (
   entry?: ModelPricingEntry,
   detectedModelId = ''
 ): PricingFormState => ({
+  ...(entry?.useCatalogConditions ? { useCatalogConditions: true } : {}),
   modelId: entry?.modelId ?? detectedModelId,
   aliases: entry?.aliases.join(', ') ?? '',
   inputUsdPerMillion:
@@ -50,6 +52,7 @@ export const createPricingFormState = (
 });
 
 export const toPricingOverride = (state: PricingFormState): ModelPricingOverrideInput => ({
+  ...(state.useCatalogConditions ? { useCatalogConditions: true } : {}),
   modelId: state.modelId.trim(),
   aliases: state.aliases
     .split(',')

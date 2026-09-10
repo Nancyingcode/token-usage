@@ -3,6 +3,7 @@
  * @description
  * 在 Electron userData 中持久化会话文件指纹与解析结果；缓存可安全丢弃，且不得写入 Codex 会话目录。
  */
+import { hasValidPricingMetadata } from '../shared/conditionalPricingValidation';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { isRecord } from '../shared/runtimeTypes';
@@ -15,7 +16,7 @@ import type {
   UsageWarningCode,
 } from '../shared/usageTypes';
 
-export const USAGE_SCAN_CACHE_SCHEMA_VERSION = 1;
+export const USAGE_SCAN_CACHE_SCHEMA_VERSION = 2;
 
 const JSON_INDENT_SPACES = 2;
 const TEMP_FILE_SUFFIX = '.tmp';
@@ -74,6 +75,7 @@ const isWarning = (value: unknown): value is UsageWarning =>
 const isUsageSlice = (value: unknown): value is UsageSlice =>
   isRecord(value) &&
   hasTokenUsage(value) &&
+  hasValidPricingMetadata(value) &&
   typeof value.occurredAt === 'string' &&
   isOptionalString(value.modelId);
 
@@ -100,6 +102,7 @@ const isTurnOutcome = (value: unknown): value is UsageTurnOutcome => {
 const isUsageSession = (value: unknown, sourceFile: string): value is UsageSession =>
   isRecord(value) &&
   hasTokenUsage(value) &&
+  hasValidPricingMetadata(value) &&
   typeof value.sessionId === 'string' &&
   typeof value.startedAt === 'string' &&
   typeof value.endedAt === 'string' &&

@@ -989,3 +989,26 @@
   margin: 0;
   overflow-wrap: anywhere;
 }
+
+.pricing-quality-notice,
+.pricing-rule-details {
+  font-size: var(--font-size-body-small);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.pricing-quality-notice summary,
+.pricing-rule-details summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.pricing-quality-notice p,
+.pricing-rule-details p {
+  margin: 8px 0;
+}
+
+.pricing-quality-notice ul,
+.pricing-rule-details ul {
+  padding-inline-start: 20px;
+}

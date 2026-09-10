@@ -1,7 +1,7 @@
 import type { ModelPricingEntry } from './budgetTypes';
 
 export interface PricingCatalog {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
   version: string;
   publishedAt: string;
   currency: 'USD';

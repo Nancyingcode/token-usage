@@ -116,6 +116,8 @@ const isObservationInQuery = (
 const toUsageSlice = (bucket: IndexedUsageBucket): UsageSlice => ({
   occurredAt: getBucketTimestamp(bucket),
   modelId: bucket.modelId,
+  ...(bucket.pricingContext ? { pricingContext: bucket.pricingContext } : {}),
+  ...(bucket.pricingRequests ? { pricingRequests: bucket.pricingRequests } : {}),
   inputTokens: bucket.inputTokens,
   cachedInputTokens: bucket.cachedInputTokens,
   outputTokens: bucket.outputTokens,
@@ -275,6 +277,8 @@ const buildSessionObservations = (
           projectPath: bucket.projectPath,
           projectName: bucket.projectName,
           modelId: bucket.modelId,
+          ...(bucket.pricingContext ? { pricingContext: bucket.pricingContext } : {}),
+          ...(bucket.pricingRequests ? { pricingRequests: bucket.pricingRequests } : {}),
           sessionId,
         },
         pricingEntries,
@@ -285,7 +289,9 @@ const buildSessionObservations = (
 const hasSafeCoverage = (
   observation: CostObservation,
   settings: CostOptimizationSettings
-): boolean => observation.coverage.percentage >= settings.minimumPricingCoveragePercentage;
+): boolean =>
+  (observation.coverage.conditionAssumedTokens ?? 0) === 0 &&
+  observation.coverage.percentage >= settings.minimumPricingCoveragePercentage;
 
 const toAnomaly = (
   observation: CostObservation,

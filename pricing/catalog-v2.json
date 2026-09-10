@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 2,
+  "version": "2026-09-10-seed",
+  "publishedAt": "2026-09-10T00:00:00.000Z",
+  "currency": "USD",
+  "unit": "per-million-tokens",
+  "models": [
+    {
+      "modelId": "gpt-5.5",
+      "aliases": [],
+      "inputUsdPerMillion": 5,
+      "cachedInputUsdPerMillion": 0.5,
+      "outputUsdPerMillion": 30,
+      "effectiveAt": "2026-07-20",
+      "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-5.5"
+    },
+    {
+      "modelId": "gpt-5.6-sol",
+      "aliases": ["gpt-5.6"],
+      "inputUsdPerMillion": 5,
+      "cachedInputUsdPerMillion": 0.5,
+      "outputUsdPerMillion": 30,
+      "effectiveAt": "2026-07-20",
+      "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-5.6-sol"
+    },
+    {
+      "modelId": "gpt-5.6-terra",
+      "aliases": [],
+      "inputUsdPerMillion": 2.5,
+      "cachedInputUsdPerMillion": 0.25,
+      "outputUsdPerMillion": 15,
+      "effectiveAt": "2026-07-20",
+      "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-5.6-terra"
+    },
+    {
+      "modelId": "gpt-5.6-luna",
+      "aliases": [],
+      "inputUsdPerMillion": 1,
+      "cachedInputUsdPerMillion": 0.1,
+      "outputUsdPerMillion": 6,
+      "effectiveAt": "2026-07-20",
+      "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-5.6-luna"
+    },
+    {
+      "modelId": "gpt-5.3-codex",
+      "aliases": [],
+      "inputUsdPerMillion": 1.75,
+      "cachedInputUsdPerMillion": 0.175,
+      "outputUsdPerMillion": 14,
+      "effectiveAt": "2026-07-20",
+      "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-5.3-codex"
+    },
+    {
+      "modelId": "gpt-5.2-codex",
+      "aliases": [],
+      "inputUsdPerMillion": 1.75,
+      "cachedInputUsdPerMillion": 0.175,
+      "outputUsdPerMillion": 14,
+      "effectiveAt": "2026-07-20",
+      "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-5.2-codex"
+    },
+    {
+      "modelId": "gpt-5.1-codex",
+      "aliases": [],
+      "inputUsdPerMillion": 1.25,
+      "cachedInputUsdPerMillion": 0.125,
+      "outputUsdPerMillion": 10,
+      "effectiveAt": "2026-07-20",
+      "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-5.1-codex"
+    },
+    {
+      "modelId": "gpt-5.1-codex-max",
+      "aliases": [],
+      "inputUsdPerMillion": 1.25,
+      "cachedInputUsdPerMillion": 0.125,
+      "outputUsdPerMillion": 10,
+      "effectiveAt": "2026-07-20",
+      "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-5.1-codex-max"
+    },
+    {
+      "modelId": "gpt-5.1-codex-mini",
+      "aliases": [],
+      "inputUsdPerMillion": 0.25,
+      "cachedInputUsdPerMillion": 0.025,
+      "outputUsdPerMillion": 2,
+      "effectiveAt": "2026-07-20",
+      "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-5.1-codex-mini"
+    },
+    {
+      "modelId": "gpt-5-codex",
+      "aliases": [],
+      "inputUsdPerMillion": 1.25,
+      "cachedInputUsdPerMillion": 0.125,
+      "outputUsdPerMillion": 10,
+      "effectiveAt": "2026-07-20",
+      "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-5-codex"
+    },
+    {
+      "modelId": "codex-mini-latest",
+      "aliases": [],
+      "inputUsdPerMillion": 1.5,
+      "cachedInputUsdPerMillion": 0.375,
+      "outputUsdPerMillion": 6,
+      "effectiveAt": "2026-07-20",
+      "sourceUrl": "https://developers.openai.com/api/docs/models/codex-mini-latest"
+    },
+    {
+      "modelId": "gpt-6-astra",
+      "aliases": [],
+      "inputUsdPerMillion": 10,
+      "cachedInputUsdPerMillion": 1,
+      "outputUsdPerMillion": 50,
+      "effectiveAt": "2026-09-10",
+      "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-6-astra",
+      "conditions": {
+        "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-6-astra",
+        "verifiedAt": "2026-09-10",
+        "modes": {
+          "standard": 1,
+          "fast": 2,
+          "flex": 0.5,
+          "batch": 0.5
+        },
+        "cacheWriteMultiplier": 1.25,
+        "longContext": {
+          "inputTokenThreshold": 272000,
+          "inputMultiplier": 2,
+          "cachedInputMultiplier": 2,
+          "cacheWriteMultiplier": 2,
+          "outputMultiplier": 1.5
+        }
+      }
+    }
+  ]
+}

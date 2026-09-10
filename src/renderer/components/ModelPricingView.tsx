@@ -30,6 +30,7 @@ import {
 } from '../utils/pricingForm';
 import { formatNumber, formatShortDateTime, formatUsd } from '../utils/formatters';
 import { translateValidationIssue } from '../utils/validationIssues';
+import { PricingRuleDetails } from './PricingRuleDetails';
 import PricingModelCombobox from './PricingModelCombobox';
 import { PricingSyncPanel } from './PricingSyncPanel';
 
@@ -85,8 +86,18 @@ const PricingEditor: React.FC<{
   const { state: exitState, requestExit, handleAnimationEnd } = useExitTransition(onClose);
   const drawerRef = useOverlayFocus<HTMLElement>(requestExit);
   const modelIdLocked = Boolean(model.entry);
+  const catalogConditions = model.entry?.conditions ?? model.entry?.availableConditions;
+  const rulePreview =
+    state.useCatalogConditions && model.entry ? (
+      <PricingRuleDetails
+        entry={{ ...model.entry, ...toPricingOverride(state), conditions: catalogConditions }}
+      />
+    ) : null;
 
-  const updateField = (field: keyof PricingFormState, value: string): void => {
+  const updateField = (
+    field: Exclude<keyof PricingFormState, 'useCatalogConditions'>,
+    value: string
+  ): void => {
     setState((current) => ({ ...current, [field]: value }));
     setIssues([]);
   };
@@ -192,6 +203,25 @@ const PricingEditor: React.FC<{
           );
         })}
 
+        <p>{t('pricing.flatOverride')}</p>
+        {catalogConditions ? (
+          <>
+            <label className="form-field">
+              <input
+                type="checkbox"
+                checked={Boolean(state.useCatalogConditions)}
+                onChange={(event) =>
+                  setState((current) => ({
+                    ...current,
+                    useCatalogConditions: event.target.checked,
+                  }))
+                }
+              />
+              <span>{t('pricing.useConditions')}</span>
+            </label>
+            {rulePreview}
+          </>
+        ) : null}
         {formIssue ? <p className="form-error">{formIssue}</p> : null}
         <div className="drawer-actions">
           <button type="button" className="secondary-button" onClick={requestExit}>
@@ -592,6 +622,7 @@ const ModelPricingView: React.FC<ModelPricingViewProps> = ({
               <div className="pricing-model-cell">
                 <strong>{entry.modelId}</strong>
                 <span>{entry.aliases.join(', ') || t('pricing.noAliases')}</span>
+                <PricingRuleDetails entry={entry} />
               </div>
               <span>{formatUsd(entry.inputUsdPerMillion, locale)}</span>
               <span>{formatUsd(entry.cachedInputUsdPerMillion, locale)}</span>

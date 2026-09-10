@@ -122,9 +122,12 @@ const fetchText = async (url) => {
 };
 
 const main = async () => {
-  const { decodePricingCatalog } = await require('./load-pricing-validator.cjs')();
+  const { decodePricingCatalog, addCatalogConditions } =
+    await require('./load-pricing-validator.cjs')();
   if (process.argv.includes('--validate')) {
-    decodePricingCatalog(JSON.parse(await readFile(resolve('pricing/catalog.json'), 'utf8')));
+    for (const filename of ['catalog.json', 'catalog-v2.json']) {
+      decodePricingCatalog(JSON.parse(await readFile(resolve('pricing', filename), 'utf8')));
+    }
     console.log('Pricing catalog is valid.');
     return;
   }
@@ -141,6 +144,12 @@ const main = async () => {
   }
   const next = decodePricingCatalog(
     await collectCatalog(previous, fetchText, new Date().toISOString())
+  );
+  const conditional = addCatalogConditions(next);
+  await writeFile(
+    resolve('pricing/catalog-v2.json'),
+    `${JSON.stringify(conditional, null, 2)}\n`,
+    'utf8'
   );
   await writeFile(resolve('pricing/catalog.json'), `${JSON.stringify(next, null, 2)}\n`, 'utf8');
 };

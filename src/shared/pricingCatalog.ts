@@ -2,6 +2,8 @@
  * @file 网络定价目录校验
  * @description 只接受明确来源的标准美元单价；任何歧义都拒绝整次更新，避免静默错价。
  */
+import { decodePricingConditions } from './conditionalPricingValidation';
+import { MODEL_PRICING_CONDITIONS } from './modelPricingConditions';
 import type { ModelPricingEntry } from './budgetTypes';
 import type { PricingCatalog } from './pricingCatalogTypes';
 import { isRecord } from './runtimeTypes';
@@ -9,6 +11,10 @@ import { normalizeModelId } from './pricing';
 
 export const PRICING_CATALOG_URL =
   'https://raw.githubusercontent.com/Nancyingcode/token-usage/pricing/catalog.json';
+export const CONDITIONAL_PRICING_CATALOG_URL = PRICING_CATALOG_URL.replace(
+  'catalog.json',
+  'catalog-v2.json'
+);
 export const PRICING_REFRESH_INTERVAL_MS = 86_400_000;
 export const PRICING_RETRY_INTERVAL_MS = 3_600_000;
 export const PRICING_MAX_BYTES = 1_000_000;
@@ -42,7 +48,7 @@ const isSource = (value: unknown): value is string => {
   }
 };
 
-const decodeModel = (raw: unknown): PricingCatalog['models'][number] => {
+const decodeModel = (raw: unknown, version: 1 | 2): PricingCatalog['models'][number] => {
   if (
     !isRecord(raw) ||
     !isModelId(raw.modelId) ||
@@ -64,6 +70,9 @@ const decodeModel = (raw: unknown): PricingCatalog['models'][number] => {
     outputUsdPerMillion: raw.outputUsdPerMillion,
     effectiveAt: raw.effectiveAt,
     sourceUrl: raw.sourceUrl,
+    ...(version === 2 && raw.conditions !== undefined
+      ? { conditions: decodePricingConditions(raw.conditions) }
+      : {}),
   };
 };
 
@@ -83,7 +92,7 @@ const validateAliases = (models: PricingCatalog['models']): void => {
 export const decodePricingCatalog = (raw: unknown): PricingCatalog => {
   if (
     !isRecord(raw) ||
-    raw.schemaVersion !== 1 ||
+    (raw.schemaVersion !== 1 && raw.schemaVersion !== 2) ||
     raw.currency !== 'USD' ||
     raw.unit !== 'per-million-tokens' ||
     typeof raw.version !== 'string' ||
@@ -94,10 +103,11 @@ export const decodePricingCatalog = (raw: unknown): PricingCatalog => {
   ) {
     throw new TypeError('Invalid pricing catalog.');
   }
-  const models = raw.models.map(decodeModel);
+  const version = raw.schemaVersion;
+  const models = raw.models.map((model) => decodeModel(model, version));
   validateAliases(models);
   return {
-    schemaVersion: 1,
+    schemaVersion: version,
     version: raw.version,
     publishedAt: raw.publishedAt,
     currency: 'USD',
@@ -116,6 +126,7 @@ export const mergePricingCatalog = (
   const remote = catalog.models.map((entry): ModelPricingEntry => ({
     ...entry,
     sourceKind: 'remote',
+    ...(!entry.conditions ? { rulesStatus: 'unavailable' } : {}),
   }));
   const remoteIds = new Set(remote.map((entry) => normalizeModelId(entry.modelId)));
   const result = [
@@ -125,3 +136,15 @@ export const mergePricingCatalog = (
   validateAliases(result);
   return result;
 };
+
+export const addCatalogConditions = (catalog: PricingCatalog): PricingCatalog =>
+  decodePricingCatalog({
+    ...catalog,
+    schemaVersion: 2,
+    models: catalog.models.map((entry) => ({
+      ...entry,
+      ...(MODEL_PRICING_CONDITIONS[entry.modelId]
+        ? { conditions: MODEL_PRICING_CONDITIONS[entry.modelId] }
+        : {}),
+    })),
+  });

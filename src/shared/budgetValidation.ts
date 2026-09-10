@@ -125,6 +125,9 @@ export const getThresholdIssues = (input: BudgetThresholds): ValidationIssue[] =
 
 export const getPricingOverrideIssues = (input: ModelPricingOverrideInput): ValidationIssue[] => {
   const issues: ValidationIssue[] = [];
+  if (input.useCatalogConditions !== undefined && typeof input.useCatalogConditions !== 'boolean') {
+    issues.push({ field: 'useCatalogConditions', code: 'unexpected' });
+  }
   const normalizedAliases = input.aliases.map((alias) => alias.trim().toLocaleLowerCase('en-US'));
   const uniqueAliases = new Set(normalizedAliases.filter(Boolean));
 
@@ -269,6 +272,7 @@ const isPricingOverride = (value: unknown): value is ModelPricingOverride => {
   if (
     !isRecord(value) ||
     typeof value.modelId !== 'string' ||
+    (value.useCatalogConditions !== undefined && typeof value.useCatalogConditions !== 'boolean') ||
     !Array.isArray(value.aliases) ||
     !value.aliases.every((alias) => typeof alias === 'string') ||
     typeof value.inputUsdPerMillion !== 'number' ||

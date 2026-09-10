@@ -1,3 +1,4 @@
+import type { PriceableUsage, PricingIssue } from './conditionalPricingTypes';
 import type { BudgetPolicyStatus, ModelPricingEntry, UnknownModelPricing } from './budgetTypes';
 import type { TokenUsage, UsagePeriod, UsageSession } from './usageTypes';
 
@@ -55,7 +56,7 @@ export interface UsageChangeSet {
   requiresFullRebuild: boolean;
 }
 
-export interface IndexedUsageContribution extends TokenUsage {
+export interface IndexedUsageContribution extends PriceableUsage {
   id: string;
   sourceFile: string;
   sessionId: string;
@@ -77,7 +78,7 @@ export interface IndexedUsageSessionMetadata {
   sourceFile: string;
 }
 
-export interface IndexedUsageBucket extends TokenUsage {
+export interface IndexedUsageBucket extends PriceableUsage {
   id: string;
   date?: string;
   projectPath?: string;
@@ -106,6 +107,9 @@ export interface CostOptimizationIndex {
 }
 
 export interface PricingCoverage {
+  pricingIssues?: PricingIssue[];
+  conditionAssumedTokens?: number;
+  conditionPercentage?: number;
   pricedTokens: number;
   exactPricedTokens: number;
   assumedTokens: number;

@@ -8,18 +8,17 @@ const { resolve } = require('node:path');
 const REPOSITORY = 'Nancyingcode/token-usage';
 const BRANCH = 'pricing';
 
-const publishCatalog = async (catalog, request) => {
+const publishCatalog = async (catalog, conditionalCatalog, request) => {
   const reference = await request(`/git/ref/heads/${BRANCH}`, undefined, true);
   const parent = reference?.object.sha;
   const tree = await request('/git/trees', {
-    tree: [
-      {
-        path: 'catalog.json',
-        mode: '100644',
-        type: 'blob',
-        content: `${JSON.stringify(catalog, null, 2)}\n`,
-      },
-    ],
+    // 两个客户端协议必须来自同一快照，只有最终 ref 更新才对客户端可见。
+    tree: [catalog, conditionalCatalog].map((entry, index) => ({
+      path: index === 0 ? 'catalog.json' : 'catalog-v2.json',
+      mode: '100644',
+      type: 'blob',
+      content: `${JSON.stringify(entry, null, 2)}\n`,
+    })),
   });
   const commit = await request('/git/commits', {
     message: `chore(pricing): update catalog ${catalog.version}`,
@@ -45,6 +44,17 @@ const main = async () => {
   const catalog = decodePricingCatalog(
     JSON.parse(await readFile(resolve('pricing/catalog.json'), 'utf8'))
   );
+  const conditionalCatalog = decodePricingCatalog(
+    JSON.parse(await readFile(resolve('pricing/catalog-v2.json'), 'utf8'))
+  );
+  if (
+    catalog.schemaVersion !== 1 ||
+    conditionalCatalog.schemaVersion !== 2 ||
+    JSON.stringify(catalog) !==
+      JSON.stringify(decodePricingCatalog({ ...conditionalCatalog, schemaVersion: 1 }))
+  ) {
+    throw new Error('Pricing catalogs must share the same base-price snapshot.');
+  }
   const request = async (path, body, allowMissing = false, method = body ? 'POST' : 'GET') => {
     const response = await fetch(`https://api.github.com/repos/${REPOSITORY}${path}`, {
       method,
@@ -65,7 +75,7 @@ const main = async () => {
     }
     return response.json();
   };
-  await publishCatalog(catalog, request);
+  await publishCatalog(catalog, conditionalCatalog, request);
 };
 
 module.exports = { publishCatalog };
