@@ -13,6 +13,7 @@
     "build": "tsc -p tsconfig.node.json && tsc -p tsconfig.web.json && electron-vite build",
     "build:web": "vite build",
     "build:win": "npm run build && electron-builder --config electron-builder.yml --win nsis --x64",
+    "build:win:cached": "npm run build:win -- --config.electronDist=node_modules/electron/dist",
     "commitlint": "commitlint --from HEAD~1 --to HEAD --verbose",
     "lint": "eslint . --max-warnings=0 && prettier --check . && npm run lint:docs",
     "lint:docs": "node scripts/check-docs.cjs",
