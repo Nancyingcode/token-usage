@@ -61,6 +61,7 @@ const CHART_GRID_LINE_COUNT = 5;
 const CHART_GRID_TOP = 42;
 const CHART_GRID_GAP = 34;
 const DATE_LABEL_START_INDEX = 5;
+const CHART_DATE_LABEL_Y = 208;
 const MAX_X_AXIS_LABEL_COUNT = 8;
 const CHART_GRID_LINES = Array.from({ length: CHART_GRID_LINE_COUNT }, (_, index) => index);
 const TOOLTIP_LEFT_BOUNDARY = 160;
@@ -259,6 +260,18 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
               </g>
             );
           })}
+          <g className="trend-x-axis">
+            {points
+              .filter(
+                (_, index) =>
+                  index % Math.max(1, Math.ceil(points.length / MAX_X_AXIS_LABEL_COUNT)) === 0
+              )
+              .map((point) => (
+                <text key={point.day.date} x={point.x} y={CHART_DATE_LABEL_Y} textAnchor="middle">
+                  {point.day.date.slice(DATE_LABEL_START_INDEX)}
+                </text>
+              ))}
+          </g>
         </svg>
         {activePoint ? (
           <div
@@ -299,15 +312,6 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
             </dl>
           </div>
         ) : null}
-      </div>
-      <div className="x-axis">
-        {days
-          .filter(
-            (_, index) => index % Math.max(1, Math.ceil(days.length / MAX_X_AXIS_LABEL_COUNT)) === 0
-          )
-          .map((day) => (
-            <span key={day.date}>{day.date.slice(DATE_LABEL_START_INDEX)}</span>
-          ))}
       </div>
     </div>
   );

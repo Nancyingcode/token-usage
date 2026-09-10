@@ -18,6 +18,36 @@ import type { UsageDay, UsageSession } from '../src/shared/usageTypes';
 import { createTestI18n, renderWithI18n } from './helpers/renderWithI18n';
 
 describe('buildTrendPoints', () => {
+  it.each([0, 1, 7, 9, 24])('aligns date labels with their points for %i days', (count) => {
+    const days = Array.from({ length: count }, (_, index) =>
+      makeDay(`2026-07-${String(index + 1).padStart(2, '0')}`, 100)
+    );
+    const { container } = render(
+      <I18nextProvider i18n={createTestI18n('en')}>
+        <Overview
+          summary={{ ...buildUsageSummary([]), byDay: days }}
+          pricing={PRICING}
+          period="month"
+          scannedAt="2026-07-24T12:00:00.000Z"
+        />
+      </I18nextProvider>
+    );
+    const chart = container.querySelector('.trend-chart svg');
+    const labels = chart?.querySelectorAll('.trend-x-axis text');
+    const step = Math.max(1, Math.ceil(count / 8));
+    const labeledDays = days.filter((_, index) => index % step === 0);
+
+    expect(labels?.length).toBe(labeledDays.length);
+    labels?.forEach((label, index) => {
+      const day = labeledDays[index];
+      const point = chart?.querySelector(`.trend-hit-target[aria-label^="${day.date},"]`);
+      expect(point).toBeTruthy();
+      expect(label.textContent).toBe(day.date.slice(5));
+      expect(label.getAttribute('x')).toBe(point?.getAttribute('cx'));
+      expect(label.getAttribute('text-anchor')).toBe('middle');
+    });
+  });
+
   it('maps boundaries, cost, and placement for chart points', () => {
     const dailyCosts = new Map<string, CostEstimate>([
       [

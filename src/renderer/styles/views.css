@@ -359,11 +359,8 @@ code {
   background: var(--color-info-accent);
 }
 
-.x-axis {
-  padding: 0 24px;
-  display: flex;
-  justify-content: space-between;
-  color: var(--color-text-muted);
+.trend-x-axis {
+  fill: var(--color-text-muted);
   font-size: var(--font-size-label);
 }
 
@@ -5681,11 +5678,8 @@ code {
   background: var(--color-brand-300);
 }
 
-.x-axis {
-  padding: 0 var(--space-6);
-  display: flex;
-  justify-content: space-between;
-  color: var(--color-text-muted);
+.trend-x-axis {
+  fill: var(--color-text-muted);
   font-size: var(--font-size-label);
 }
 
