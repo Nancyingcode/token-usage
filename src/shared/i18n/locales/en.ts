@@ -575,6 +575,13 @@ export const en = {
       deleteMessage: 'The policy and its notification history will be removed.',
     },
     pricing: {
+      cachePriceUnpublished: 'Not published',
+      cachePriceDescription:
+        'Input and output are priced. Cached input remains unpriced when used because no separate rate is published.',
+      cacheOverrideRequired: 'Enter an explicit cached input rate to save a manual override.',
+      partialTitle: 'Partially priced',
+      partialDescription:
+        '{{tokens}} tokens are unpriced. The amount includes only priced usage and is not the full cost.',
       qualityTitle: 'Includes conditional pricing assumptions',
       qualityDescription:
         'Reference estimate for {{tokens}} tokens. Conditional assumptions are separate from unknown-model fallback prices. Monetary savings and diagnostics exclude these requests.',
@@ -592,6 +599,7 @@ export const en = {
       modeRule: '{{mode}}: ×{{multiplier}}',
       modeLabels: { standard: 'Standard', fast: 'Fast / Priority', flex: 'Flex', batch: 'Batch' },
       issues: {
+        'cached-input-price-unavailable': 'Cached input has no published price.',
         'rules-unavailable': 'Conditional rules are not verified.',
         'request-granularity':
           'Request boundaries are missing; long-context charges cannot be confirmed.',

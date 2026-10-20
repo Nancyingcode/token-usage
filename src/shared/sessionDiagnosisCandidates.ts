@@ -112,12 +112,12 @@ export const buildSessionDiagnosisObservations = ({
           ...(estimate.conditionAssumedTokens
             ? {
                 conditionAssumedTokens: estimate.conditionAssumedTokens,
-                pricingIssues: estimate.pricingIssues,
                 conditionPercentage:
                   ((pricedTokens - estimate.conditionAssumedTokens) / usage.totalTokens) *
                   PERCENTAGE_SCALE,
               }
             : {}),
+          ...(estimate.pricingIssues?.length ? { pricingIssues: estimate.pricingIssues } : {}),
           assumedTokens: 0,
           unpricedTokens,
           totalTokens: usage.totalTokens,

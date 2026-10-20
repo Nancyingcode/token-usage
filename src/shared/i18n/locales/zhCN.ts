@@ -567,6 +567,12 @@ export const zhCN = {
       deleteMessage: '该策略及其通知历史记录将被删除。',
     },
     pricing: {
+      cachePriceUnpublished: '官方未提供',
+      cachePriceDescription:
+        '输入和输出正常计价；由于官方未提供独立缓存单价，出现缓存用量时该部分保持未计价。',
+      cacheOverrideRequired: '保存手动覆盖前，请填写明确的缓存输入单价。',
+      partialTitle: '部分用量未计价',
+      partialDescription: '{{tokens}} Token 未计价。当前金额仅包含已计价用量，不是完整费用。',
       qualityTitle: '包含条件计价假设',
       qualityDescription:
         '{{tokens}} Token 的费用为参考估算。条件假设与未知模型兜底价格分别统计；货币化节省建议和诊断排除这些请求。',
@@ -582,6 +588,7 @@ export const zhCN = {
       modeRule: '{{mode}}：×{{multiplier}}',
       modeLabels: { standard: '标准', fast: 'Fast / Priority', flex: 'Flex', batch: 'Batch' },
       issues: {
+        'cached-input-price-unavailable': '官方未提供缓存输入价格。',
         'rules-unavailable': '条件规则尚未核实。',
         'request-granularity': '缺少逐请求边界，无法确认长上下文费用。',
         'mode-unknown': '缺少实际服务模式，按标准模式假设。',

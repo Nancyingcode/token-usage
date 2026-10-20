@@ -101,8 +101,17 @@ const buildModelSubstitutionRecommendations = (
         return;
       }
 
-      const savings =
-        getUsageCost(contribution, sourcePricing) - getUsageCost(contribution, targetPricing);
+      const actual = evaluateConditionalUsage(contribution, sourcePricing);
+      const replacement = evaluateConditionalUsage(contribution, targetPricing);
+      const comparisonIncomplete =
+        actual.unpricedTokens > 0 ||
+        replacement.unpricedTokens > 0 ||
+        actual.issues.length > 0 ||
+        replacement.issues.length > 0;
+      if (comparisonIncomplete) {
+        return;
+      }
+      const savings = actual.costUsd - replacement.costUsd;
 
       if (savings > 0) {
         contributionSavings[contributionId] = savings;
@@ -111,7 +120,7 @@ const buildModelSubstitutionRecommendations = (
 
     const savingsUsd = sumContributionSavings(contributionSavings);
 
-    if (savingsUsd < input.settings.minimumSavingsUsd) {
+    if (savingsUsd <= 0 || savingsUsd < input.settings.minimumSavingsUsd) {
       return [];
     }
 
@@ -146,6 +155,9 @@ const buildAnomalyRecoveryRecommendations = (
   contributionsById: Map<string, IndexedUsageContribution>
 ): SavingsRecommendation[] =>
   input.anomalies.flatMap((anomaly) => {
+    if (anomaly.coverage.unpricedTokens > 0 || (anomaly.coverage.conditionAssumedTokens ?? 0) > 0) {
+      return [];
+    }
     const recoverableSavings = Math.max(anomaly.actualCostUsd - anomaly.baselineCostUsd, 0);
     const pricedContributions = anomaly.contributionIds.flatMap((contributionId) => {
       const contribution = contributionsById.get(contributionId);
@@ -229,7 +241,12 @@ const buildCacheImprovementRecommendations = (
   return [...contributionsByModel.entries()].flatMap(([modelKey, contributions]) => {
     const pricing = pricingById.get(modelKey);
 
-    if (!pricing || pricing.cachedInputUsdPerMillion >= pricing.inputUsdPerMillion) {
+    // 现有用量没有缓存也不能证明未来缓存免费，缺价时不能量化提升缓存命中率的收益。
+    if (
+      !pricing ||
+      pricing.cachedInputUsdPerMillion === null ||
+      pricing.cachedInputUsdPerMillion >= pricing.inputUsdPerMillion
+    ) {
       return [];
     }
 
@@ -323,7 +340,11 @@ export const buildSavingsRecommendations = (
       const pricing = contribution.modelId
         ? pricingById.get(normalizeModelId(contribution.modelId))
         : undefined;
-      return pricing && evaluateConditionalUsage(contribution, pricing).issues.length === 0;
+      if (!pricing) {
+        return false;
+      }
+      const result = evaluateConditionalUsage(contribution, pricing);
+      return result.unpricedTokens === 0 && result.issues.length === 0;
     }),
   };
   const contributionsById = getContributionMap(eligibleInput.contributions);

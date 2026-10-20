@@ -2,26 +2,57 @@
  * @file 独立价格目录发布
  * @description 仅由显式启用的 GitHub Actions 发布 pricing 分支；非强制更新避免覆盖并发发布。
  */
-const { readFile } = require('node:fs/promises');
 const { resolve } = require('node:path');
+const { CATALOG_FILES, validatePricingDirectory } = require('./update-pricing.cjs');
 
 const REPOSITORY = 'Nancyingcode/token-usage';
 const BRANCH = 'pricing';
 
-const publishCatalog = async (catalog, conditionalCatalog, request) => {
+const verifyParentCatalogs = async (parent, catalogs, request, validators) => {
+  let foundCatalog = false;
+  for (const [index, filename] of CATALOG_FILES.entries()) {
+    const file = await request(`/contents/${filename}?ref=${parent}`, undefined, true);
+    if (file === null) {
+      continue;
+    }
+    if (file?.encoding !== 'base64' || typeof file.content !== 'string') {
+      throw new Error(`Invalid parent catalog: ${filename}`);
+    }
+    const content = Buffer.from(file.content, 'base64');
+    if (content.byteLength > validators.PRICING_MAX_BYTES) {
+      throw new Error(`Oversized parent catalog: ${filename}`);
+    }
+    const previous = validators.decodePricingCatalog(
+      JSON.parse(content.toString('utf8')),
+      index + 1
+    );
+    validators.assertCatalogProgression(previous, catalogs[index]);
+    foundCatalog = true;
+  }
+  if (!foundCatalog) {
+    throw new Error('The pricing branch has no valid parent catalog.');
+  }
+};
+
+const publishCatalog = async (rawCatalogs, request, validators) => {
+  const validation = validators ?? (await require('./load-pricing-validator.cjs')());
+  const catalogs = validation.validateCatalogVersions(rawCatalogs);
   const reference = await request(`/git/ref/heads/${BRANCH}`, undefined, true);
   const parent = reference?.object.sha;
+  if (parent) {
+    await verifyParentCatalogs(parent, catalogs, request, validation);
+  }
   const tree = await request('/git/trees', {
-    // 两个客户端协议必须来自同一快照，只有最终 ref 更新才对客户端可见。
-    tree: [catalog, conditionalCatalog].map((entry, index) => ({
-      path: index === 0 ? 'catalog.json' : 'catalog-v2.json',
+    // 三个客户端协议必须来自同一快照，只有最终 ref 更新才对客户端可见。
+    tree: catalogs.map((entry, index) => ({
+      path: CATALOG_FILES[index],
       mode: '100644',
       type: 'blob',
       content: `${JSON.stringify(entry, null, 2)}\n`,
     })),
   });
   const commit = await request('/git/commits', {
-    message: `chore(pricing): update catalog ${catalog.version}`,
+    message: `chore(pricing): update catalog ${catalogs[0].version}`,
     tree: tree.sha,
     parents: parent ? [parent] : [],
   });
@@ -40,21 +71,8 @@ const main = async () => {
   ) {
     throw new Error('Publishing requires the configured repository GitHub Actions environment.');
   }
-  const { decodePricingCatalog } = await require('./load-pricing-validator.cjs')();
-  const catalog = decodePricingCatalog(
-    JSON.parse(await readFile(resolve('pricing/catalog.json'), 'utf8'))
-  );
-  const conditionalCatalog = decodePricingCatalog(
-    JSON.parse(await readFile(resolve('pricing/catalog-v2.json'), 'utf8'))
-  );
-  if (
-    catalog.schemaVersion !== 1 ||
-    conditionalCatalog.schemaVersion !== 2 ||
-    JSON.stringify(catalog) !==
-      JSON.stringify(decodePricingCatalog({ ...conditionalCatalog, schemaVersion: 1 }))
-  ) {
-    throw new Error('Pricing catalogs must share the same base-price snapshot.');
-  }
+  const validators = await require('./load-pricing-validator.cjs')();
+  const catalogs = await validatePricingDirectory(resolve('pricing'), validators);
   const request = async (path, body, allowMissing = false, method = body ? 'POST' : 'GET') => {
     const response = await fetch(`https://api.github.com/repos/${REPOSITORY}${path}`, {
       method,
@@ -75,7 +93,7 @@ const main = async () => {
     }
     return response.json();
   };
-  await publishCatalog(catalog, conditionalCatalog, request);
+  await publishCatalog(catalogs, request, validators);
 };
 
 module.exports = { publishCatalog };

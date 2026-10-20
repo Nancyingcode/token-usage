@@ -49,6 +49,44 @@ const renderCard = (
 };
 
 describe('CostEfficiencyCard', () => {
+  it.each(['en', 'zh-CN'] as const)(
+    'explains the missing cache portion beside known costs in %s',
+    (locale) => {
+      const efficiency = buildCostEfficiency(
+        buildUsageSummary([
+          makeSession('partial', [
+            makeSlice('2026-10-21T08:00:00.000Z', 'gpt-test', 1000, 200, 100),
+          ]),
+        ]),
+        [
+          {
+            ...PRICING[0],
+            inputUsdPerMillion: 10,
+            outputUsdPerMillion: 50,
+            cachedInputUsdPerMillion: null,
+          },
+        ]
+      );
+      render(
+        <I18nextProvider i18n={createTestI18n(locale)}>
+          <CostEfficiencyCard efficiency={efficiency} />
+        </I18nextProvider>
+      );
+      expect(screen.getByTestId('cost-summary').textContent).toContain('$0.013');
+      const summary = screen.getByText(locale === 'en' ? 'Partially priced' : '部分用量未计价');
+      expect(summary.tagName).toBe('SUMMARY');
+      fireEvent.click(summary);
+      expect(
+        screen.getByText(
+          locale === 'en' ? 'Cached input has no published price.' : '官方未提供缓存输入价格。'
+        )
+      ).toBeTruthy();
+      expect(screen.getByTestId('cost-day-2026-10-21').getAttribute('aria-label')).toContain(
+        locale === 'en' ? '200 unpriced tokens' : '200 个 Token 未计价'
+      );
+      expect(efficiency.coverage.pricedTokens).toBe(900);
+    }
+  );
   it('shows estimated cost, efficiency metrics, coverage, and priced-cost composition', () => {
     renderCard([
       makeSession('exact', [

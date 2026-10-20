@@ -24,6 +24,31 @@ const FALLBACK: UnknownModelPricing = {
 };
 
 describe('buildCostEfficiency', () => {
+  it('preserves partial cost, missing-price reasons and daily coverage without free cache assumptions', () => {
+    const summary = buildUsageSummary([
+      makeSession('partial', [makeSlice('2026-10-21T08:00:00.000Z', 'gpt-test', 1000, 200, 100)]),
+    ]);
+    const efficiency = buildCostEfficiency(summary, [
+      {
+        ...PRICING[0],
+        inputUsdPerMillion: 10,
+        cachedInputUsdPerMillion: null,
+        outputUsdPerMillion: 50,
+      },
+    ]);
+    expect(efficiency.pricedCostUsd).toBeCloseTo(0.013, 10);
+    expect(efficiency.coverage).toMatchObject({
+      totalTokens: 1100,
+      pricedTokens: 900,
+      exactPricedTokens: 900,
+      unpricedTokens: 200,
+      pricingIssues: ['cached-input-price-unavailable'],
+    });
+    expect(efficiency.coverage.percentage).toBeCloseTo((900 / 1100) * 100);
+    expect(efficiency.unitCostUsdPerMillion).toBeCloseTo((0.013 / 900) * 1_000_000);
+    expect(efficiency.days[0].coverage).toEqual(efficiency.coverage);
+    expect(efficiency.breakdown.map(({ costUsd }) => costUsd)).toEqual([0.008, 0, 0.005]);
+  });
   it('builds cost, unit cost, session average, coverage, and component breakdown', () => {
     const summary = buildUsageSummary([
       makeSession('exact', [

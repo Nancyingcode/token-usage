@@ -5,7 +5,7 @@
 import { decodePricingConditions } from './conditionalPricingValidation';
 import { MODEL_PRICING_CONDITIONS } from './modelPricingConditions';
 import type { ModelPricingEntry } from './budgetTypes';
-import type { PricingCatalog } from './pricingCatalogTypes';
+import type { PricingCatalog, PricingCatalogVersion } from './pricingCatalogTypes';
 import { isRecord } from './runtimeTypes';
 import { normalizeModelId } from './pricing';
 
@@ -15,6 +15,17 @@ export const CONDITIONAL_PRICING_CATALOG_URL = PRICING_CATALOG_URL.replace(
   'catalog.json',
   'catalog-v2.json'
 );
+export const PRICING_CATALOG_V3_URL = PRICING_CATALOG_URL.replace(
+  'catalog.json',
+  'catalog-v3.json'
+);
+export const NULLABLE_PRICING_CATALOG_VERSION = 3;
+export const getPricingCatalogUrl = (version: PricingCatalogVersion): string => {
+  if (version === 1) {
+    return PRICING_CATALOG_URL;
+  }
+  return version === 2 ? CONDITIONAL_PRICING_CATALOG_URL : PRICING_CATALOG_V3_URL;
+};
 export const PRICING_REFRESH_INTERVAL_MS = 86_400_000;
 export const PRICING_RETRY_INTERVAL_MS = 3_600_000;
 export const PRICING_MAX_BYTES = 1_000_000;
@@ -48,14 +59,20 @@ const isSource = (value: unknown): value is string => {
   }
 };
 
-const decodeModel = (raw: unknown, version: 1 | 2): PricingCatalog['models'][number] => {
+const isCachedPrice = (value: unknown, version: PricingCatalogVersion): value is number | null =>
+  isPrice(value) || (version === NULLABLE_PRICING_CATALOG_VERSION && value === null);
+
+const decodeModel = (
+  raw: unknown,
+  version: PricingCatalogVersion
+): PricingCatalog['models'][number] => {
   if (
     !isRecord(raw) ||
     !isModelId(raw.modelId) ||
     !Array.isArray(raw.aliases) ||
     !raw.aliases.every(isModelId) ||
     !isPrice(raw.inputUsdPerMillion) ||
-    !isPrice(raw.cachedInputUsdPerMillion) ||
+    !isCachedPrice(raw.cachedInputUsdPerMillion, version) ||
     !isPrice(raw.outputUsdPerMillion) ||
     !isDate(raw.effectiveAt) ||
     !isSource(raw.sourceUrl)
@@ -70,7 +87,7 @@ const decodeModel = (raw: unknown, version: 1 | 2): PricingCatalog['models'][num
     outputUsdPerMillion: raw.outputUsdPerMillion,
     effectiveAt: raw.effectiveAt,
     sourceUrl: raw.sourceUrl,
-    ...(version === 2 && raw.conditions !== undefined
+    ...(version !== 1 && raw.conditions !== undefined
       ? { conditions: decodePricingConditions(raw.conditions) }
       : {}),
   };
@@ -89,10 +106,16 @@ const validateAliases = (models: PricingCatalog['models']): void => {
   });
 };
 
-export const decodePricingCatalog = (raw: unknown): PricingCatalog => {
+export const decodePricingCatalog = (
+  raw: unknown,
+  expectedVersion?: PricingCatalogVersion
+): PricingCatalog => {
   if (
     !isRecord(raw) ||
-    (raw.schemaVersion !== 1 && raw.schemaVersion !== 2) ||
+    (raw.schemaVersion !== 1 &&
+      raw.schemaVersion !== 2 &&
+      raw.schemaVersion !== NULLABLE_PRICING_CATALOG_VERSION) ||
+    (expectedVersion !== undefined && raw.schemaVersion !== expectedVersion) ||
     raw.currency !== 'USD' ||
     raw.unit !== 'per-million-tokens' ||
     typeof raw.version !== 'string' ||
@@ -140,7 +163,8 @@ export const mergePricingCatalog = (
 export const addCatalogConditions = (catalog: PricingCatalog): PricingCatalog =>
   decodePricingCatalog({
     ...catalog,
-    schemaVersion: 2,
+    schemaVersion:
+      catalog.schemaVersion === NULLABLE_PRICING_CATALOG_VERSION ? catalog.schemaVersion : 2,
     models: catalog.models.map((entry) => ({
       ...entry,
       ...(MODEL_PRICING_CONDITIONS[entry.modelId]
@@ -148,3 +172,56 @@ export const addCatalogConditions = (catalog: PricingCatalog): PricingCatalog =>
         : {}),
     })),
   });
+
+export const assertCatalogProgression = (previous: PricingCatalog, next: PricingCatalog): void => {
+  const nextById = new Map(next.models.map((entry) => [entry.modelId, entry]));
+  // 已知价格和历史身份不能因源页面缺失而退化；空价补齐为数字则是正常更新。
+  const lostHistory = previous.models.some((entry) => {
+    const updated = nextById.get(entry.modelId);
+    return (
+      !updated ||
+      entry.aliases.some((alias) => !updated.aliases.includes(alias)) ||
+      (entry.cachedInputUsdPerMillion !== null && updated.cachedInputUsdPerMillion === null)
+    );
+  });
+  if (
+    next.schemaVersion < previous.schemaVersion ||
+    Date.parse(next.publishedAt) < Date.parse(previous.publishedAt) ||
+    lostHistory
+  ) {
+    throw new TypeError('Pricing catalog regressed.');
+  }
+};
+
+export type PricingCatalogVersions = [PricingCatalog, PricingCatalog, PricingCatalog];
+
+export const createCatalogVersions = (catalog: PricingCatalog): PricingCatalogVersions => {
+  const complete = addCatalogConditions(
+    decodePricingCatalog({ ...catalog, schemaVersion: NULLABLE_PRICING_CATALOG_VERSION })
+  );
+  const compatibleModels = complete.models.filter(
+    (entry) => entry.cachedInputUsdPerMillion !== null
+  );
+  return [
+    decodePricingCatalog({ ...complete, schemaVersion: 1, models: compatibleModels }),
+    decodePricingCatalog({ ...complete, schemaVersion: 2, models: compatibleModels }),
+    complete,
+  ];
+};
+
+export const validateCatalogVersions = (catalogs: readonly unknown[]): PricingCatalogVersions => {
+  const expectedVersions: PricingCatalogVersion[] = [1, 2, NULLABLE_PRICING_CATALOG_VERSION];
+  if (catalogs.length !== expectedVersions.length) {
+    throw new TypeError('All three pricing catalogs are required.');
+  }
+  const decoded = catalogs.map((catalog, index) =>
+    decodePricingCatalog(catalog, expectedVersions[index])
+  );
+  const expected = createCatalogVersions(decoded[2]);
+  if (
+    decoded.some((catalog, index) => JSON.stringify(catalog) !== JSON.stringify(expected[index]))
+  ) {
+    throw new TypeError('Pricing catalogs must share the same base-price snapshot.');
+  }
+  return expected;
+};

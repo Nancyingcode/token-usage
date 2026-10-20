@@ -104,6 +104,86 @@ describe('cost optimization runtime', () => {
     expect(dependencies.cacheStore.save).toHaveBeenCalledTimes(1);
   });
 
+  it('invalidates cached snapshots and diagnosis when a cache rate changes to null and back', async () => {
+    const cachedInputTokens = 200_000;
+    const evaluate = vi.fn(evaluateCostOptimization);
+    const dependencies = makeRuntimeDependencies({ evaluate });
+    const runtime = createCostOptimizationRuntime(dependencies);
+    await runtime.initialize();
+    const cycle = makeCycleWithOneSource();
+    const source = cycle.changes.upserted[0];
+    source.session.cachedInputTokens = cachedInputTokens;
+    source.session.usageSlices = source.session.usageSlices?.map((slice) => ({
+      ...slice,
+      cachedInputTokens,
+    }));
+    cycle.result.summary.totals.cachedInputTokens = cachedInputTokens;
+    await runtime.applyUsageCycle(cycle);
+
+    const queries = [{ period: 'total' }, { period: 'total', projectPath: 'C:\\repo' }] as const;
+    let snapshots = queries.map((query) => runtime.getSnapshot(query));
+    const diagnosisId = snapshots[0].diagnostics[0].diagnosisId;
+    const sourceReference = evaluate.mock.calls.at(-1)?.[0].index.sources;
+    expect(sourceReference).toBeDefined();
+    expect(snapshots[0]).toMatchObject({
+      currentCostUsd: expect.closeTo(1.7),
+      coverage: { unpricedTokens: 0, pricedTokens: SOURCE_TOKENS },
+    });
+    const initialDetail = runtime.getSessionDiagnosis({ query: queries[0], diagnosisId });
+    expect(initialDetail).toMatchObject({
+      kind: 'ready',
+      detail: {
+        summary: { pricedCostUsd: expect.closeTo(1.7), coverage: { unpricedTokens: 0 } },
+      },
+    });
+
+    const initialBudgetSnapshot = { ...makeBudgetSnapshotWithUpdatedPricing(), pricing: PRICING };
+    for (const rate of [null, PRICING[0].cachedInputUsdPerMillion]) {
+      const expectedUnpricedTokens = rate === null ? cachedInputTokens : 0;
+      const expectedCostUsd = rate === null ? 1.6 : 1.7;
+      const budgetSnapshot = {
+        ...initialBudgetSnapshot,
+        pricing: PRICING.map((entry) =>
+          entry.modelId === 'gpt-source' ? { ...entry, cachedInputUsdPerMillion: rate } : entry
+        ),
+      };
+      const evaluationCount = evaluate.mock.calls.length;
+      await runtime.applyBudgetSnapshot(budgetSnapshot);
+      expect(evaluate.mock.calls.length).toBe(evaluationCount + queries.length);
+
+      snapshots = queries.map((query, index) => {
+        const snapshot = runtime.getSnapshot(query);
+        expect(snapshot).not.toBe(snapshots[index]);
+        expect(runtime.getSnapshot(query)).toBe(snapshot);
+        expect(snapshot).toMatchObject({
+          currentCostUsd: expect.closeTo(expectedCostUsd),
+          coverage: {
+            unpricedTokens: expectedUnpricedTokens,
+            pricedTokens: SOURCE_TOKENS - expectedUnpricedTokens,
+          },
+        });
+        const detail = runtime.getSessionDiagnosis({ query, diagnosisId });
+        expect(detail).toMatchObject({ kind: 'ready' });
+        if (detail.kind !== 'ready') {
+          throw new Error('Expected the same session diagnosis after repricing.');
+        }
+        expect(detail.detail.summary).toEqual(snapshot.diagnostics[0]);
+        expect(detail.detail.detectors).toContainEqual({
+          state: rate === null ? 'not-applicable' : 'not-found',
+          cause: 'model-cost-dominance',
+          reason: rate === null ? 'pricing-incomplete' : 'within-normal-range',
+        });
+        return snapshot;
+      });
+
+      await runtime.applyBudgetSnapshot(budgetSnapshot);
+      expect(evaluate.mock.calls.length).toBe(evaluationCount + queries.length);
+      queries.forEach((query, index) => expect(runtime.getSnapshot(query)).toBe(snapshots[index]));
+      expect(evaluate.mock.calls.at(-1)?.[0].index.sources).toBe(sourceReference);
+    }
+    expect(dependencies.cacheStore.save).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects a blank diagnosis id with a structured validation issue', async () => {
     const runtime = createCostOptimizationRuntime(makeRuntimeDependencies());
     await runtime.initialize();

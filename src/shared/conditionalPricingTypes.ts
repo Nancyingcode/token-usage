@@ -9,6 +9,7 @@ export type PricingIssue =
   | 'cache-write-missing'
   | 'cache-write-unverified'
   | 'cache-partition-invalid'
+  | 'cached-input-price-unavailable'
   | 'manual-flat';
 
 export interface UsagePricingContext {

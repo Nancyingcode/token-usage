@@ -203,6 +203,9 @@ const PricingEditor: React.FC<{
           );
         })}
 
+        {model.entry?.cachedInputUsdPerMillion === null ? (
+          <p>{t('pricing.cacheOverrideRequired')}</p>
+        ) : null}
         <p>{t('pricing.flatOverride')}</p>
         {catalogConditions ? (
           <>
@@ -625,7 +628,16 @@ const ModelPricingView: React.FC<ModelPricingViewProps> = ({
                 <PricingRuleDetails entry={entry} />
               </div>
               <span>{formatUsd(entry.inputUsdPerMillion, locale)}</span>
-              <span>{formatUsd(entry.cachedInputUsdPerMillion, locale)}</span>
+              <div>
+                {entry.cachedInputUsdPerMillion === null ? (
+                  <details>
+                    <summary>{t('pricing.cachePriceUnpublished')}</summary>
+                    <p>{t('pricing.cachePriceDescription')}</p>
+                  </details>
+                ) : (
+                  formatUsd(entry.cachedInputUsdPerMillion, locale)
+                )}
+              </div>
               <span>{formatUsd(entry.outputUsdPerMillion, locale)}</span>
               <span>
                 {formatShortDateTime(entry.effectiveAt, locale, tCommon('value.unknownDate'))}

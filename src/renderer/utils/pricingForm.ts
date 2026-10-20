@@ -46,10 +46,14 @@ export const createPricingFormState = (
   inputUsdPerMillion:
     entry?.inputUsdPerMillion === undefined ? '' : String(entry.inputUsdPerMillion),
   cachedInputUsdPerMillion:
-    entry?.cachedInputUsdPerMillion === undefined ? '' : String(entry.cachedInputUsdPerMillion),
+    typeof entry?.cachedInputUsdPerMillion === 'number'
+      ? String(entry.cachedInputUsdPerMillion)
+      : '',
   outputUsdPerMillion:
     entry?.outputUsdPerMillion === undefined ? '' : String(entry.outputUsdPerMillion),
 });
+
+const parsePriceInput = (value: string): number => (value.trim() ? Number(value) : Number.NaN);
 
 export const toPricingOverride = (state: PricingFormState): ModelPricingOverrideInput => ({
   ...(state.useCatalogConditions ? { useCatalogConditions: true } : {}),
@@ -58,9 +62,9 @@ export const toPricingOverride = (state: PricingFormState): ModelPricingOverride
     .split(',')
     .map((alias) => alias.trim())
     .filter(Boolean),
-  inputUsdPerMillion: Number(state.inputUsdPerMillion),
-  cachedInputUsdPerMillion: Number(state.cachedInputUsdPerMillion),
-  outputUsdPerMillion: Number(state.outputUsdPerMillion),
+  inputUsdPerMillion: parsePriceInput(state.inputUsdPerMillion),
+  cachedInputUsdPerMillion: parsePriceInput(state.cachedInputUsdPerMillion),
+  outputUsdPerMillion: parsePriceInput(state.outputUsdPerMillion),
 });
 
 export const getPricingFormIssues = (state: PricingFormState): ValidationIssue[] => {

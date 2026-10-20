@@ -4,6 +4,7 @@
  * 合并默认价格和用户覆盖项，并按模型、会话及日期计算可追溯的成本估算。
  */
 import type {
+  CachedInputPricingRates,
   CostEstimate,
   DailyCostEstimate,
   ModelPricingEntry,
@@ -29,10 +30,10 @@ export interface PricingContext {
 
 export type UsagePricingResult =
   | ({
-      kind: 'exact';
+      kind: 'exact' | 'partial';
       costUsd: number;
       pricing: ModelPricingEntry;
-    } & Partial<ConditionalCostResult>)
+    } & ConditionalCostResult)
   | { kind: 'assumed'; costUsd: number; pricing: UnknownModelPricingInput }
   | { kind: 'unpriced'; costUsd: 0 };
 
@@ -115,15 +116,27 @@ export const createPricingContext = (
   ...(unknownModelPricing ? { unknownModelPricing } : {}),
 });
 
+const requireCompleteCost = (
+  usage: PriceableUsage,
+  pricing: CachedInputPricingRates & ConditionalPricingFields
+): ConditionalCostResult => {
+  const result = evaluateConditionalUsage(usage, pricing);
+  // 数值入口无法携带未计价证据；需要已知部分费用的调用方必须使用结构化结果。
+  if (result.unpricedTokens > 0) {
+    throw new TypeError('Incomplete pricing requires a structured cost result.');
+  }
+  return result;
+};
+
 export const calculateUsageCostBreakdown = (
   usage: PriceableUsage,
-  pricing: UnknownModelPricingInput & ConditionalPricingFields
-): UsageCostBreakdown => evaluateConditionalUsage(usage, pricing).breakdown;
+  pricing: CachedInputPricingRates & ConditionalPricingFields
+): UsageCostBreakdown => requireCompleteCost(usage, pricing).breakdown;
 
 export const calculateUsageCost = (
   usage: PriceableUsage,
-  pricing: UnknownModelPricingInput & ConditionalPricingFields
-): number => evaluateConditionalUsage(usage, pricing).costUsd;
+  pricing: CachedInputPricingRates & ConditionalPricingFields
+): number => requireCompleteCost(usage, pricing).costUsd;
 
 export const priceTokenUsage = (
   usage: PriceableUsage,
@@ -134,9 +147,11 @@ export const priceTokenUsage = (
 
   if (trimmedModelId) {
     const pricing = context.pricingById.get(normalizeModelId(trimmedModelId));
-    return pricing
-      ? { kind: 'exact', ...evaluateConditionalUsage(usage, pricing), pricing }
-      : { kind: 'unpriced', costUsd: 0 };
+    if (!pricing) {
+      return { kind: 'unpriced', costUsd: 0 };
+    }
+    const result = evaluateConditionalUsage(usage, pricing);
+    return { kind: result.unpricedTokens > 0 ? 'partial' : 'exact', ...result, pricing };
   }
 
   return context.unknownModelPricing
@@ -199,20 +214,29 @@ const appendCostEstimate = (
     };
   }
 
+  const hasModelPricing = pricingResult.kind !== 'assumed';
+  const unpricedTokens = hasModelPricing ? pricingResult.unpricedTokens : 0;
   return {
     ...estimate,
     pricedCostUsd: estimate.pricedCostUsd + pricingResult.costUsd,
-    ...(pricingResult.kind === 'exact' && (pricingResult.conditionAssumedTokens ?? 0) > 0
+    ...(hasModelPricing && pricingResult.conditionAssumedTokens > 0
       ? {
           conditionAssumedTokens:
             (estimate.conditionAssumedTokens ?? 0) + (pricingResult.conditionAssumedTokens ?? 0),
           conditionAssumedCostUsd:
             (estimate.conditionAssumedCostUsd ?? 0) + (pricingResult.conditionAssumedCostUsd ?? 0),
-          pricingIssues: [
-            ...new Set([...(estimate.pricingIssues ?? []), ...(pricingResult.issues ?? [])]),
-          ],
         }
       : {}),
+    ...(hasModelPricing && pricingResult.issues.length > 0
+      ? {
+          pricingIssues: [...new Set([...(estimate.pricingIssues ?? []), ...pricingResult.issues])],
+        }
+      : {}),
+    unpricedTokens: estimate.unpricedTokens + unpricedTokens,
+    unpricedModelIds:
+      unpricedTokens > 0
+        ? appendUniqueModelId(estimate.unpricedModelIds, slice.modelId)
+        : estimate.unpricedModelIds,
     assumedCostUsd:
       estimate.assumedCostUsd + (pricingResult.kind === 'assumed' ? pricingResult.costUsd : 0),
     assumedTokens:

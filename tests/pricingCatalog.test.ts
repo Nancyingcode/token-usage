@@ -16,7 +16,7 @@ describe('pricing catalog', () => {
     expect(merged.some((entry) => entry.modelId === 'gpt-5.5')).toBe(true);
   });
   it.each([
-    { schemaVersion: 3 },
+    { schemaVersion: 4 },
     { currency: 'CNY' },
     { unit: 'per-token' },
     { models: [] },

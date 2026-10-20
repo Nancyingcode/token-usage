@@ -36,6 +36,65 @@ const PRICING: ModelPricingEntry[] = [
 
 describe('ModelPricingView', () => {
   it.each(['en', 'zh-CN'] as const)(
+    'shows missing cache prices and independent reasons in %s',
+    (locale) => {
+      const markup = renderWithI18n(
+        <ModelPricingView
+          pricing={[{ ...PRICING[1], cachedInputUsdPerMillion: null }]}
+          unpricedModels={[]}
+          actions={ACTIONS}
+        />,
+        locale
+      );
+      expect(markup).toContain(locale === 'en' ? 'Not published' : '官方未提供');
+      expect(markup).not.toContain('$0.00');
+      const notice = renderWithI18n(
+        <PricingQualityNotice
+          quality={{ unpricedTokens: 200, pricingIssues: ['cached-input-price-unavailable'] }}
+        />,
+        locale
+      );
+      expect(notice).toContain(locale === 'en' ? 'Partially priced' : '部分用量未计价');
+      expect(notice).toContain(locale === 'en' ? '200 tokens are unpriced' : '200 Token 未计价');
+      expect(notice).toContain(
+        locale === 'en' ? 'Cached input has no published price.' : '官方未提供缓存输入价格。'
+      );
+      expect(notice).not.toContain(locale === 'en' ? 'Standard is assumed' : '按标准模式假设');
+    }
+  );
+  it('requires an explicit cache override and preserves drawer keyboard behavior', () => {
+    vi.mocked(ACTIONS.savePricingOverride).mockClear();
+    renderInteractive(
+      <ModelPricingView
+        pricing={[{ ...PRICING[1], cachedInputUsdPerMillion: null }]}
+        unpricedModels={[]}
+        actions={ACTIONS}
+      />
+    );
+    const trigger = screen.getByRole('button', { name: 'Edit model price' });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const cached = screen.getByRole('spinbutton', {
+      name: 'Cached input price',
+    }) as HTMLInputElement;
+    expect(cached.value).toBe('');
+    expect(
+      screen.getByText('Enter an explicit cached input rate to save a manual override.')
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Save price' }));
+    expect(ACTIONS.savePricingOverride).not.toHaveBeenCalled();
+    expect(screen.getByText('Cached input price is required.')).toBeTruthy();
+    fireEvent.change(cached, { target: { value: '0.2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save price' }));
+    expect(ACTIONS.savePricingOverride).toHaveBeenCalledWith(
+      expect.objectContaining({ cachedInputUsdPerMillion: 0.2 })
+    );
+    const dialog = screen.getByRole('dialog');
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    fireEvent.animationEnd(dialog);
+    expect(document.activeElement).toBe(trigger);
+  });
+  it.each(['en', 'zh-CN'] as const)(
     'shows localized conditional reasons without mislabeling them as fallback in %s',
     (locale) => {
       const markup = renderWithI18n(

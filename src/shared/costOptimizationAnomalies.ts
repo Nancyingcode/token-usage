@@ -4,7 +4,7 @@
  * 使用仅来自当前观测之前的稳健基线，在日、项目、模型和会话四个层级识别正向费用异常。
  *
  * 约束：
- * - 定价覆盖不足的当前观测和历史样本都不参与检测
+ * - 当前观测和历史样本必须完整计价，缺价金额不能用作异常回落的节省基线
  * - 会话基线按同项目同模型、同模型、全局依次降级
  */
 import type { ModelPricingEntry, UnknownModelPricing } from './budgetTypes';
@@ -290,6 +290,7 @@ const hasSafeCoverage = (
   observation: CostObservation,
   settings: CostOptimizationSettings
 ): boolean =>
+  observation.coverage.unpricedTokens === 0 &&
   (observation.coverage.conditionAssumedTokens ?? 0) === 0 &&
   observation.coverage.percentage >= settings.minimumPricingCoveragePercentage;
 

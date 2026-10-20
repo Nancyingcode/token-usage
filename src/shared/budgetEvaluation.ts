@@ -133,9 +133,9 @@ const buildPolicyStatus = (
     ...(costEstimate.conditionAssumedTokens
       ? {
           conditionAssumedTokens: costEstimate.conditionAssumedTokens,
-          pricingIssues: costEstimate.pricingIssues,
         }
       : {}),
+    ...(costEstimate.pricingIssues?.length ? { pricingIssues: costEstimate.pricingIssues } : {}),
     assumedTokens: costEstimate.assumedTokens,
     unpricedTokens: costEstimate.unpricedTokens,
     unpricedModelIds: costEstimate.unpricedModelIds,
@@ -217,7 +217,13 @@ const buildUnpricedModels = (
   sessions.flatMap(getSessionUsageSlices).forEach((slice) => {
     const result = priceTokenUsage(slice, slice.modelId, context);
 
-    if (result.kind !== 'unpriced' || slice.totalTokens === 0) {
+    const unpricedTokens =
+      result.kind === 'unpriced'
+        ? slice.totalTokens
+        : result.kind === 'partial'
+          ? result.unpricedTokens
+          : 0;
+    if (unpricedTokens === 0) {
       return;
     }
 
@@ -226,7 +232,7 @@ const buildUnpricedModels = (
     const current = summariesByModel.get(key);
     summariesByModel.set(key, {
       modelId: slice.modelId?.trim() || undefined,
-      totalTokens: (current?.totalTokens ?? 0) + slice.totalTokens,
+      totalTokens: (current?.totalTokens ?? 0) + unpricedTokens,
     });
   });
 

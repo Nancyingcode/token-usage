@@ -21,14 +21,16 @@ describe('conditional catalog compatibility', () => {
       })
     ).toThrow();
   });
-  it('falls back to v1 only when v2 is absent, not on transient failures', async () => {
+  it('falls back to v1 only when v3 and v2 are absent, not on transient failures', async () => {
     const fetcher = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(new Response('', { status: 404 }))
+      .mockResolvedValueOnce(new Response('', { status: 404 }))
       .mockResolvedValueOnce(new Response(JSON.stringify(catalogFixture())));
     await fetchPricingCatalog(new AbortController().signal, fetcher);
-    expect(String(fetcher.mock.calls[0][0])).toContain('catalog-v2.json');
-    expect(String(fetcher.mock.calls[1][0])).toContain('/catalog.json');
+    expect(String(fetcher.mock.calls[0][0])).toContain('catalog-v3.json');
+    expect(String(fetcher.mock.calls[1][0])).toContain('catalog-v2.json');
+    expect(String(fetcher.mock.calls[2][0])).toContain('/catalog.json');
     fetcher.mockClear().mockResolvedValueOnce(new Response('', { status: 503 }));
     await expect(fetchPricingCatalog(new AbortController().signal, fetcher)).rejects.toThrow();
     expect(fetcher).toHaveBeenCalledTimes(1);

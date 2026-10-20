@@ -147,12 +147,13 @@ const buildModelGroups = (
 };
 
 const hasCompletePricing = (groups: readonly ModelUsageGroup[]): boolean =>
-  groups.every(
-    ({ pricingEntry, slices }) =>
-      pricingEntry !== undefined &&
-      calculateEstimatedCost(slices, [pricingEntry]).unpricedModelIds.length === 0 &&
-      !calculateEstimatedCost(slices, [pricingEntry]).conditionAssumedTokens
-  );
+  groups.every(({ pricingEntry, slices }) => {
+    if (!pricingEntry) {
+      return false;
+    }
+    const estimate = calculateEstimatedCost(slices, [pricingEntry]);
+    return estimate.unpricedTokens === 0 && !estimate.conditionAssumedTokens;
+  });
 
 const getDominantSignal = (
   groups: readonly ModelUsageGroup[],
@@ -272,9 +273,21 @@ export const detectModelCostDominance = ({
     ...current.contributions.reduce<TokenUsage>(addUsage, EMPTY_USAGE),
     pricingRequests: Object.fromEntries(current.contributions.map((entry) => [entry.id, entry])),
   };
-  const referencePricing = pricing.filter(
-    (entry) => evaluateConditionalUsage(sessionUsage, entry).issues.length === 0
-  );
+  // 单位成本比较会把同一会话构成应用于各模型；实际用量完整不代表该假设场景也有完整价格。
+  const comparisonIncomplete = groups.some(({ pricingEntry }) => {
+    if (!pricingEntry) {
+      return true;
+    }
+    const estimate = evaluateConditionalUsage(sessionUsage, pricingEntry);
+    return estimate.unpricedTokens > 0 || estimate.issues.length > 0;
+  });
+  if (comparisonIncomplete) {
+    return { state: 'not-applicable', cause: 'model-cost-dominance', reason: 'pricing-incomplete' };
+  }
+  const referencePricing = pricing.filter((entry) => {
+    const estimate = evaluateConditionalUsage(sessionUsage, entry);
+    return estimate.unpricedTokens === 0 && estimate.issues.length === 0;
+  });
   if (referencePricing.length === 0) {
     return { state: 'not-applicable', cause: 'model-cost-dominance', reason: 'pricing-incomplete' };
   }

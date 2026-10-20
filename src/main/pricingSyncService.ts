@@ -6,8 +6,9 @@ import type { ModelPricingEntry } from '../shared/budgetTypes';
 import {
   decodePricingCatalog,
   mergePricingCatalog,
-  PRICING_CATALOG_URL,
-  CONDITIONAL_PRICING_CATALOG_URL,
+  PRICING_CATALOG_V3_URL,
+  getPricingCatalogUrl,
+  assertCatalogProgression,
   PRICING_REFRESH_INTERVAL_MS,
   PRICING_RETRY_INTERVAL_MS,
 } from '../shared/pricingCatalog';
@@ -35,7 +36,7 @@ export const createPricingSyncService = ({
   let snapshot: PricingSyncSnapshot = {
     autoUpdate: true,
     status: 'idle',
-    sourceUrl: CONDITIONAL_PRICING_CATALOG_URL,
+    sourceUrl: PRICING_CATALOG_V3_URL,
   };
   let queue: Promise<unknown> = Promise.resolve();
   let inFlight: Promise<PricingSyncSnapshot> | undefined;
@@ -66,10 +67,9 @@ export const createPricingSyncService = ({
       publish({
         status: loaded.catalog ? 'ready' : 'idle',
         version: loaded.catalog?.version,
-        sourceUrl:
-          loaded.catalog?.schemaVersion === 1
-            ? PRICING_CATALOG_URL
-            : CONDITIONAL_PRICING_CATALOG_URL,
+        sourceUrl: loaded.catalog
+          ? getPricingCatalogUrl(loaded.catalog.schemaVersion)
+          : PRICING_CATALOG_V3_URL,
         lastCheckedAt: loaded.lastCheckedAt,
       });
     } catch {
@@ -100,15 +100,8 @@ export const createPricingSyncService = ({
         errorKind = 'invalid-catalog';
         const catalog = decodePricingCatalog(downloaded);
         // 目录发布方必须保留历史模型；异常删减和时间倒退不能让已计价用量突然丢失。
-        if (
-          state.catalog &&
-          (catalog.schemaVersion < state.catalog.schemaVersion ||
-            Date.parse(catalog.publishedAt) < Date.parse(state.catalog.publishedAt) ||
-            state.catalog.models.some(
-              (entry) => !catalog.models.some((next) => next.modelId === entry.modelId)
-            ))
-        ) {
-          throw new TypeError('Pricing catalog regressed.');
+        if (state.catalog) {
+          assertCatalogProgression(state.catalog, catalog);
         }
         const prices = mergePricingCatalog(builtIn, catalog);
         const next = { ...state, catalog, lastCheckedAt };
@@ -123,8 +116,7 @@ export const createPricingSyncService = ({
           status: 'ready',
           version: catalog.version,
           error: undefined,
-          sourceUrl:
-            catalog.schemaVersion === 1 ? PRICING_CATALOG_URL : CONDITIONAL_PRICING_CATALOG_URL,
+          sourceUrl: getPricingCatalogUrl(catalog.schemaVersion),
         });
       } catch {
         return publish({ status: 'error', error: errorKind });

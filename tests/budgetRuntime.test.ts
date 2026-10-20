@@ -10,7 +10,7 @@ import { buildUsageSummary } from '../src/shared/usageMath';
 import type { UsageScanResult, UsageSession } from '../src/shared/usageTypes';
 
 const FIXED_NOW = new Date(2026, 6, 20, 12, 0);
-const TEST_PRICING: ModelPricingEntry = {
+const TEST_PRICING = {
   modelId: 'gpt-test',
   aliases: ['gpt-alias'],
   inputUsdPerMillion: 1,
@@ -18,7 +18,7 @@ const TEST_PRICING: ModelPricingEntry = {
   outputUsdPerMillion: 5,
   effectiveAt: '2026-07-20',
   sourceKind: 'built-in',
-};
+} satisfies ModelPricingEntry;
 
 describe('budget runtime', () => {
   it('does not publish an older catalog when an ongoing scan finishes', async () => {

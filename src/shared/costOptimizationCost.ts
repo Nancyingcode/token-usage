@@ -73,15 +73,18 @@ const priceBucket = (bucket: IndexedUsageBucket, context: PricingContext): Price
     };
   }
 
+  const hasModelPricing = result.kind !== 'assumed';
+  const unpricedTokens = hasModelPricing ? result.unpricedTokens : 0;
   return {
-    pricingIssues: result.kind === 'exact' ? result.issues : [],
+    pricingIssues: hasModelPricing ? result.issues : [],
     pricedCostUsd: result.costUsd,
-    exactPricedTokens:
-      result.kind === 'exact' ? bucket.totalTokens - (result.conditionAssumedTokens ?? 0) : 0,
-    conditionAssumedTokens: result.kind === 'exact' ? result.conditionAssumedTokens : 0,
+    exactPricedTokens: hasModelPricing
+      ? bucket.totalTokens - unpricedTokens - result.conditionAssumedTokens
+      : 0,
+    conditionAssumedTokens: hasModelPricing ? result.conditionAssumedTokens : 0,
     assumedTokens: result.kind === 'assumed' ? bucket.totalTokens : 0,
-    unpricedTokens: 0,
-    unpricedModelIds: [],
+    unpricedTokens,
+    unpricedModelIds: unpricedTokens > 0 ? [bucket.modelId?.trim() || UNKNOWN_MODEL_ID] : [],
   };
 };
 
@@ -171,10 +174,10 @@ export const getPricingCoverage = (
     ...(conditionAssumedTokens > 0
       ? {
           conditionAssumedTokens,
-          pricingIssues: [...pricingIssues],
           conditionPercentage: toPercentage(pricedTokens - conditionAssumedTokens),
         }
       : {}),
+    ...(pricingIssues.size > 0 ? { pricingIssues: [...pricingIssues] } : {}),
     exactPricedTokens,
     assumedTokens,
     unpricedTokens,
@@ -227,36 +230,37 @@ const getModelUsageGroups = (buckets: IndexedUsageBucket[]): ModelUsageGroup[] =
 
 const toCoverage = (
   group: ModelUsageGroup,
-  pricingKind: 'exact' | 'assumed' | 'unpriced',
+  pricingKind: 'exact' | 'partial' | 'assumed' | 'unpriced',
   conditionAssumedTokens = 0,
-  pricingIssues: PricingIssue[] = []
-): PricingCoverage => ({
-  pricedTokens: pricingKind === 'unpriced' ? 0 : group.totalTokens,
-  exactPricedTokens: pricingKind === 'exact' ? group.totalTokens - conditionAssumedTokens : 0,
-  ...(conditionAssumedTokens > 0
-    ? {
-        conditionAssumedTokens,
-        pricingIssues,
-        conditionPercentage:
-          ((group.totalTokens - conditionAssumedTokens) / group.totalTokens) *
-          COMPLETE_PRICING_PERCENTAGE,
-      }
-    : {}),
-  assumedTokens: pricingKind === 'assumed' ? group.totalTokens : 0,
-  unpricedTokens: pricingKind === 'unpriced' ? group.totalTokens : 0,
-  totalTokens: group.totalTokens,
-  percentage:
-    pricingKind !== 'unpriced' || group.totalTokens === 0 ? COMPLETE_PRICING_PERCENTAGE : 0,
-  exactPercentage:
-    group.totalTokens === 0
-      ? COMPLETE_PRICING_PERCENTAGE
-      : pricingKind === 'exact'
-        ? ((group.totalTokens - conditionAssumedTokens) / group.totalTokens) *
-          COMPLETE_PRICING_PERCENTAGE
-        : 0,
-  assumedPercentage: pricingKind === 'assumed' ? COMPLETE_PRICING_PERCENTAGE : 0,
-  unpricedModelIds: pricingKind === 'unpriced' ? [group.modelId?.trim() || UNKNOWN_MODEL_ID] : [],
-});
+  pricingIssues: PricingIssue[] = [],
+  unpricedTokens = 0
+): PricingCoverage => {
+  const pricedTokens = group.totalTokens - unpricedTokens;
+  const hasModelPricing = pricingKind === 'exact' || pricingKind === 'partial';
+  const exactPricedTokens = hasModelPricing ? pricedTokens - conditionAssumedTokens : 0;
+  const percentageOfTotal = (tokens: number): number =>
+    group.totalTokens > 0
+      ? (tokens / group.totalTokens) * COMPLETE_PRICING_PERCENTAGE
+      : COMPLETE_PRICING_PERCENTAGE;
+  return {
+    pricedTokens,
+    exactPricedTokens,
+    ...(conditionAssumedTokens > 0
+      ? {
+          conditionAssumedTokens,
+          conditionPercentage: percentageOfTotal(pricedTokens - conditionAssumedTokens),
+        }
+      : {}),
+    ...(pricingIssues.length > 0 ? { pricingIssues } : {}),
+    assumedTokens: pricingKind === 'assumed' ? group.totalTokens : 0,
+    unpricedTokens,
+    totalTokens: group.totalTokens,
+    percentage: percentageOfTotal(pricedTokens),
+    exactPercentage: percentageOfTotal(exactPricedTokens),
+    assumedPercentage: pricingKind === 'assumed' ? COMPLETE_PRICING_PERCENTAGE : 0,
+    unpricedModelIds: unpricedTokens > 0 ? [group.modelId?.trim() || UNKNOWN_MODEL_ID] : [],
+  };
+};
 
 export const evaluateModelCosts = (
   index: CostOptimizationIndex,
@@ -270,12 +274,19 @@ export const evaluateModelCosts = (
   const evaluated = groups.map((group) => {
     const result = priceTokenUsage(group, group.modelId, context);
     const pricedCostUsd = result.costUsd;
+    const hasModelPricing = result.kind === 'exact' || result.kind === 'partial';
     return {
       group,
       pricingKind: result.kind,
       pricedCostUsd,
-      pricingIssues: result.kind === 'exact' ? result.issues : [],
-      conditionAssumedTokens: result.kind === 'exact' ? (result.conditionAssumedTokens ?? 0) : 0,
+      pricingIssues: hasModelPricing ? result.issues : [],
+      conditionAssumedTokens: hasModelPricing ? result.conditionAssumedTokens : 0,
+      unpricedTokens:
+        result.kind === 'unpriced'
+          ? group.totalTokens
+          : hasModelPricing
+            ? result.unpricedTokens
+            : 0,
     };
   });
   const totalPricedCostUsd = evaluated.reduce(
@@ -291,6 +302,7 @@ export const evaluateModelCosts = (
         pricedCostUsd,
         conditionAssumedTokens,
         pricingIssues,
+        unpricedTokens,
       }): ModelCostRow => {
         const sessionCount = group.sessionIds.size;
         return {
@@ -304,7 +316,13 @@ export const evaluateModelCosts = (
           pricedCostUsd,
           costShare: totalPricedCostUsd > 0 ? pricedCostUsd / totalPricedCostUsd : 0,
           averageSessionCostUsd: sessionCount > 0 ? pricedCostUsd / sessionCount : 0,
-          coverage: toCoverage(group, pricingKind, conditionAssumedTokens, pricingIssues),
+          coverage: toCoverage(
+            group,
+            pricingKind,
+            conditionAssumedTokens,
+            pricingIssues,
+            unpricedTokens
+          ),
         };
       }
     )
@@ -345,7 +363,7 @@ export const evaluateSubstitutionScenarios = (
       }
 
       const actual = evaluateConditionalUsage(group, sourcePricing);
-      if (actual.issues.length > 0) {
+      if (actual.unpricedTokens > 0 || actual.issues.length > 0) {
         return [];
       }
       const actualCostUsd = actual.costUsd;
@@ -360,7 +378,7 @@ export const evaluateSubstitutionScenarios = (
         }
 
         const scenario = evaluateConditionalUsage(group, targetPricing);
-        if (scenario.issues.length > 0) {
+        if (scenario.unpricedTokens > 0 || scenario.issues.length > 0) {
           return [];
         }
         const scenarioCostUsd = scenario.costUsd;

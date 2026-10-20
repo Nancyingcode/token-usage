@@ -71,7 +71,17 @@ export interface UnknownModelPricing extends UnknownModelPricingInput {
   updatedAt: string;
 }
 
-export interface ModelPricingEntry extends ModelPricingOverrideInput, ConditionalPricingFields {
+export interface CachedInputPricingRates {
+  inputUsdPerMillion: number;
+  cachedInputUsdPerMillion: number | null;
+  outputUsdPerMillion: number;
+}
+
+export interface ModelPricingEntry
+  extends
+    Omit<ModelPricingOverrideInput, 'cachedInputUsdPerMillion'>,
+    CachedInputPricingRates,
+    ConditionalPricingFields {
   effectiveAt: string;
   sourceKind: ModelPricingSourceKind;
   sourceUrl?: string;

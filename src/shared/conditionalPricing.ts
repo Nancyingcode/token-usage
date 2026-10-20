@@ -2,7 +2,7 @@
  * @file 逐请求条件计价
  * @description 先按请求分区与条件计费再聚合；缺少证据保留参考估算并返回结构化原因。
  */
-import type { UnknownModelPricingInput } from './budgetTypes';
+import type { CachedInputPricingRates } from './budgetTypes';
 import type {
   ConditionalPricingFields,
   PriceableUsage,
@@ -22,13 +22,14 @@ export interface ConditionalCostResult {
   costUsd: number;
   breakdown: ConditionalCostBreakdown;
   issues: PricingIssue[];
+  unpricedTokens: number;
   conditionAssumedTokens: number;
   conditionAssumedCostUsd: number;
 }
 
 export const evaluateConditionalUsage = (
   usage: PriceableUsage,
-  pricing: UnknownModelPricingInput & ConditionalPricingFields
+  pricing: CachedInputPricingRates & ConditionalPricingFields
 ): ConditionalCostResult => {
   if (usage.pricingRequests) {
     return Object.values(usage.pricingRequests).reduce<ConditionalCostResult>(
@@ -47,6 +48,7 @@ export const evaluateConditionalUsage = (
             ...(cacheWriteCostUsd > 0 ? { cacheWriteCostUsd } : {}),
           },
           issues: [...new Set([...total.issues, ...next.issues])],
+          unpricedTokens: total.unpricedTokens + next.unpricedTokens,
           conditionAssumedTokens: total.conditionAssumedTokens + next.conditionAssumedTokens,
           conditionAssumedCostUsd: total.conditionAssumedCostUsd + next.conditionAssumedCostUsd,
         };
@@ -55,6 +57,7 @@ export const evaluateConditionalUsage = (
         costUsd: 0,
         breakdown: { regularInputCostUsd: 0, cachedInputCostUsd: 0, outputCostUsd: 0 },
         issues: [],
+        unpricedTokens: 0,
         conditionAssumedTokens: 0,
         conditionAssumedCostUsd: 0,
       }
@@ -114,6 +117,15 @@ export const evaluateConditionalUsage = (
     issues.push('cache-partition-invalid');
   }
   const ordinary = Math.max(usage.inputTokens - cached - writes, 0);
+  // 缺少单价与条件假设是独立状态，不能把未计价的缓存 Token 再计入假设覆盖。
+  const hasConditionalAssumptions = issues.length > 0;
+  const unpricedTokens =
+    pricing.cachedInputUsdPerMillion === null
+      ? Math.min(cached, Math.max(usage.totalTokens, 0))
+      : 0;
+  if (unpricedTokens > 0) {
+    issues.push('cached-input-price-unavailable');
+  }
   const cacheWriteCostUsd =
     (writes *
       pricing.inputUsdPerMillion *
@@ -129,11 +141,13 @@ export const evaluateConditionalUsage = (
         modeMultiplier) /
       TOKENS_PER_MILLION,
     cachedInputCostUsd:
-      (cached *
-        pricing.cachedInputUsdPerMillion *
-        (longContext?.cachedInputMultiplier ?? 1) *
-        modeMultiplier) /
-      TOKENS_PER_MILLION,
+      pricing.cachedInputUsdPerMillion === null
+        ? 0
+        : (cached *
+            pricing.cachedInputUsdPerMillion *
+            (longContext?.cachedInputMultiplier ?? 1) *
+            modeMultiplier) /
+          TOKENS_PER_MILLION,
     outputCostUsd:
       (usage.outputTokens *
         pricing.outputUsdPerMillion *
@@ -151,7 +165,8 @@ export const evaluateConditionalUsage = (
     costUsd,
     breakdown,
     issues,
-    conditionAssumedTokens: issues.length > 0 ? usage.totalTokens : 0,
-    conditionAssumedCostUsd: issues.length > 0 ? costUsd : 0,
+    unpricedTokens,
+    conditionAssumedTokens: hasConditionalAssumptions ? usage.totalTokens - unpricedTokens : 0,
+    conditionAssumedCostUsd: hasConditionalAssumptions ? costUsd : 0,
   };
 };

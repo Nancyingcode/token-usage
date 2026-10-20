@@ -4,7 +4,11 @@
  */
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { decodePricingCatalog, PRICING_MAX_BYTES } from '../shared/pricingCatalog';
+import {
+  decodePricingCatalog,
+  NULLABLE_PRICING_CATALOG_VERSION,
+  PRICING_MAX_BYTES,
+} from '../shared/pricingCatalog';
 import type { PricingCatalog } from '../shared/pricingCatalogTypes';
 import { isRecord } from '../shared/runtimeTypes';
 
@@ -36,22 +40,23 @@ const decodeState = (raw: unknown): PricingState => {
   };
 };
 
-export const createPricingStore = (path: string): PricingStore => ({
-  load: async () => {
-    try {
-      const content = await readFile(path, 'utf8');
-      if (Buffer.byteLength(content) > PRICING_MAX_BYTES) {
-        throw new TypeError('Pricing cache is too large.');
-      }
-      return decodeState(JSON.parse(content));
-    } catch (error) {
-      if (isRecord(error) && error.code === 'ENOENT') {
-        return { autoUpdate: true };
-      }
-      throw error;
+const readState = async (path: string): Promise<PricingState | undefined> => {
+  try {
+    const content = await readFile(path, 'utf8');
+    if (Buffer.byteLength(content) > PRICING_MAX_BYTES) {
+      throw new TypeError('Pricing cache is too large.');
     }
-  },
-  save: async (state) => {
+    return decodeState(JSON.parse(content));
+  } catch (error) {
+    if (isRecord(error) && error.code === 'ENOENT') {
+      return undefined;
+    }
+    throw error;
+  }
+};
+
+export const createPricingStore = (path: string, legacyPath?: string): PricingStore => {
+  const save = async (state: PricingState): Promise<void> => {
     const validated = decodeState({ schemaVersion: 1, ...state });
     const content = `${JSON.stringify({ schemaVersion: 1, ...validated })}\n`;
     if (Buffer.byteLength(content) > PRICING_MAX_BYTES) {
@@ -65,5 +70,24 @@ export const createPricingStore = (path: string): PricingStore => ({
     } finally {
       await rm(temporary, { force: true });
     }
-  },
-});
+  };
+  return {
+    load: async () => {
+      const state = await readState(path);
+      if (state) {
+        return state;
+      }
+      const legacy = legacyPath ? await readState(legacyPath) : undefined;
+      if (!legacy) {
+        return { autoUpdate: true };
+      }
+      if (legacy.catalog?.schemaVersion === NULLABLE_PRICING_CATALOG_VERSION) {
+        throw new TypeError('Legacy pricing cache must contain a v1 or v2 catalog.');
+      }
+      // 只迁移不存在的新缓存；保留旧文件，让回滚后的客户端仍可读取原价格与偏好。
+      await save(legacy);
+      return legacy;
+    },
+    save,
+  };
+};

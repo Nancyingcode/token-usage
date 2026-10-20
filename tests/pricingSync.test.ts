@@ -130,12 +130,12 @@ describe('pricing storage and transport', () => {
   it('requests only the fixed public URL and rejects oversized or invalid responses', async () => {
     const fetcher = vi
       .fn<typeof fetch>()
-      .mockResolvedValue(new Response(JSON.stringify(catalogFixture())));
+      .mockResolvedValue(new Response(JSON.stringify({ ...catalogFixture(), schemaVersion: 3 })));
     expect(await fetchPricingCatalog(new AbortController().signal, fetcher)).toMatchObject({
       currency: 'USD',
     });
     expect(fetcher.mock.calls[0][0]).toBe(
-      'https://raw.githubusercontent.com/Nancyingcode/token-usage/pricing/catalog-v2.json'
+      'https://raw.githubusercontent.com/Nancyingcode/token-usage/pricing/catalog-v3.json'
     );
     expect(fetcher.mock.calls[0][1]).toMatchObject({ redirect: 'error', credentials: 'omit' });
     fetcher.mockResolvedValueOnce(new Response('x'.repeat(PRICING_MAX_BYTES + 1)));

@@ -1,7 +1,10 @@
 import type { ModelPricingEntry } from './budgetTypes';
+import type { NULLABLE_PRICING_CATALOG_VERSION } from './pricingCatalog';
+
+export type PricingCatalogVersion = 1 | 2 | typeof NULLABLE_PRICING_CATALOG_VERSION;
 
 export interface PricingCatalog {
-  schemaVersion: 1 | 2;
+  schemaVersion: PricingCatalogVersion;
   version: string;
   publishedAt: string;
   currency: 'USD';

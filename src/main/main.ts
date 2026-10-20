@@ -58,7 +58,8 @@ const LOCALE_PREFERENCES_FILENAME = 'locale-preferences.json';
 const THEME_PREFERENCES_FILENAME = 'theme-preferences.json';
 const USAGE_DATA_PATH_FILENAME = 'usage-data-path.json';
 const USAGE_SCAN_CACHE_FILENAME = 'usage-scan-cache.json';
-const PRICING_CACHE_FILENAME = 'pricing-cache.json';
+const PRICING_CACHE_FILENAME = 'pricing-cache-v3.json';
+const LEGACY_PRICING_CACHE_FILENAME = 'pricing-cache.json';
 
 // 价格同步资源由应用入口拥有，退出时统一释放订阅、IPC、定时器和在途请求。
 let disposePricing: (() => void) | undefined;
@@ -191,7 +192,10 @@ const initializeApplication = async (): Promise<void> => {
     notify: notificationService.notify,
   });
   const pricingService = createPricingSyncService({
-    store: createPricingStore(join(userDataPath, PRICING_CACHE_FILENAME)),
+    store: createPricingStore(
+      join(userDataPath, PRICING_CACHE_FILENAME),
+      join(userDataPath, LEGACY_PRICING_CACHE_FILENAME)
+    ),
     builtIn: DEFAULT_MODEL_PRICING,
     applyPrices: currentBudgetRuntime.replacePricing,
   });

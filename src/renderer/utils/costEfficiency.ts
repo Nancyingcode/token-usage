@@ -84,9 +84,9 @@ const buildCoverage = (slices: UsageSlice[], estimate: CostEstimate): CostEffici
     ...(estimate.conditionAssumedTokens
       ? {
           conditionAssumedTokens: estimate.conditionAssumedTokens,
-          pricingIssues: estimate.pricingIssues,
         }
       : {}),
+    ...(estimate.pricingIssues?.length ? { pricingIssues: estimate.pricingIssues } : {}),
     totalTokens,
     pricedTokens,
     exactPricedTokens,
@@ -118,7 +118,10 @@ const buildBreakdown = (
         return breakdown;
       }
 
-      const sliceBreakdown = calculateUsageCostBreakdown(slice, pricingResult.pricing);
+      const sliceBreakdown =
+        pricingResult.kind === 'assumed'
+          ? calculateUsageCostBreakdown(slice, pricingResult.pricing)
+          : pricingResult.breakdown;
       return {
         regularInputCostUsd: breakdown.regularInputCostUsd + sliceBreakdown.regularInputCostUsd,
         cachedInputCostUsd: breakdown.cachedInputCostUsd + sliceBreakdown.cachedInputCostUsd,
