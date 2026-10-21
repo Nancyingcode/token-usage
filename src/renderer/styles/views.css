@@ -3073,7 +3073,7 @@ code {
 .main-panel--overview {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: auto;
 }
 
 .main-panel--overview > .view-transition > .status-banner {
@@ -3081,32 +3081,38 @@ code {
 }
 
 .main-panel--overview > .view-transition > .page-stack {
-  min-height: 0;
-  grid-template-rows: auto minmax(0, 1fr);
-  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 auto;
 }
 
 .main-panel--overview .overview-grid {
-  min-height: 0;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  flex: 1 0 auto;
+  grid-template-rows: auto minmax(18.875rem, 1fr) auto;
 }
 
 .main-panel--overview .chart-panel {
-  min-height: 0;
+  min-height: 18.875rem;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
 .main-panel--overview .trend-chart {
-  min-height: 0;
+  min-height: 13.5rem;
   height: auto;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
 }
 
 .main-panel--overview .trend-chart-plot {
-  min-height: 0;
+  min-height: 11.875rem;
   height: auto;
+}
+
+/* 图表随剩余空间伸展，避免 SVG 固有宽高比反向撑高可滚动容器。 */
+.main-panel--overview .trend-chart svg {
+  position: absolute;
+  inset: 0;
 }
 
 @media (max-height: 740px) and (min-width: 761px) {

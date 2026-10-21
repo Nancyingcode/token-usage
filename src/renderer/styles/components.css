@@ -1,13 +1,103 @@
 /* Shared cards, controls, tables, states, and overlay rules. */
 
 .compressed-data-panel {
+  flex: 0 0 auto;
+  min-width: 0;
   margin-bottom: var(--space-4);
-  padding: var(--space-4);
+  padding: var(--space-3) var(--space-4);
   color: var(--color-text);
-  background: var(--color-surface);
+  background: var(--color-surface-subtle);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   font-size: var(--font-size-body-small);
+}
+
+.compressed-data-summary {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1 1 22rem;
+}
+
+.compressed-data-icon {
+  flex: 0 0 auto;
+  color: var(--color-brand-700);
+}
+
+.compressed-data-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.compressed-data-count {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-control);
+  background: var(--color-brand-surface);
+  color: var(--color-brand-700);
+  font-variant-numeric: tabular-nums;
+}
+
+.compressed-data-count--pending {
+  color: var(--color-warning-text);
+  background: var(--color-warning-surface);
+}
+
+.compressed-data-saved,
+.compressed-data-help {
+  color: var(--color-text-muted);
+}
+
+.compressed-data-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.compressed-data-actions button {
+  min-height: var(--control-height-compact);
+  padding: var(--space-1) var(--space-3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  font-size: var(--font-size-body-small);
+}
+
+.compressed-data-toggle {
+  color: var(--color-text-muted);
+  background: transparent;
+}
+
+.compressed-data-toggle[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+
+.compressed-data-actions .compressed-data-refresh {
+  color: var(--color-brand-700);
+  background: var(--color-surface);
+  border-color: var(--color-brand-border);
+}
+
+.compressed-data-actions button:not(:disabled):hover {
+  color: var(--color-brand-700);
+  background: var(--color-brand-surface);
+}
+
+.compressed-data-actions button:focus-visible {
+  outline: 2px solid var(--color-brand-700);
+  outline-offset: 2px;
+}
+
+.compressed-data-body {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
 }
 
 .compressed-data-heading {
@@ -41,8 +131,8 @@
 .compressed-data-details {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3) var(--space-5);
-  margin: var(--space-3) 0;
+  gap: var(--space-3) var(--space-6);
+  margin: 0 0 var(--space-3);
 }
 
 .compressed-data-details dd {
@@ -50,7 +140,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-.compressed-data-notice {
+.compressed-data-notice,
+.compressed-data-coverage {
   color: var(--color-warning-text);
 }
 

@@ -256,7 +256,7 @@ describe('UI style policy', () => {
     expect(sidebarRule).toContain('overflow-y: auto;');
   });
 
-  it('fits the overview into the first viewport without a content scrollbar', () => {
+  it('keeps overview charts readable and allows extra content to scroll', () => {
     const views = readRendererStyle('styles/views.css');
     const overviewPanelRule = views.match(/\.main-panel--overview\s*\{([^}]*)\}/)?.[1] ?? '';
     const overviewGridRule =
@@ -264,11 +264,22 @@ describe('UI style policy', () => {
     const overviewChartRule =
       views.match(/\.main-panel--overview \.chart-panel\s*\{([^}]*)\}/)?.[1] ?? '';
 
-    expect(overviewPanelRule).toContain('overflow: hidden;');
+    expect(overviewPanelRule).toContain('overflow: auto;');
     expect(overviewPanelRule).toContain('flex-direction: column;');
-    expect(overviewGridRule).toContain('grid-template-rows: auto minmax(0, 1fr) auto;');
-    expect(overviewChartRule).toContain('min-height: 0;');
+    expect(overviewGridRule).toContain('grid-template-rows: auto minmax(18.875rem, 1fr) auto;');
+    expect(overviewChartRule).toContain('min-height: 18.875rem;');
     expect(views).toContain('@media (max-height: 740px) and (min-width: 761px)');
+  });
+
+  it('uses defined spacing tokens in the compressed data panel', () => {
+    const tokens = readRendererStyle('styles/tokens.css');
+    const components = readRendererStyle('styles/components.css');
+    const rules = components.match(/\.compressed-data[^{}]*\{[^}]*\}/g) ?? [];
+    const references = [...rules.join('\n').matchAll(/var\((--space-[\w-]+)\)/g)];
+    expect(references.length).toBeGreaterThan(0);
+    for (const [, token] of references) {
+      expect(tokens).toContain(`${token}:`);
+    }
   });
 
   it('uses a full-width GitHub-style year for the overview activity calendar', () => {

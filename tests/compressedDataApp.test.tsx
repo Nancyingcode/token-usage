@@ -95,7 +95,9 @@ describe('compressed data in the application shell', () => {
     fireEvent.click(screen.getByRole('button', { name: /Budgets/ }));
     expect(screen.getByText('Real-time data + imported compressed data')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /Cost Optimization/ }));
-    expect(screen.getByText(/Unimported compressed files are not included/)).toBeTruthy();
+    expect(
+      screen.getByText(/Pending files are excluded from totals/).closest('[hidden]')
+    ).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Refresh compressed data' }));
     await waitFor(() => expect(refreshCompressed).toHaveBeenCalledOnce());
   });

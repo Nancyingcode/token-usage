@@ -38,10 +38,23 @@ describe('CompressedDataPanel', () => {
     );
 
     expect(onRefresh).not.toHaveBeenCalled();
+    const detailsButton = screen.getByRole('button', { name: 'Show details' });
+    expect(detailsButton.getAttribute('aria-expanded')).toBe('false');
+    const details = document.getElementById(detailsButton.getAttribute('aria-controls')!);
+    expect(details?.hidden).toBe(true);
+    expect(screen.getByText('2 pending').closest('[hidden]')).toBeNull();
+    detailsButton.focus();
+    expect(document.activeElement).toBe(detailsButton);
+    fireEvent.click(detailsButton);
+    expect(detailsButton.getAttribute('aria-expanded')).toBe('true');
+    expect(details?.hidden).toBe(false);
     expect(screen.getByText('Real-time data + imported compressed data')).toBeTruthy();
     expect(screen.getByText(/Unimported compressed files are not included/)).toBeTruthy();
     expect(screen.getByText(formatShortDateTime(scannedAt, 'en'))).toBeTruthy();
     expect(screen.getByText(formatShortDateTime(STATUS.lastImportedAt!, 'en'))).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Hide details' }));
+    expect(details?.hidden).toBe(true);
+    expect(document.activeElement).toBe(detailsButton);
     const button = screen.getByRole('button', { name: 'Refresh compressed data' });
     button.focus();
     expect(document.activeElement).toBe(button);
@@ -62,8 +75,11 @@ describe('CompressedDataPanel', () => {
         </I18nextProvider>
       );
 
-      expect(screen.getByRole('button').hasAttribute('disabled')).toBe(true);
+      expect(
+        screen.getByRole('button', { name: 'Refresh compressed data' }).hasAttribute('disabled')
+      ).toBe(true);
       expect(screen.getByRole('status').textContent).toContain('1 / 3');
+      expect(screen.getByRole('status').closest('[hidden]')).toBeNull();
     }
   );
 
@@ -79,7 +95,7 @@ describe('CompressedDataPanel', () => {
     );
 
     expect(screen.getByRole('region', { name: 'Compressed session data' })).toBeTruthy();
-    expect(screen.getByText('Local copies')).toBeTruthy();
+    expect(screen.getByText('1 saved locally').closest('[hidden]')).toBeNull();
     expect(screen.queryByText(/Unimported compressed files are not included/)).toBeNull();
   });
 
@@ -106,6 +122,7 @@ describe('CompressedDataPanel', () => {
     expect(screen.getByRole('button', { name: '刷新压缩数据' })).toBeTruthy();
     expect(screen.getByText('实时数据 + 已导入的压缩数据')).toBeTruthy();
     expect(screen.getByRole('status').textContent).toContain('部分文件导入失败');
+    expect(screen.getByRole('status').closest('[hidden]')).toBeNull();
     expect(screen.getByText('新增 1 · 更新 2 · 未变化 3 · 失败 1')).toBeTruthy();
     expect(screen.getByText(/broken.jsonl.zst/)).toBeTruthy();
     expect(screen.getByText(/Truncated frame/)).toBeTruthy();
@@ -124,6 +141,7 @@ describe('CompressedDataPanel', () => {
     );
 
     expect(screen.getByRole('alert').textContent).toContain('Manifest unavailable');
+    expect(screen.getByRole('alert').closest('[hidden]')).toBeNull();
     expect(screen.getByRole('button', { name: 'Refresh compressed data' })).toBeTruthy();
   });
 
