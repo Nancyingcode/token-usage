@@ -19,6 +19,9 @@ import { createApplicationRuntime, type ApplicationRuntime } from './application
 import { createBudgetRuntime, type BudgetRuntime } from './budgetRuntime';
 import { createBudgetStore } from './budgetStore';
 import { getDefaultCodexSessionsDir, getSessionIndexPathForSessionsDir } from './codexPaths';
+import { registerCompressedDataIpc } from './compressedDataIpc';
+import { createCompressedSessionStore } from './compressedSessionStore';
+import { createCompressedUsageService } from './compressedUsageService';
 import { createCostOptimizationCacheStore } from './costOptimizationCacheStore';
 import { createCostOptimizationConfigStore } from './costOptimizationConfigStore';
 import { createCostOptimizationRuntime } from './costOptimizationRuntime';
@@ -58,6 +61,7 @@ const LOCALE_PREFERENCES_FILENAME = 'locale-preferences.json';
 const THEME_PREFERENCES_FILENAME = 'theme-preferences.json';
 const USAGE_DATA_PATH_FILENAME = 'usage-data-path.json';
 const USAGE_SCAN_CACHE_FILENAME = 'usage-scan-cache.json';
+const IMPORTED_SESSIONS_DIRECTORY = 'imported-sessions';
 const PRICING_CACHE_FILENAME = 'pricing-cache-v3.json';
 const LEGACY_PRICING_CACHE_FILENAME = 'pricing-cache.json';
 
@@ -160,6 +164,17 @@ const initializeApplication = async (): Promise<void> => {
     cacheStore: createUsageScanCacheStore(join(userDataPath, USAGE_SCAN_CACHE_FILENAME)),
   });
   const initialSessionsDir = storedSessionsDir ?? defaultSessionsDir;
+  const compressedUsageService = createCompressedUsageService({
+    initialSessionsDir,
+    store: createCompressedSessionStore({
+      storageDir: join(userDataPath, IMPORTED_SESSIONS_DIRECTORY),
+    }),
+    scanCycle: (sessionsDir) =>
+      scanner.scanCycle({
+        sessionsDir,
+        sessionIndexPath: getSessionIndexPathForSessionsDir(sessionsDir),
+      }),
+  });
   const budgetStore = createBudgetStore(join(userDataPath, BUDGET_CONFIG_FILENAME));
   const costConfigStore = createCostOptimizationConfigStore(
     join(userDataPath, COST_OPTIMIZATION_CONFIG_FILENAME)
@@ -176,11 +191,10 @@ const initializeApplication = async (): Promise<void> => {
     mainI18n
   );
   const usageRuntime = createUsageRuntime({
-    scanCycle: (sessionsDir) =>
-      scanner.scanCycle({
-        sessionsDir,
-        sessionIndexPath: getSessionIndexPathForSessionsDir(sessionsDir),
-      }),
+    scanCycle: compressedUsageService.scanCycle,
+    subscribeExternalCycle: compressedUsageService.subscribeCycle,
+    onDirectoryChange: compressedUsageService.setDirectory,
+    onStop: compressedUsageService.stop,
     initialSessionsDir,
     now: Date.now,
     setIntervalFn: (callback, delay) => setInterval(callback, delay),
@@ -231,7 +245,7 @@ const initializeApplication = async (): Promise<void> => {
     unsubscribePricingBudget();
     pricingService.destroy();
   };
-  unregisterIpc = registerUsageIpc({
+  const unregisterUsageIpc = registerUsageIpc({
     applicationRuntime: currentApplicationRuntime,
     usageRuntime,
     budgetRuntime: currentBudgetRuntime,
@@ -242,6 +256,16 @@ const initializeApplication = async (): Promise<void> => {
     selectUsageDataDirectory,
     getWindow: () => mainWindow,
   });
+  const unregisterCompressedDataIpc = registerCompressedDataIpc({
+    getStatus: compressedUsageService.getStatus,
+    refresh: compressedUsageService.refresh,
+    subscribe: compressedUsageService.subscribe,
+    getWindow: () => mainWindow,
+  });
+  unregisterIpc = () => {
+    unregisterUsageIpc();
+    unregisterCompressedDataIpc();
+  };
   unregisterWindowControls = registerWindowControlIpc();
 
   const menuPolicy = getApplicationMenuPolicy(app.isPackaged);

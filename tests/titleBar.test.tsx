@@ -85,7 +85,7 @@ describe('TitleBar', () => {
     expect(screen.getByText('Local data synced')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Month' }).getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByRole('combobox', { name: 'Language' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Refresh' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Refresh real-time data' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Minimize' })).toBeTruthy();
     await waitFor(() => expect(windowApi.getState).toHaveBeenCalledOnce());
   });

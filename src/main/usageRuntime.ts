@@ -17,6 +17,9 @@ export interface UsageRuntimeDependencies<IntervalId> {
   now: () => number;
   setIntervalFn: (callback: () => void, delay: number) => IntervalId;
   clearIntervalFn: (intervalId: IntervalId) => void;
+  subscribeExternalCycle?: (listener: (cycle: UsageScanCycle) => void) => () => void;
+  onDirectoryChange?: (sessionsDir: string) => void;
+  onStop?: () => void;
 }
 
 export interface UsageRuntime {
@@ -53,10 +56,16 @@ export const createUsageRuntime = <IntervalId>(
   const cycleListeners = new Set<CycleListener>();
   const errorListeners = new Set<ErrorListener>();
   let lastResult: UsageScanResult | undefined;
+  // 合并服务按提交顺序递增序号；外部推送和扫描 Promise 返回可能交错，旧周期不得倒退快照。
+  let lastSequence = Number.NEGATIVE_INFINITY;
+  let lastNotifiedResult: UsageScanResult | undefined;
   let sessionsDir = dependencies.initialSessionsDir;
 
-  const scan = async (): Promise<UsageScanResult> => {
-    const cycle = await dependencies.scanCycle(sessionsDir);
+  const acceptCycle = (cycle: UsageScanCycle): UsageScanResult => {
+    if (cycle.sequence !== undefined && cycle.sequence <= lastSequence && lastResult) {
+      return lastResult;
+    }
+    lastSequence = cycle.sequence ?? lastSequence;
     lastResult = cycle.result;
 
     cycleListeners.forEach((listener) => {
@@ -70,11 +79,29 @@ export const createUsageRuntime = <IntervalId>(
     return cycle.result;
   };
 
+  const scan = async (): Promise<UsageScanResult> =>
+    acceptCycle(await dependencies.scanCycle(sessionsDir));
+
+  const notifyResult = (result: UsageScanResult): void => {
+    if (lastNotifiedResult === result) {
+      return;
+    }
+    lastNotifiedResult = result;
+    resultListeners.forEach((listener) => listener(result));
+  };
+
+  // 合并服务的同步发布与扫描返回共用序号，手动导入沿同一链路更新结果和派生分析。
+  const unsubscribeExternal = dependencies.subscribeExternalCycle?.((cycle) => {
+    if (cycle.result.sessionsDir !== sessionsDir) {
+      return;
+    }
+    const result = acceptCycle(cycle);
+    notifyResult(result);
+  });
+
   const monitor = createUsageMonitor({
     scan,
-    onUpdate: (result) => {
-      resultListeners.forEach((listener) => listener(result));
-    },
+    onUpdate: notifyResult,
     onError: (error) => {
       errorListeners.forEach((listener) => listener(error));
     },
@@ -89,6 +116,7 @@ export const createUsageRuntime = <IntervalId>(
     refreshOnFocus: monitor.refreshOnFocus,
     updateSessionsDir: (nextSessionsDir) => {
       sessionsDir = nextSessionsDir;
+      dependencies.onDirectoryChange?.(nextSessionsDir);
       return monitor.refreshAfterCurrent();
     },
     getResult: () => lastResult,
@@ -96,6 +124,10 @@ export const createUsageRuntime = <IntervalId>(
     subscribeCycle: (listener) => subscribeTo(cycleListeners, listener),
     subscribeError: (listener) => subscribeTo(errorListeners, listener),
     start: monitor.start,
-    stop: monitor.stop,
+    stop: () => {
+      monitor.stop();
+      unsubscribeExternal?.();
+      dependencies.onStop?.();
+    },
   };
 };

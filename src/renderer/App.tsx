@@ -11,11 +11,13 @@ import type {
   UsageDataPathUpdateResult,
 } from '../shared/usageDataPathTypes';
 import AppContent from './components/AppContent';
+import CompressedDataPanel from './components/CompressedDataPanel';
 import { LAZY_APP_CONTENT_VIEWS } from './components/lazyAppContentViews';
 import type { BudgetTab } from './components/BudgetsView';
 import Sidebar, { type ViewKey } from './components/Sidebar';
 import TitleBar from './components/TitleBar';
 import { useBudgetSnapshot } from './hooks/useBudgetSnapshot';
+import { useCompressedData } from './hooks/useCompressedData';
 import { useCostOptimizationSnapshot } from './hooks/useCostOptimizationSnapshot';
 import { useSessionDiagnosisDetail } from './hooks/useSessionDiagnosisDetail';
 import { useTheme } from './hooks/useTheme';
@@ -148,6 +150,7 @@ const App: React.FC = () => {
   const [dataPathSettings, setDataPathSettings] = useState<UsageDataPathSettings | null>(null);
   const [focusedPolicyId, setFocusedPolicyId] = useState<string | null>(null);
   const budgetState = useBudgetSnapshot();
+  const compressedData = useCompressedData();
   const themeState = useTheme();
   const costOptimizationEnabled = needsCostOptimization(activeView);
   const costOptimizationState = useCostOptimizationSnapshot(period, costOptimizationEnabled);
@@ -321,6 +324,13 @@ const App: React.FC = () => {
       <main
         className={activeView === 'overview' ? 'main-panel main-panel--overview' : 'main-panel'}
       >
+        <CompressedDataPanel
+          status={compressedData.status}
+          pending={compressedData.pending}
+          error={compressedData.error}
+          scannedAt={result?.scannedAt}
+          onRefresh={compressedData.refresh}
+        />
         <div key={viewTransitionKey} className="view-transition">
           <AppContent
             activeView={activeView}

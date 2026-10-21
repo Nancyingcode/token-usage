@@ -286,6 +286,113 @@ describe('cost optimization runtime', () => {
     );
   });
 
+  it.each(['archive.jsonl.zst', 'archive.jsonl'])(
+    'recovers a failed index save for %s from a later complete cycle with no changes',
+    async (sourceFile) => {
+      const dependencies = makeRuntimeDependencies();
+      const runtime = createCostOptimizationRuntime(dependencies);
+      await runtime.initialize();
+      const firstCycle = makeCycleWithOneSource();
+      await runtime.applyUsageCycle(firstCycle);
+      const addedSource = makeSourceChange(sourceFile, 'added', SOURCE_TOKENS);
+      const sources = [...firstCycle.changes.upserted, addedSource];
+      const importedCycle: UsageScanCycle = {
+        ...firstCycle,
+        sources,
+        result: {
+          ...firstCycle.result,
+          summary: {
+            ...firstCycle.result.summary,
+            sessions: sources.map(({ session }) => session),
+          },
+        },
+        changes: { upserted: [addedSource], removedSourceFiles: [], requiresFullRebuild: false },
+      };
+      vi.mocked(dependencies.cacheStore.save).mockRejectedValueOnce(new Error('cache save failed'));
+
+      await expect(runtime.applyUsageCycle(importedCycle)).rejects.toThrow('cache save failed');
+      expect(runtime.getSnapshot({ period: 'total' }).currentCostUsd).toBe(2);
+      runtime.markStale(new Error('cache save failed'));
+      const recovered = await runtime.applyUsageCycle({
+        ...importedCycle,
+        changes: { upserted: [], removedSourceFiles: [], requiresFullRebuild: false },
+      });
+
+      expect(recovered).toMatchObject({
+        dataState: 'fresh',
+        currentCostUsd: 4,
+        cacheStats: { upsertedSources: 1, reusedSources: 1 },
+      });
+      expect(dependencies.cacheStore.save).toHaveBeenCalledTimes(3);
+      expect(dependencies.cacheStore.save).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          sources: expect.objectContaining({
+            [sourceFile]: expect.objectContaining({ fingerprint: 'added' }),
+          }),
+        })
+      );
+    }
+  );
+
+  it('reconciles an outdated fingerprint after a failed save without replaying the upstream diff', async () => {
+    const dependencies = makeRuntimeDependencies();
+    const runtime = createCostOptimizationRuntime(dependencies);
+    await runtime.initialize();
+    await runtime.applyUsageCycle(makeCycleWithOneSource());
+    const updatedCycle = makeCycleWithOneSource('updated', 2 * SOURCE_TOKENS);
+    vi.mocked(dependencies.cacheStore.save).mockRejectedValueOnce(new Error('cache save failed'));
+
+    await expect(runtime.applyUsageCycle(updatedCycle)).rejects.toThrow('cache save failed');
+    const recovered = await runtime.applyUsageCycle({
+      ...updatedCycle,
+      sources: updatedCycle.changes.upserted,
+      changes: { upserted: [], removedSourceFiles: [], requiresFullRebuild: false },
+    });
+
+    expect(recovered).toMatchObject({ currentCostUsd: 4, cacheStats: { upsertedSources: 1 } });
+    expect(dependencies.cacheStore.save).toHaveBeenCalledTimes(3);
+  });
+
+  it('reconciles renamed and removed thread names even when the source fingerprint is unchanged', async () => {
+    const dependencies = makeRuntimeDependencies();
+    const runtime = createCostOptimizationRuntime(dependencies);
+    await runtime.initialize();
+    const firstCycle = makeCycleWithOneSource();
+    await runtime.applyUsageCycle(firstCycle);
+    const firstSource = firstCycle.changes.upserted[0];
+
+    for (const threadName of ['Renamed session', undefined]) {
+      const source = { ...firstSource, session: { ...firstSource.session, threadName } };
+      const snapshot = await runtime.applyUsageCycle({
+        ...firstCycle,
+        sources: [source],
+        changes: { upserted: [], removedSourceFiles: [], requiresFullRebuild: false },
+      });
+
+      expect(snapshot.currentCostUsd).toBe(2);
+      expect(snapshot.diagnostics[0].threadName).toBe(threadName);
+      expect(snapshot.cacheStats.upsertedSources).toBe(1);
+    }
+    expect(dependencies.cacheStore.save).toHaveBeenCalledTimes(3);
+  });
+
+  it('uses every current source when a full rebuild arrives with an empty upstream diff', async () => {
+    const dependencies = makeRuntimeDependencies();
+    const runtime = createCostOptimizationRuntime(dependencies);
+    await runtime.initialize();
+    const firstCycle = makeCycleWithOneSource();
+    await runtime.applyUsageCycle(firstCycle);
+
+    const snapshot = await runtime.applyUsageCycle({
+      ...firstCycle,
+      sources: firstCycle.changes.upserted,
+      changes: { upserted: [], removedSourceFiles: [], requiresFullRebuild: true },
+    });
+
+    expect(snapshot.currentCostUsd).toBe(2);
+    expect(snapshot.cacheStats.upsertedSources).toBe(1);
+  });
+
   it('retains candidates from the previous latest series and allows removing them', async () => {
     const previousPricing = [
       makeVersionedPricing('gpt-5.6-sol'),
@@ -356,6 +463,7 @@ describe('cost optimization runtime', () => {
 
     const unchangedCycle: UsageScanCycle = {
       ...firstCycle,
+      sources: firstCycle.changes.upserted,
       changes: {
         upserted: [],
         removedSourceFiles: [],

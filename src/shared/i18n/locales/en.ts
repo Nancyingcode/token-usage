@@ -39,7 +39,7 @@ export const en = {
       week: 'Week',
       month: 'Month',
       total: 'Total',
-      refresh: 'Refresh',
+      refresh: 'Refresh real-time data',
       language: 'Language',
       languageChangeFailed: 'Unable to save the language preference.',
       scanState: {
@@ -48,6 +48,33 @@ export const en = {
         stale: 'Previous data',
         failed: 'Scan failed',
         waiting: 'Waiting for scan',
+      },
+    },
+    compressedData: {
+      title: 'Compressed session data',
+      scope: 'Real-time data + imported compressed data',
+      refresh: 'Refresh compressed data',
+      discovered: 'Discovered compressed files',
+      unimported: 'Not imported',
+      localCopies: 'Local copies',
+      liveScannedAt: 'Real-time data scanned',
+      lastImportedAt: 'Compressed data last imported',
+      never: 'Not yet',
+      incomplete:
+        'Unimported compressed files are not included in usage, budgets or cost analysis. Totals may decrease when a live file is compressed until you import it.',
+      progress: 'Processed {{processed}} / {{total}} files',
+      report: 'Added {{added}} · updated {{updated}} · unchanged {{unchanged}} · failed {{failed}}',
+      error: 'Compressed data unavailable: {{details}}',
+      failures: 'View failed files',
+      phase: {
+        idle: 'Compressed sources are only read when you choose to refresh them.',
+        checking: 'Checking compressed sources…',
+        importing: 'Importing complete local copies…',
+        ready: 'The manual refresh completed. Local copies are retained for future use.',
+        partial:
+          'Some files could not be imported. Successful files were saved; any existing copies of failed files are retained.',
+        error:
+          'This refresh did not complete. See the error details. Saved local files are retained.',
       },
     },
     action: {

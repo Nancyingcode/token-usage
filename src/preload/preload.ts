@@ -3,6 +3,7 @@
  * @description 通过 contextBridge 暴露类型化 IPC API，不向 Renderer 提供直接文件系统访问能力。
  */
 import { contextBridge, ipcRenderer } from 'electron';
+import type { CompressedDataApi, CompressedDataStatus } from '../shared/compressedDataTypes';
 import type { PricingSyncSnapshot } from '../shared/pricingCatalogTypes';
 import {
   PRICING_GET_CHANNEL,
@@ -21,6 +22,9 @@ import {
   BUDGET_SAVE_UNKNOWN_MODEL_PRICING_CHANNEL,
   BUDGET_UPDATED_CHANNEL,
   BUDGET_UPDATE_THRESHOLDS_CHANNEL,
+  COMPRESSED_DATA_GET_STATUS_CHANNEL,
+  COMPRESSED_DATA_REFRESH_CHANNEL,
+  COMPRESSED_DATA_UPDATED_CHANNEL,
   COST_OPTIMIZATION_GET_SNAPSHOT_CHANNEL,
   COST_OPTIMIZATION_GET_SESSION_DIAGNOSIS_CHANNEL,
   COST_OPTIMIZATION_UPDATED_CHANNEL,
@@ -160,6 +164,14 @@ contextBridge.exposeInMainWorld('codexUsage', {
   scan: (): Promise<UsageScanResult> => ipcRenderer.invoke(USAGE_SCAN_CHANNEL),
   onUsageUpdated: (listener: (result: UsageScanResult) => void): (() => void) =>
     subscribe(USAGE_UPDATED_CHANNEL, listener),
+  compressedData: {
+    getStatus: (): Promise<CompressedDataStatus> =>
+      ipcRenderer.invoke(COMPRESSED_DATA_GET_STATUS_CHANNEL),
+    refresh: (): Promise<CompressedDataStatus> =>
+      ipcRenderer.invoke(COMPRESSED_DATA_REFRESH_CHANNEL),
+    onUpdated: (listener: (status: CompressedDataStatus) => void): (() => void) =>
+      subscribe(COMPRESSED_DATA_UPDATED_CHANNEL, listener),
+  } satisfies CompressedDataApi,
   dataPath: {
     get: (): Promise<UsageDataPathSettings> => ipcRenderer.invoke(USAGE_DATA_PATH_GET_CHANNEL),
     select: (): Promise<string | null> => ipcRenderer.invoke(USAGE_DATA_PATH_SELECT_CHANNEL),

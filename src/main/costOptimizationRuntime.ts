@@ -247,8 +247,23 @@ export const createCostOptimizationRuntime = (
       ];
       const requiresFullRebuild =
         cycle.changes.requiresFullRebuild || index.sessionsDir !== cycle.result.sessionsDir;
+      const upsertedSources = new Map(
+        cycle.changes.upserted.map((source) => [source.sourceFile, source])
+      );
+      // 上游可先于索引持久化推进；按最后成功索引对账，避免保存失败后空增量永久漏记来源。
+      cycle.sources?.forEach((source) => {
+        const indexed = index.sources[source.sourceFile];
+        if (
+          requiresFullRebuild ||
+          !indexed ||
+          indexed.fingerprint !== source.fingerprint ||
+          indexed.metadata.threadName !== source.session.threadName
+        ) {
+          upsertedSources.set(source.sourceFile, source);
+        }
+      });
       const changes = {
-        upserted: cycle.changes.upserted,
+        upserted: [...upsertedSources.values()],
         removedSourceFiles,
         requiresFullRebuild,
       };

@@ -30,6 +30,49 @@ describe('usageScanner', () => {
     await rm(testDirectory, { recursive: true, force: true });
   });
 
+  it('discovers compressed names without reading or statting compressed sources', async () => {
+    const compressedFile = join(testDirectory, 'archive.jsonl.zst');
+    await writeFile(compressedFile, 'not opened automatically');
+    const read = vi.fn((path: string, encoding: 'utf8') => readFile(path, encoding));
+    const inspect = vi.fn((path: string) => stat(path));
+    const scanner = createUsageScanner({ readFile: read, stat: inspect });
+    const cycle = await scanner.scanCycle({ sessionsDir: testDirectory });
+    expect(cycle.compressedSourceFiles).toEqual([compressedFile]);
+    expect(cycle.result.summary.sessions).toEqual([]);
+    expect(read.mock.calls.some(([path]) => path === compressedFile)).toBe(false);
+    expect(inspect).not.toHaveBeenCalled();
+  });
+
+  it('does not commit another changed source or deletion during a failed cycle', async () => {
+    const good = join(testDirectory, 'good.jsonl');
+    const blocked = join(testDirectory, 'blocked.jsonl');
+    const removed = join(testDirectory, 'removed.jsonl');
+    await Promise.all(
+      [good, blocked, removed].map((path) =>
+        writeFile(path, validSession(path, '2026-07-16T00:00:00.000Z'))
+      )
+    );
+    let denyRead = false;
+    const scanner = createUsageScanner({
+      readFile: (path, encoding) => {
+        if (path === blocked && denyRead) {
+          return Promise.reject(new Error('locked'));
+        }
+        return readFile(path, encoding);
+      },
+    });
+    await scanner.scanCycle({ sessionsDir: testDirectory });
+    await Promise.all([appendFile(good, '\n'), appendFile(blocked, '\n'), unlink(removed)]);
+    denyRead = true;
+    await expect(scanner.scanCycle({ sessionsDir: testDirectory })).rejects.toThrow();
+    denyRead = false;
+    const recovered = await scanner.scanCycle({ sessionsDir: testDirectory });
+    expect(recovered.changes.upserted.map(({ sourceFile }) => sourceFile).sort()).toEqual(
+      [blocked, good].sort()
+    );
+    expect(recovered.changes.removedSourceFiles).toEqual([removed]);
+  });
+
   it('keeps stable session order and isolates invalid session data', async () => {
     const timestamp = '2026-07-16T00:00:00.000Z';
     await writeFile(join(testDirectory, 'b.jsonl'), validSession('b', timestamp));

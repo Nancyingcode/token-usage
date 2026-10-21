@@ -5,7 +5,7 @@
  */
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
-import type { UsageChangeSet } from '../shared/costOptimizationTypes';
+import type { UsageChangeSet, UsageSourceChange } from '../shared/costOptimizationTypes';
 import { isRecord } from '../shared/runtimeTypes';
 import getSessionId from '../shared/sessionId';
 import { buildUsageSummary } from '../shared/usageMath';
@@ -29,8 +29,13 @@ export interface UsageScanner {
 }
 
 export interface UsageScanCycle {
+  sequence?: number;
   result: UsageScanResult;
   changes: UsageChangeSet;
+  compressedSourceFiles?: string[];
+  plainSourceFiles?: string[];
+  threadNames?: Record<string, string>;
+  sources?: UsageSourceChange[];
 }
 
 export interface UsageScannerDependencies {
@@ -42,6 +47,7 @@ export interface UsageScannerDependencies {
 
 interface FileDiscoveryResult {
   files: string[];
+  compressedFiles: string[];
   warnings: UsageWarning[];
 }
 
@@ -148,6 +154,9 @@ export const createUsageScanner = (
       options.sessionIndexPath ?? getSessionIndexPathForSessionsDir(sessionsDir);
     await hydrateCache(sessionsDir);
     const previousCachedPaths = new Set(cache.keys());
+    // 失败轮不得提前推进缓存，否则恢复后会漏发其他已读取来源的费用变更。
+    const nextCache = new Map(cache);
+    let nextCacheDirty = cacheDirty;
     const [discovery, threadNameResult] = await Promise.all([
       findJsonlFiles(sessionsDir),
       loadThreadNames(sessionIndexPath, readFile),
@@ -158,8 +167,8 @@ export const createUsageScanner = (
     );
 
     removedSourceFiles.forEach((path) => {
-      cache.delete(path);
-      cacheDirty = true;
+      nextCache.delete(path);
+      nextCacheDirty = true;
     });
 
     const fileResults = await mapWithConcurrency(
@@ -176,9 +185,9 @@ export const createUsageScanner = (
               ? cached.session
               : await parseSessionJsonlAsync(file, await readFile(file, 'utf8'));
 
-          cache.set(file, { fingerprint, session: parsedSession });
+          nextCache.set(file, { fingerprint, session: parsedSession });
           if (!cacheHit) {
-            cacheDirty = true;
+            nextCacheDirty = true;
           }
 
           const session = {
@@ -192,8 +201,8 @@ export const createUsageScanner = (
           const sourceWasRemoved = isFileNotFoundError(error);
 
           if (wasCached && sourceWasRemoved) {
-            cache.delete(file);
-            cacheDirty = true;
+            nextCache.delete(file);
+            nextCacheDirty = true;
             removedSourceFiles.add(file);
           }
 
@@ -216,7 +225,12 @@ export const createUsageScanner = (
     );
 
     if (cachedReadFailed) {
-      throw new Error('Unable to refresh cached session files.');
+      const details = fileResults.flatMap(({ cachedReadFailure, warnings }) =>
+        cachedReadFailure
+          ? warnings.map((warning) => `${warning.sourceFile}: ${warning.details}`)
+          : []
+      );
+      throw new Error(`Unable to refresh cached session files. ${details.join('; ')}`);
     }
 
     const sessions = fileResults.flatMap(({ session }) => (session ? [session] : []));
@@ -233,11 +247,19 @@ export const createUsageScanner = (
     const scannedAt = new Date().toISOString();
 
     const requiresFullRebuild = lastSessionsDir !== undefined && lastSessionsDir !== sessionsDir;
-    cacheDirty ||= requiresFullRebuild;
+    cache.clear();
+    nextCache.forEach((entry, path) => cache.set(path, entry));
+    cacheDirty = nextCacheDirty || requiresFullRebuild;
     lastSessionsDir = sessionsDir;
     persistCache(sessionsDir);
 
     return {
+      compressedSourceFiles: discovery.compressedFiles,
+      plainSourceFiles: discovery.files,
+      threadNames: Object.fromEntries(threadNameResult.names),
+      sources: fileResults.flatMap(({ session, fingerprint }) =>
+        session && fingerprint ? [{ sourceFile: session.sourceFile, fingerprint, session }] : []
+      ),
       result: {
         sessionsDir,
         scannedAt,
@@ -277,21 +299,31 @@ const findJsonlFiles = async (dir: string): Promise<FileDiscoveryResult> => {
         }
 
         if (entry.isFile() && entry.name.endsWith('.jsonl')) {
-          return { files: [fullPath], warnings: [] };
+          return { files: [fullPath], compressedFiles: [], warnings: [] };
         }
 
-        return { files: [], warnings: [] };
+        if (entry.isFile() && entry.name.endsWith('.jsonl.zst')) {
+          return { files: [], compressedFiles: [fullPath], warnings: [] };
+        }
+
+        return { files: [], compressedFiles: [], warnings: [] };
       })
     );
 
     return {
       files: discoveries.flatMap((discovery) => discovery.files).sort((a, b) => a.localeCompare(b)),
+      compressedFiles: discoveries
+        .flatMap((discovery) => discovery.compressedFiles)
+        .sort((a, b) => a.localeCompare(b)),
       warnings: discoveries.flatMap((discovery) => discovery.warnings),
     };
   } catch (error) {
     throw new Error('Unable to discover sessions directory.', { cause: error });
   }
 };
+
+export const findCompressedSessionFiles = async (sessionsDir: string): Promise<string[]> =>
+  (await findJsonlFiles(sessionsDir)).compressedFiles;
 
 const loadThreadNames = async (
   sessionIndexPath: string,

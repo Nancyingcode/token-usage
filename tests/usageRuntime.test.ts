@@ -28,6 +28,66 @@ const EMPTY_CYCLE: UsageScanCycle = {
 };
 
 describe('usage runtime', () => {
+  it('does not republish an older scan after a newer durable import cycle', async () => {
+    const pending = deferred<UsageScanCycle>();
+    let publishExternal: ((cycle: UsageScanCycle) => void) | undefined;
+    const runtime = createUsageRuntime({
+      scanCycle: () => pending.promise,
+      subscribeExternalCycle: (listener) => {
+        publishExternal = listener;
+        return () => undefined;
+      },
+      initialSessionsDir: EMPTY_CYCLE.result.sessionsDir,
+      now: () => 0,
+      setIntervalFn: vi.fn(() => 1),
+      clearIntervalFn: vi.fn(),
+    });
+    const resultListener = vi.fn();
+    const cycleListener = vi.fn();
+    runtime.subscribe(resultListener);
+    runtime.subscribeCycle(cycleListener);
+    const scanning = runtime.refresh();
+    const older = { ...EMPTY_CYCLE, sequence: 1 };
+    const newer = {
+      ...EMPTY_CYCLE,
+      sequence: 2,
+      result: { ...EMPTY_CYCLE.result, scannedAt: '2026-10-21T00:00:00Z' },
+    };
+    publishExternal?.(older);
+    publishExternal?.(newer);
+    pending.resolve(older);
+    await expect(scanning).resolves.toBe(newer.result);
+    expect(runtime.getResult()).toBe(newer.result);
+    expect(resultListener).toHaveBeenCalledTimes(2);
+    expect(cycleListener).toHaveBeenCalledTimes(2);
+  });
+
+  it('publishes imported cycles through the same result and analysis subscriptions', async () => {
+    let publishExternal: ((cycle: UsageScanCycle) => void) | undefined;
+    const unsubscribeExternal = vi.fn();
+    const runtime = createUsageRuntime({
+      scanCycle: vi.fn(async () => EMPTY_CYCLE),
+      subscribeExternalCycle: (listener) => {
+        publishExternal = listener;
+        return unsubscribeExternal;
+      },
+      initialSessionsDir: EMPTY_CYCLE.result.sessionsDir,
+      now: () => 0,
+      setIntervalFn: vi.fn(() => 1),
+      clearIntervalFn: vi.fn(),
+    });
+    const resultListener = vi.fn();
+    const cycleListener = vi.fn();
+    runtime.subscribe(resultListener);
+    runtime.subscribeCycle(cycleListener);
+    publishExternal?.(EMPTY_CYCLE);
+    expect(runtime.getResult()).toBe(EMPTY_CYCLE.result);
+    expect(resultListener).toHaveBeenCalledWith(EMPTY_CYCLE.result);
+    await vi.waitFor(() => expect(cycleListener).toHaveBeenCalledWith(EMPTY_CYCLE));
+    runtime.stop();
+    expect(unsubscribeExternal).toHaveBeenCalledOnce();
+  });
+
   it('shares one active refresh and publishes the same cycle once', async () => {
     const scanCycle = vi.fn(async (): Promise<UsageScanCycle> => EMPTY_CYCLE);
     const runtime = createUsageRuntime({

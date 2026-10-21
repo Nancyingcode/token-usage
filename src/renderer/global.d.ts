@@ -21,6 +21,7 @@ import type {
 import type { WindowState } from '../shared/windowTypes';
 import type { ThemePreference, ThemeSnapshot } from '../shared/theme';
 import type { PricingSyncApi } from '../shared/pricingCatalogTypes';
+import type { CompressedDataApi } from '../shared/compressedDataTypes';
 
 interface BudgetApi {
   getSnapshot: () => Promise<BudgetSnapshot>;
@@ -64,6 +65,7 @@ interface WindowControlApi {
 }
 
 interface CodexUsageApi {
+  compressedData: CompressedDataApi;
   pricing: PricingSyncApi;
   getInitialUsage: () => Promise<UsageScanResult>;
   scan: () => Promise<UsageScanResult>;
