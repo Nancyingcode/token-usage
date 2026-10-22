@@ -1,7 +1,9 @@
 import { createHash } from 'node:crypto';
+import type * as FilePromises from 'node:fs/promises';
 import {
   mkdir,
   mkdtemp,
+  open,
   readFile,
   readdir,
   rename,
@@ -17,6 +19,11 @@ import { zstdCompressSync } from 'node:zlib';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createCompressedSessionStore } from '../src/main/compressedSessionStore';
 import { parseSessionJsonlAsync } from '../src/main/sessionParser';
+
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const original = await importOriginal<typeof FilePromises>();
+  return { ...original, open: vi.fn(original.open), readFile: vi.fn(original.readFile) };
+});
 
 interface TestManifest {
   schemaVersion: number;
@@ -451,6 +458,243 @@ describe('compressed session store', () => {
       sessionsDir
     );
     expect(parseSession).not.toHaveBeenCalled();
+  });
+
+  it('verifies cached originals using one fixed buffer without reading complete files into memory', async () => {
+    const source = join(sessionsDir, 'archive.jsonl.zst');
+    await writeFile(
+      source,
+      `${validSession(10)}\n${JSON.stringify({ type: 'message', text: '完整原文'.repeat(262_144) })}\n`
+    );
+    const imported = await makeStore().importFiles(sessionsDir, [source]);
+    const { manifest, rootDirectory } = await readManifest(storageDir);
+    const rawPath = join(rootDirectory, Object.values(manifest.entries)[0].localRelativePath);
+    const parseSession = vi.fn(parseSessionJsonlAsync);
+    const read = vi.mocked(readFile).mockClear();
+    const original = await vi.importActual<typeof FilePromises>('node:fs/promises');
+    const handles: FilePromises.FileHandle[] = [];
+    vi.mocked(open).mockImplementation(async (path, flags, mode) => {
+      const handle = await original.open(path, flags, mode);
+      if (path === rawPath) {
+        vi.spyOn(handle, 'read');
+        vi.spyOn(handle, 'close');
+        handles.push(handle);
+      }
+      return handle;
+    });
+    try {
+      const restored = await createCompressedSessionStore({
+        storageDir,
+        decompressFile,
+        parseSession,
+      }).load(sessionsDir);
+      expect(restored).toEqual(imported.snapshot);
+      expect(read.mock.calls.filter(([path]) => path === rawPath)).toEqual([]);
+      expect(parseSession).not.toHaveBeenCalled();
+      expect(handles).toHaveLength(1);
+      const handle = handles[0];
+      const buffers = vi.mocked(handle.read).mock.calls.map(([buffer]) => buffer);
+      expect(buffers.length).toBeGreaterThan(1);
+      expect(new Set(buffers).size).toBe(1);
+      expect(Buffer.isBuffer(buffers[0])).toBe(true);
+      if (Buffer.isBuffer(buffers[0])) {
+        expect(buffers[0].length).toBeLessThan((await stat(rawPath)).size);
+      }
+      expect(handle.close).toHaveBeenCalledOnce();
+      expect(handle.fd).toBe(-1);
+    } finally {
+      vi.mocked(open).mockImplementation(original.open);
+    }
+  });
+
+  it.each(['read', 'integrity'] as const)(
+    'closes the cached original handle when %s verification fails',
+    async (failure) => {
+      const source = join(sessionsDir, 'archive.jsonl.zst');
+      await writeFile(source, validSession(10));
+      await makeStore().importFiles(sessionsDir, [source]);
+      const { manifest, rootDirectory } = await readManifest(storageDir);
+      const rawPath = join(rootDirectory, Object.values(manifest.entries)[0].localRelativePath);
+      if (failure === 'integrity') {
+        await writeFile(rawPath, validSession(11));
+      }
+      const original = await vi.importActual<typeof FilePromises>('node:fs/promises');
+      const handles: FilePromises.FileHandle[] = [];
+      vi.mocked(open).mockImplementation(async (path, flags, mode) => {
+        const handle = await original.open(path, flags, mode);
+        if (path === rawPath) {
+          if (failure === 'read') {
+            vi.spyOn(handle, 'read').mockRejectedValueOnce(new Error('simulated read failure'));
+          }
+          vi.spyOn(handle, 'close');
+          handles.push(handle);
+        }
+        return handle;
+      });
+      try {
+        await expect(makeStore().load(sessionsDir)).rejects.toThrow(
+          failure === 'read' ? 'simulated read failure' : 'integrity'
+        );
+        expect(handles).toHaveLength(1);
+        expect(handles[0].close).toHaveBeenCalledOnce();
+        expect(handles[0].fd).toBe(-1);
+      } finally {
+        vi.mocked(open).mockImplementation(original.open);
+      }
+    }
+  );
+
+  it('reuses at most two verification buffers while restoring cached originals concurrently', async () => {
+    const sourceFiles = await Promise.all(
+      Array.from({ length: 5 }, async (_, index) => {
+        const source = join(sessionsDir, `${index}.jsonl.zst`);
+        await writeFile(source, validSession(index + 1));
+        return source;
+      })
+    );
+    const imported = await makeStore().importFiles(sessionsDir, sourceFiles);
+    const { manifest, rootDirectory } = await readManifest(storageDir);
+    const rawPaths = new Set(
+      Object.values(manifest.entries).map(({ localRelativePath }) =>
+        join(rootDirectory, localRelativePath)
+      )
+    );
+    const original = await vi.importActual<typeof FilePromises>('node:fs/promises');
+    const handles: FilePromises.FileHandle[] = [];
+    let releaseHandles = (): void => undefined;
+    const handleGate = new Promise<void>((resolveGate) => {
+      releaseHandles = resolveGate;
+    });
+    vi.mocked(open).mockImplementation(async (path, flags, mode) => {
+      const handle = await original.open(path, flags, mode);
+      if (typeof path === 'string' && rawPaths.has(path)) {
+        vi.spyOn(handle, 'read');
+        handles.push(handle);
+        await handleGate;
+      }
+      return handle;
+    });
+    const restoring = makeStore().load(sessionsDir);
+    try {
+      await vi.waitFor(() => expect(handles).toHaveLength(2));
+      releaseHandles();
+      expect(await restoring).toEqual(imported.snapshot);
+      expect(handles).toHaveLength(sourceFiles.length);
+      const buffers = handles.flatMap((handle) =>
+        vi.mocked(handle.read).mock.calls.map(([buffer]) => buffer)
+      );
+      expect(new Set(buffers).size).toBe(2);
+      expect(handles.every(({ fd }) => fd === -1)).toBe(true);
+    } finally {
+      releaseHandles();
+      await restoring;
+      vi.mocked(open).mockImplementation(original.open);
+    }
+  });
+
+  it('restores local originals with at most two concurrent parsing windows', async () => {
+    const sourceFiles = await Promise.all(
+      Array.from({ length: 5 }, async (_, index) => {
+        const source = join(sessionsDir, `${index}.jsonl.zst`);
+        await writeFile(source, validSession(index + 1));
+        return source;
+      })
+    );
+    const imported = await makeStore().importFiles(sessionsDir, sourceFiles);
+    const { rootDirectory } = await readManifest(storageDir);
+    await unlink(join(rootDirectory, 'parsed-cache.json'));
+    let releaseParsers = (): void => undefined;
+    const parserGate = new Promise<void>((resolveGate) => {
+      releaseParsers = resolveGate;
+    });
+    let active = 0;
+    let peak = 0;
+    const parseSession = vi.fn(async (sourceFile: string, content: string) => {
+      active += 1;
+      peak = Math.max(peak, active);
+      try {
+        await parserGate;
+        return await parseSessionJsonlAsync(sourceFile, content);
+      } finally {
+        active -= 1;
+      }
+    });
+    const restoring = createCompressedSessionStore({
+      storageDir,
+      decompressFile,
+      parseSession,
+    }).load(sessionsDir);
+    try {
+      await vi.waitFor(() => expect(parseSession).toHaveBeenCalledTimes(2));
+      expect(active).toBe(2);
+    } finally {
+      releaseParsers();
+      await restoring;
+    }
+    expect(await restoring).toEqual(imported.snapshot);
+    expect(peak).toBe(2);
+    expect(parseSession).toHaveBeenCalledTimes(sourceFiles.length);
+  });
+
+  it('waits for all restoration workers after a failure before allowing a retry', async () => {
+    const sourceFiles = await Promise.all(
+      ['failing', 'pending'].map(async (name) => {
+        const source = join(sessionsDir, `${name}.jsonl.zst`);
+        await writeFile(source, validSession(10));
+        return source;
+      })
+    );
+    const imported = await makeStore().importFiles(sessionsDir, sourceFiles);
+    const { rootDirectory } = await readManifest(storageDir);
+    const cachePath = join(rootDirectory, 'parsed-cache.json');
+    await unlink(cachePath);
+    let releasePending = (): void => undefined;
+    let releaseFailure = (): void => undefined;
+    const pendingGate = new Promise<void>((resolveGate) => {
+      releasePending = resolveGate;
+    });
+    const failureGate = new Promise<void>((resolveGate) => {
+      releaseFailure = resolveGate;
+    });
+    let shouldFail = true;
+    let failureFinished = false;
+    let settled = false;
+    const parseSession = vi.fn(async (sourceFile: string, content: string) => {
+      if (sourceFile === sourceFiles[0]) {
+        await failureGate;
+        if (shouldFail) {
+          failureFinished = true;
+          throw new Error('simulated restore failure');
+        }
+      } else {
+        await pendingGate;
+      }
+      return parseSessionJsonlAsync(sourceFile, content);
+    });
+    const store = createCompressedSessionStore({ storageDir, decompressFile, parseSession });
+    const restoring = store.load(sessionsDir).finally(() => {
+      settled = true;
+    });
+    const observedFailure = restoring.catch((error: unknown) => error);
+    try {
+      await vi.waitFor(() => expect(parseSession).toHaveBeenCalledTimes(2));
+      releaseFailure();
+      await vi.waitFor(() => expect(failureFinished).toBe(true));
+      expect(settled).toBe(false);
+      const repeated = store.load(sessionsDir).catch((error: unknown) => error);
+      expect(parseSession).toHaveBeenCalledTimes(2);
+      releasePending();
+      expect(await observedFailure).toMatchObject({ message: 'simulated restore failure' });
+      expect(await repeated).toMatchObject({ message: 'simulated restore failure' });
+      await expect(stat(cachePath)).rejects.toMatchObject({ code: 'ENOENT' });
+      shouldFail = false;
+      expect(await store.load(sessionsDir)).toEqual(imported.snapshot);
+      expect(parseSession).toHaveBeenCalledTimes(4);
+    } finally {
+      releaseFailure();
+      releasePending();
+      await observedFailure;
+    }
   });
 
   it('imports real concatenated Zstandard frames through the default decoder without changing bytes', async () => {

@@ -88,12 +88,15 @@ describe('compressed usage integration', () => {
       defaultPricing: [],
       notify: vi.fn(),
     });
+    const costCacheStore = createCostOptimizationCacheStore(join(directory, 'cost-cache.json'));
+    vi.spyOn(costCacheStore, 'save');
     const costRuntime = createCostOptimizationRuntime({
       configStore: createCostOptimizationConfigStore(join(directory, 'cost-settings.json')),
-      cacheStore: createCostOptimizationCacheStore(join(directory, 'cost-cache.json')),
+      cacheStore: costCacheStore,
       sessionsDir,
       defaultPricing: [],
     });
+    const applyUsageCycle = vi.spyOn(costRuntime, 'applyUsageCycle');
     const application = createApplicationRuntime({
       usageRuntime: runtime,
       budgetRuntime,
@@ -116,12 +119,75 @@ describe('compressed usage integration', () => {
       decompressFile,
       setIntervalFn,
       expectCostTokens,
+      costCacheStore,
+      costRuntime,
+      applyUsageCycle,
       tick: () => {
         currentTime += USAGE_SCAN_INTERVAL_MS;
         timerCallback?.();
       },
     };
   };
+
+  it('reuses the persisted live and imported cost index on restart and unchanged refresh', async () => {
+    await writeFile(join(sessionsDir, 'live.jsonl'), sessionContent(20));
+    await writeFile(join(sessionsDir, 'history.jsonl.zst'), compressZstd(sessionContent(30)));
+    const fixture = await setup();
+    await fixture.application.getInitialUsage();
+    await fixture.service.refresh();
+    await fixture.expectCostTokens(50);
+    fixture.application.stop();
+    const persistedIndex = await readFile(join(directory, 'cost-cache.json'));
+
+    const restarted = await setup();
+    await restarted.application.waitForCostOptimization();
+    const cachedSnapshot = restarted.costRuntime.getSnapshot({ period: 'total' });
+    const initialUsage = await restarted.application.getInitialUsage();
+    await vi.waitFor(() => expect(restarted.applyUsageCycle).toHaveBeenCalledOnce());
+    await restarted.applyUsageCycle.mock.results[0].value;
+
+    expect(initialUsage.summary.totals.totalTokens).toBe(50);
+    expect(restarted.costRuntime.getSnapshot({ period: 'total' })).toBe(cachedSnapshot);
+    expect(restarted.costCacheStore.save).not.toHaveBeenCalled();
+    expect(restarted.decompressFile).not.toHaveBeenCalled();
+
+    await restarted.application.refresh();
+    await vi.waitFor(() => expect(restarted.applyUsageCycle).toHaveBeenCalledTimes(2));
+    await restarted.applyUsageCycle.mock.results[1].value;
+    expect(restarted.costRuntime.getSnapshot({ period: 'total' })).toBe(cachedSnapshot);
+    expect(restarted.costCacheStore.save).not.toHaveBeenCalled();
+    expect(await readFile(join(directory, 'cost-cache.json'))).toEqual(persistedIndex);
+  });
+
+  it('reconciles added, changed and removed live sources with imported history after restart', async () => {
+    const retained = join(sessionsDir, 'retained.jsonl');
+    const updated = join(sessionsDir, 'updated.jsonl');
+    const removed = join(sessionsDir, 'removed.jsonl');
+    const added = join(sessionsDir, 'added.jsonl');
+    await writeFile(retained, sessionContent(10));
+    await writeFile(updated, sessionContent(20));
+    await writeFile(removed, sessionContent(30));
+    await writeFile(join(sessionsDir, 'history.jsonl.zst'), compressZstd(sessionContent(40)));
+    const fixture = await setup();
+    await fixture.application.getInitialUsage();
+    await fixture.service.refresh();
+    await fixture.expectCostTokens(100);
+    fixture.application.stop();
+    await writeFile(updated, sessionContent(200));
+    await writeFile(added, sessionContent(50));
+    await unlink(removed);
+
+    const restarted = await setup();
+    expect((await restarted.application.getInitialUsage()).summary.totals.totalTokens).toBe(300);
+    await restarted.expectCostTokens(300);
+    expect(restarted.costCacheStore.save).toHaveBeenCalledOnce();
+    expect(restarted.costRuntime.getSnapshot({ period: 'total' }).cacheStats).toEqual({
+      upsertedSources: 2,
+      removedSources: 1,
+      reusedSources: 2,
+    });
+    expect(restarted.decompressFile).not.toHaveBeenCalled();
+  });
 
   it('keeps startup, interval, focus and live refresh separate from manual import and updates the cost index', async () => {
     const plain = join(sessionsDir, 'same.jsonl');

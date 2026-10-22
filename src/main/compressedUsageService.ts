@@ -167,14 +167,17 @@ export const createCompressedUsageService = (
       first.sourceFile.localeCompare(second.sourceFile)
     );
     const nextSources = new Map(sources.map((entry) => [entry.sourceFile, entry]));
-    const requiresFullRebuild = publishedDirectory !== live.result.sessionsDir;
+    const hasPublishedCycle = publishedDirectory !== undefined;
+    const requiresFullRebuild = hasPublishedCycle && publishedDirectory !== live.result.sessionsDir;
+    // 首轮完整 sources 交给持久化成本索引按指纹对账；内存尚无基线不代表全部来源发生变化。
     const upserted = sources.filter((entry) => {
       const previous = effectiveSources.get(entry.sourceFile);
       return (
-        requiresFullRebuild ||
-        !previous ||
-        previous.fingerprint !== entry.fingerprint ||
-        previous.session.threadName !== entry.session.threadName
+        hasPublishedCycle &&
+        (requiresFullRebuild ||
+          !previous ||
+          previous.fingerprint !== entry.fingerprint ||
+          previous.session.threadName !== entry.session.threadName)
       );
     });
     const removedSourceFiles = [...effectiveSources.keys()].filter(
@@ -186,7 +189,10 @@ export const createCompressedUsageService = (
       sources,
       result: {
         ...live.result,
-        summary: buildUsageSummary(sources.map(({ session }) => session)),
+        summary:
+          importedSources.length === 0
+            ? live.result.summary
+            : buildUsageSummary(sources.map(({ session }) => session)),
         warnings: [
           ...live.result.warnings,
           ...importedSources.flatMap(({ session }) => session.warnings),

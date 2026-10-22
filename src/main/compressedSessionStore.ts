@@ -34,6 +34,10 @@ const STAGING_DIRECTORY = 'staging';
 const JSON_INDENT_SPACES = 2;
 // 每个任务最多同时持有两份解压窗口与解析文本；不随待导入文件数增长。
 const MAX_CONCURRENT_ZSTD_IMPORTS = 2;
+// 本地恢复最多保留两份读取/解析窗口；缓存命中仅逐块校验，避免启动内存随原文总量增长。
+const MAX_CONCURRENT_LOCAL_LOADS = 2;
+// 1 MiB 分块兼顾 Electron 文件读取开销与单次哈希耗时；每个 worker 跨文件复用，分配量不随副本数增长。
+const LOCAL_VERIFICATION_BUFFER_BYTES = 1_048_576;
 const RAW_VERSION_PATTERN = /^raw\/[\da-f-]+\.jsonl$/;
 const SHA256_PATTERN = /^[\da-f]{64}$/;
 
@@ -136,6 +140,32 @@ const decodeManifest = (raw: unknown, sessionsDir: string): ImportedManifest => 
 
 const getContentHash = (content: Buffer): string =>
   createHash('sha256').update(content).digest('hex');
+
+const verifyCachedOriginal = async (
+  rawPath: string,
+  entry: ImportedFileEntry,
+  buffer: Buffer
+): Promise<void> => {
+  const hash = createHash('sha256');
+  let bytes = 0;
+  const file = await open(rawPath, 'r');
+  try {
+    while (true) {
+      const { bytesRead } = await file.read(buffer, 0, buffer.length, null);
+      if (bytesRead === 0) {
+        break;
+      }
+      bytes += bytesRead;
+      hash.update(buffer.subarray(0, bytesRead));
+    }
+  } finally {
+    await file.close();
+  }
+  if (bytes !== entry.size || hash.digest('hex') !== entry.contentSha256) {
+    throw new Error(`Imported session integrity check failed: ${entry.sourceFile}`);
+  }
+};
+
 const getErrorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
@@ -225,23 +255,47 @@ export const createCompressedSessionStore = (
     const parsedCache = await createUsageScanCacheStore(cachePath).load();
     const sources: UsageSourceChange[] = [];
     let cacheNeedsRebuild = false;
-    for (const entry of Object.values(manifest.entries)) {
+    const entries = Object.values(manifest.entries);
+    let nextEntryIndex = 0;
+    const readEntry = async (
+      entry: ImportedFileEntry,
+      verificationBuffer: Buffer
+    ): Promise<void> => {
       const rawPath = join(rootDirectory, entry.localRelativePath);
       await assertManagedPath(storageDir, rawPath);
-      const content = await readFile(rawPath);
-      if (content.length !== entry.size || getContentHash(content) !== entry.contentSha256) {
-        throw new Error(`Imported session integrity check failed: ${entry.sourceFile}`);
-      }
       const cached =
         parsedCache?.sessionsDir === sessionsDir
           ? parsedCache.entries[entry.sourceFile]
           : undefined;
-      cacheNeedsRebuild ||= cached?.fingerprint !== entry.contentSha256;
-      const session =
-        cached?.fingerprint === entry.contentSha256
-          ? cached.session
-          : await parseSession(entry.sourceFile, content.toString('utf8'));
+      let session: UsageSession;
+      if (cached?.fingerprint === entry.contentSha256) {
+        await verifyCachedOriginal(rawPath, entry, verificationBuffer);
+        session = cached.session;
+      } else {
+        const content = await readFile(rawPath);
+        if (content.length !== entry.size || getContentHash(content) !== entry.contentSha256) {
+          throw new Error(`Imported session integrity check failed: ${entry.sourceFile}`);
+        }
+        session = await parseSession(entry.sourceFile, content.toString('utf8'));
+        cacheNeedsRebuild = true;
+      }
       sources.push({ sourceFile: entry.sourceFile, fingerprint: entry.contentSha256, session });
+    };
+    const worker = async (): Promise<void> => {
+      const verificationBuffer = Buffer.allocUnsafe(LOCAL_VERIFICATION_BUFFER_BYTES);
+      while (nextEntryIndex < entries.length) {
+        const index = nextEntryIndex;
+        nextEntryIndex += 1;
+        await readEntry(entries[index], verificationBuffer);
+      }
+    };
+    const workers = await Promise.allSettled(
+      Array.from({ length: Math.min(MAX_CONCURRENT_LOCAL_LOADS, entries.length) }, worker)
+    );
+    const failedWorker = workers.find((result) => result.status === 'rejected');
+    if (failedWorker?.status === 'rejected') {
+      // 等全部读取退出再清除加载任务，避免失败后的重试与旧读取/解析任务重叠。
+      throw failedWorker.reason;
     }
     const state = { manifest, snapshot: getSnapshot(manifest, sources) };
     if (cacheNeedsRebuild) {

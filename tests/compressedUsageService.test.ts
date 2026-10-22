@@ -83,8 +83,9 @@ describe('compressed usage service', () => {
     fixture.setLive(cycle([source('C:\\sessions\\a.jsonl', 20)]));
     const first = await fixture.service.scanCycle(ROOT);
     expect(first.result.summary.totals.totalTokens).toBe(20);
-    expect(first.changes.requiresFullRebuild).toBe(true);
-    expect(first.changes.upserted).toHaveLength(1);
+    expect(first.changes.requiresFullRebuild).toBe(false);
+    expect(first.changes.upserted).toEqual([]);
+    expect(first.sources).toEqual([source('C:\\sessions\\a.jsonl', 20)]);
     expect(fixture.store.importFiles).not.toHaveBeenCalled();
     fixture.setLive(cycle([]));
     const next = await fixture.service.scanCycle(ROOT);
@@ -93,6 +94,41 @@ describe('compressed usage service', () => {
     expect(next.changes.upserted[0].sourceFile).toBe(archive.sourceFile);
     expect(next.result.summary.sessions[0].threadName).toBe('Thread A');
     expect(fixture.store.load).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['empty', 'shadowed', 'unreadable'])(
+    'reuses the live summary when imported sources are %s',
+    async (scenario) => {
+      const archive = source('C:\\sessions\\a.jsonl.zst', 10);
+      const fixture = harness(snapshot(scenario === 'empty' ? [] : [archive]));
+      const live = cycle(scenario === 'unreadable' ? [] : [source('C:\\sessions\\a.jsonl', 20)]);
+      live.plainSourceFiles = ['C:\\sessions\\a.jsonl'];
+      fixture.setLive(live);
+
+      const merged = await fixture.service.scanCycle(ROOT);
+
+      expect(merged.result.summary).toBe(live.result.summary);
+      expect(merged.changes.requiresFullRebuild).toBe(false);
+      expect(merged.changes.upserted).toEqual([]);
+    }
+  );
+
+  it('still rebuilds and publishes every selected source after a directory switch', async () => {
+    const fixture = harness();
+    const previousSource = source('C:\\sessions\\a.jsonl', 20);
+    fixture.setLive(cycle([previousSource]));
+    await fixture.service.scanCycle(ROOT);
+    const nextDirectory = 'D:\\sessions';
+    const nextSource = source('D:\\sessions\\b.jsonl', 30);
+    fixture.setLive(cycle([nextSource], [], nextDirectory));
+
+    const switched = await fixture.service.scanCycle(nextDirectory);
+
+    expect(switched.changes).toEqual({
+      requiresFullRebuild: true,
+      upserted: [nextSource],
+      removedSourceFiles: [previousSource.sourceFile],
+    });
   });
 
   it('reports unimported sources without retaining old ordinary data as hidden history', async () => {

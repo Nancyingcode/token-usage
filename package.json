@@ -23,6 +23,7 @@
     "prepare": "node scripts/prepare.cjs",
     "test": "vitest run",
     "test:layout": "node scripts/check-compressed-layout.cjs",
+    "test:startup": "node scripts/check-compressed-startup.cjs",
     "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.web.json"
   },
   "dependencies": {
