@@ -3,6 +3,8 @@
  * @description 在类型化通道上连接 Renderer 与主进程运行时，集中注册处理器并应用外部链接策略。
  */
 import { ipcMain, shell, type BrowserWindow } from 'electron';
+import { createOperationHandler } from './ipcOperationHandler';
+import type { AppOperationGate } from './appOperationGate';
 import type {
   BudgetPolicyInput,
   BudgetThresholds,
@@ -59,6 +61,7 @@ import type { UsageRuntime } from './usageRuntime';
 import { UsageDataPathServiceError, type UsageDataPathService } from './usageDataPathService';
 
 export interface UsageIpcDependencies {
+  operationGate?: AppOperationGate;
   applicationRuntime: ApplicationRuntime;
   usageRuntime: UsageRuntime;
   budgetRuntime: BudgetRuntime;
@@ -159,6 +162,7 @@ const runUsageDataPathOperation = async <Result>(
 };
 
 const registerUsageIpc = ({
+  operationGate,
   applicationRuntime,
   usageRuntime,
   budgetRuntime,
@@ -169,67 +173,68 @@ const registerUsageIpc = ({
   selectUsageDataDirectory,
   getWindow,
 }: UsageIpcDependencies): (() => void) => {
-  ipcMain.handle(USAGE_GET_INITIAL_CHANNEL, () => applicationRuntime.getInitialUsage());
-  ipcMain.handle(USAGE_SCAN_CHANNEL, () => applicationRuntime.refresh());
-  ipcMain.handle(USAGE_DATA_PATH_GET_CHANNEL, () => usageDataPathService.getSettings());
-  ipcMain.handle(USAGE_DATA_PATH_SELECT_CHANNEL, () =>
+  const registerHandler = createOperationHandler(operationGate);
+  registerHandler(USAGE_GET_INITIAL_CHANNEL, () => applicationRuntime.getInitialUsage());
+  registerHandler(USAGE_SCAN_CHANNEL, () => applicationRuntime.refresh());
+  registerHandler(USAGE_DATA_PATH_GET_CHANNEL, () => usageDataPathService.getSettings());
+  registerHandler(USAGE_DATA_PATH_SELECT_CHANNEL, () =>
     selectUsageDataDirectory(usageDataPathService.getSettings().sessionsDir)
   );
-  ipcMain.handle(USAGE_DATA_PATH_UPDATE_CHANNEL, (_event, sessionsDir: unknown) =>
+  registerHandler(USAGE_DATA_PATH_UPDATE_CHANNEL, (_event, sessionsDir: unknown) =>
     runUsageDataPathOperation(() => usageDataPathService.update(sessionsDir))
   );
-  ipcMain.handle(USAGE_DATA_PATH_RESET_CHANNEL, () =>
+  registerHandler(USAGE_DATA_PATH_RESET_CHANNEL, () =>
     runUsageDataPathOperation(() => usageDataPathService.reset())
   );
-  ipcMain.handle(BUDGET_GET_SNAPSHOT_CHANNEL, () => budgetRuntime.getSnapshot());
-  ipcMain.handle(BUDGET_SAVE_POLICY_CHANNEL, (_event, input: BudgetPolicyInput) =>
+  registerHandler(BUDGET_GET_SNAPSHOT_CHANNEL, () => budgetRuntime.getSnapshot());
+  registerHandler(BUDGET_SAVE_POLICY_CHANNEL, (_event, input: BudgetPolicyInput) =>
     budgetRuntime.savePolicy(input)
   );
-  ipcMain.handle(BUDGET_DELETE_POLICY_CHANNEL, (_event, id: string) =>
+  registerHandler(BUDGET_DELETE_POLICY_CHANNEL, (_event, id: string) =>
     budgetRuntime.deletePolicy(id)
   );
-  ipcMain.handle(BUDGET_UPDATE_THRESHOLDS_CHANNEL, (_event, input: BudgetThresholds) =>
+  registerHandler(BUDGET_UPDATE_THRESHOLDS_CHANNEL, (_event, input: BudgetThresholds) =>
     budgetRuntime.updateThresholds(input)
   );
-  ipcMain.handle(BUDGET_SAVE_PRICING_CHANNEL, (_event, input: ModelPricingOverrideInput) =>
+  registerHandler(BUDGET_SAVE_PRICING_CHANNEL, (_event, input: ModelPricingOverrideInput) =>
     budgetRuntime.savePricingOverride(input)
   );
-  ipcMain.handle(BUDGET_RESET_PRICING_CHANNEL, (_event, modelId: string) =>
+  registerHandler(BUDGET_RESET_PRICING_CHANNEL, (_event, modelId: string) =>
     budgetRuntime.resetPricingOverride(modelId)
   );
-  ipcMain.handle(
+  registerHandler(
     BUDGET_SAVE_UNKNOWN_MODEL_PRICING_CHANNEL,
     (_event, input: UnknownModelPricingInput) => budgetRuntime.saveUnknownModelPricing(input)
   );
-  ipcMain.handle(BUDGET_DELETE_UNKNOWN_MODEL_PRICING_CHANNEL, () =>
+  registerHandler(BUDGET_DELETE_UNKNOWN_MODEL_PRICING_CHANNEL, () =>
     budgetRuntime.deleteUnknownModelPricing()
   );
-  ipcMain.handle(COST_OPTIMIZATION_GET_SNAPSHOT_CHANNEL, (_event, query: CostOptimizationQuery) =>
+  registerHandler(COST_OPTIMIZATION_GET_SNAPSHOT_CHANNEL, (_event, query: CostOptimizationQuery) =>
     runCostOptimizationOperation(applicationRuntime.waitForCostOptimization, () =>
       costRuntime.getSnapshot(query)
     )
   );
-  ipcMain.handle(
+  registerHandler(
     COST_OPTIMIZATION_GET_SESSION_DIAGNOSIS_CHANNEL,
     (_event, request: SessionDiagnosisRequest) =>
       runCostOptimizationOperation(applicationRuntime.waitForCostOptimization, () =>
         costRuntime.getSessionDiagnosis(request)
       )
   );
-  ipcMain.handle(
+  registerHandler(
     COST_OPTIMIZATION_UPDATE_SETTINGS_CHANNEL,
     (_event, settings: CostOptimizationSettings) =>
       runCostOptimizationOperation(applicationRuntime.waitForCostOptimization, () =>
         costRuntime.updateSettings(settings)
       )
   );
-  ipcMain.handle(LOCALE_GET_CHANNEL, () => localeService.getLocale());
-  ipcMain.handle(LOCALE_SET_CHANNEL, (_event, locale: unknown) => localeService.setLocale(locale));
-  ipcMain.handle(THEME_GET_CHANNEL, () => themeService.getSnapshot());
-  ipcMain.handle(THEME_SET_CHANNEL, (_event, preference: unknown) =>
+  registerHandler(LOCALE_GET_CHANNEL, () => localeService.getLocale());
+  registerHandler(LOCALE_SET_CHANNEL, (_event, locale: unknown) => localeService.setLocale(locale));
+  registerHandler(THEME_GET_CHANNEL, () => themeService.getSnapshot());
+  registerHandler(THEME_SET_CHANNEL, (_event, preference: unknown) =>
     themeService.setPreference(preference)
   );
-  ipcMain.handle(OPEN_EXTERNAL_CHANNEL, async (_event, url: string) => {
+  registerHandler(OPEN_EXTERNAL_CHANNEL, async (_event, url: string) => {
     if (typeof url !== 'string' || !isAllowedExternalUrl(url)) {
       throw new TypeError('External URL is not allowed.');
     }

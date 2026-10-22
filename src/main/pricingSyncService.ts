@@ -43,6 +43,9 @@ export const createPricingSyncService = ({
   let timer: ReturnType<typeof setInterval> | undefined;
   let lastAttempt: number | undefined;
   let destroyed = false;
+  // 更新安装准备仅暂停新任务；恢复时保留先前定时运行意图，在途保存由 drain 等待。
+  let pauseDepth = 0;
+  let runningRequested = false;
   const controller = new AbortController();
   const listeners = new Set<(value: PricingSyncSnapshot) => void>();
 
@@ -78,6 +81,9 @@ export const createPricingSyncService = ({
     }
   };
   const refresh = (): Promise<PricingSyncSnapshot> => {
+    if (pauseDepth > 0) {
+      return Promise.reject(new Error('Pricing refresh is paused for application update.'));
+    }
     if (destroyed) {
       return Promise.resolve({ ...snapshot });
     }
@@ -127,7 +133,7 @@ export const createPricingSyncService = ({
     return inFlight;
   };
   const check = async (hasUnpricedModels = false): Promise<void> => {
-    if (destroyed || !state.autoUpdate) {
+    if (destroyed || pauseDepth > 0 || !state.autoUpdate) {
       return;
     }
     const elapsed = now() - Date.parse(state.lastCheckedAt ?? '');
@@ -142,8 +148,11 @@ export const createPricingSyncService = ({
       await refresh();
     }
   };
-  const setAutoUpdate = (enabled: unknown): Promise<PricingSyncSnapshot> =>
-    enqueue(async () => {
+  const setAutoUpdate = (enabled: unknown): Promise<PricingSyncSnapshot> => {
+    if (pauseDepth > 0) {
+      return Promise.reject(new Error('Pricing preferences are paused for application update.'));
+    }
+    return enqueue(async () => {
       if (typeof enabled !== 'boolean') {
         throw new TypeError('Invalid automatic pricing preference.');
       }
@@ -159,8 +168,10 @@ export const createPricingSyncService = ({
         return publish({ status: 'error', error: 'storage' });
       }
     });
+  };
   const start = (): void => {
-    if (timer || destroyed) {
+    runningRequested = true;
+    if (timer || destroyed || pauseDepth > 0) {
       return;
     }
     void check();
@@ -170,6 +181,7 @@ export const createPricingSyncService = ({
   };
   const destroy = (): void => {
     destroyed = true;
+    runningRequested = false;
     controller.abort();
     if (timer) {
       clearInterval(timer);
@@ -177,12 +189,38 @@ export const createPricingSyncService = ({
     }
     listeners.clear();
   };
+  const pause = (): (() => void) => {
+    pauseDepth += 1;
+    if (timer) {
+      clearInterval(timer);
+      timer = undefined;
+    }
+    let restored = false;
+    return () => {
+      if (restored) {
+        return;
+      }
+      restored = true;
+      pauseDepth -= 1;
+      if (pauseDepth === 0 && runningRequested && !destroyed) {
+        start();
+      }
+    };
+  };
+  const drain = async (): Promise<void> => {
+    await queue;
+    if (snapshot.status === 'error' && snapshot.error === 'storage') {
+      throw new Error('Pricing persistence did not complete.');
+    }
+  };
   return {
     initialize,
     refresh,
     check,
     setAutoUpdate,
     start,
+    pause,
+    drain,
     destroy,
     getSnapshot: (): PricingSyncSnapshot => ({ ...snapshot }),
     subscribe: (listener: (value: PricingSyncSnapshot) => void): (() => void) => {

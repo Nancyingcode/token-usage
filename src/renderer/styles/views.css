@@ -6358,3 +6358,52 @@ code {
     transition: none;
   }
 }
+
+.app-update-panel {
+  grid-column: 1 / -1;
+}
+
+.app-update-content {
+  min-width: 0;
+}
+
+.app-update-versions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-6);
+}
+
+.app-update-versions div {
+  min-width: 0;
+}
+
+.app-update-versions dd {
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.app-update-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.app-update-progress progress {
+  min-width: 0;
+  flex: 1;
+  accent-color: var(--color-brand-700);
+}
+
+.app-update-notes {
+  margin: var(--space-3) 0;
+}
+
+.app-update-notes summary {
+  cursor: pointer;
+}
+
+.app-update-notes p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

@@ -19,6 +19,8 @@ export interface UsageMonitorDependencies<IntervalId> {
 export interface UsageMonitor {
   start: () => void;
   stop: () => void;
+  pause: () => () => void;
+  drain: () => Promise<void>;
   refresh: () => Promise<UsageScanResult>;
   refreshAfterCurrent: () => Promise<UsageScanResult>;
   refreshOnFocus: () => Promise<UsageScanResult | undefined>;
@@ -30,8 +32,14 @@ export const createUsageMonitor = <IntervalId>(
   let activeRefresh: Promise<UsageScanResult> | undefined;
   let intervalId: IntervalId | undefined;
   let lastCompletedAt = Number.NEGATIVE_INFINITY;
+  // 暂停计数由本调度器拥有；每个恢复函数仅释放自己的暂停，stop 清除运行意图但不取消在途扫描。
+  let pauseDepth = 0;
+  let runningRequested = false;
 
   const refresh = (): Promise<UsageScanResult> => {
+    if (pauseDepth > 0) {
+      return Promise.reject(new Error('Usage refresh is paused for application update.'));
+    }
     if (activeRefresh) {
       return activeRefresh;
     }
@@ -55,7 +63,7 @@ export const createUsageMonitor = <IntervalId>(
   };
 
   const refreshOnFocus = (): Promise<UsageScanResult | undefined> =>
-    dependencies.now() - lastCompletedAt >= FOCUS_REFRESH_MIN_INTERVAL_MS
+    pauseDepth === 0 && dependencies.now() - lastCompletedAt >= FOCUS_REFRESH_MIN_INTERVAL_MS
       ? refresh()
       : Promise.resolve(undefined);
 
@@ -76,7 +84,8 @@ export const createUsageMonitor = <IntervalId>(
   };
 
   const start = (): void => {
-    if (intervalId !== undefined) {
+    runningRequested = true;
+    if (intervalId !== undefined || pauseDepth > 0) {
       return;
     }
 
@@ -85,6 +94,7 @@ export const createUsageMonitor = <IntervalId>(
   };
 
   const stop = (): void => {
+    runningRequested = false;
     if (intervalId === undefined) {
       return;
     }
@@ -93,5 +103,34 @@ export const createUsageMonitor = <IntervalId>(
     intervalId = undefined;
   };
 
-  return { start, stop, refresh, refreshAfterCurrent, refreshOnFocus };
+  const pause = (): (() => void) => {
+    pauseDepth += 1;
+    if (intervalId !== undefined) {
+      dependencies.clearIntervalFn(intervalId);
+      intervalId = undefined;
+    }
+    let restored = false;
+    return () => {
+      if (restored) {
+        return;
+      }
+      restored = true;
+      pauseDepth -= 1;
+      if (pauseDepth === 0 && runningRequested) {
+        start();
+      }
+    };
+  };
+
+  return {
+    start,
+    stop,
+    pause,
+    drain: async () => {
+      await activeRefresh;
+    },
+    refresh,
+    refreshAfterCurrent,
+    refreshOnFocus,
+  };
 };

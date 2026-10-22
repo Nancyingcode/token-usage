@@ -3,6 +3,15 @@
  * @description 通过 contextBridge 暴露类型化 IPC API，不向 Renderer 提供直接文件系统访问能力。
  */
 import { contextBridge, ipcRenderer } from 'electron';
+import type { AppUpdateApi, AppUpdateSnapshot } from '../shared/appUpdateTypes';
+import {
+  APP_UPDATE_GET_CHANNEL,
+  APP_UPDATE_CHECK_CHANNEL,
+  APP_UPDATE_DOWNLOAD_CHANNEL,
+  APP_UPDATE_INSTALL_CHANNEL,
+  APP_UPDATE_OPEN_RELEASE_CHANNEL,
+  APP_UPDATE_UPDATED_CHANNEL,
+} from '../shared/ipcChannels';
 import type { CompressedDataApi, CompressedDataStatus } from '../shared/compressedDataTypes';
 import type { PricingSyncSnapshot } from '../shared/pricingCatalogTypes';
 import {
@@ -152,6 +161,15 @@ const invokeUsageDataPath = async <Result>(channel: string, input?: string): Pro
 };
 
 contextBridge.exposeInMainWorld('codexUsage', {
+  appUpdate: {
+    get: (): Promise<AppUpdateSnapshot> => ipcRenderer.invoke(APP_UPDATE_GET_CHANNEL),
+    check: (): Promise<AppUpdateSnapshot> => ipcRenderer.invoke(APP_UPDATE_CHECK_CHANNEL),
+    download: (): Promise<AppUpdateSnapshot> => ipcRenderer.invoke(APP_UPDATE_DOWNLOAD_CHANNEL),
+    install: (): Promise<AppUpdateSnapshot> => ipcRenderer.invoke(APP_UPDATE_INSTALL_CHANNEL),
+    openReleasePage: (): Promise<void> => ipcRenderer.invoke(APP_UPDATE_OPEN_RELEASE_CHANNEL),
+    onUpdated: (listener: (snapshot: AppUpdateSnapshot) => void): (() => void) =>
+      subscribe(APP_UPDATE_UPDATED_CHANNEL, listener),
+  } satisfies AppUpdateApi,
   pricing: {
     get: (): Promise<PricingSyncSnapshot> => ipcRenderer.invoke(PRICING_GET_CHANNEL),
     refresh: (): Promise<PricingSyncSnapshot> => ipcRenderer.invoke(PRICING_REFRESH_CHANNEL),

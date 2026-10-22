@@ -24,6 +24,8 @@ export interface ApplicationRuntime {
   refreshOnFocus: () => Promise<UsageScanResult | undefined>;
   start: () => void;
   stop: () => void;
+  pause: () => () => void;
+  drain: () => Promise<void>;
 }
 
 export const createApplicationRuntime = (
@@ -36,6 +38,16 @@ export const createApplicationRuntime = (
   let analysisQueue: Promise<void> = Promise.resolve();
   // 成本运行时由应用运行时初始化一次；概览不等待，成本 IPC 与后台成本分析共享该屏障。
   let costInitialization: Promise<void> | undefined;
+  // 安装准备保留既有订阅直至写入完成；暂停令牌只控制生产者，不把队列重置当作排空。
+  let pauseDepth = 0;
+  let preparationFailure: { error: unknown } | undefined;
+  const pendingBudgetUpdates = new Set<Promise<void>>();
+
+  const recordPreparationFailure = (error: unknown): void => {
+    if (pauseDepth > 0) {
+      preparationFailure ??= { error };
+    }
+  };
 
   const markAnalysisStale = (error: unknown): void => {
     dependencies.budgetRuntime.markUsageStale(error);
@@ -48,6 +60,7 @@ export const createApplicationRuntime = (
     try {
       budgetSnapshot = await dependencies.budgetRuntime.applyUsageResult(cycle.result);
     } catch (error) {
+      recordPreparationFailure(error);
       markAnalysisStale(error);
       return;
     }
@@ -57,6 +70,7 @@ export const createApplicationRuntime = (
       await dependencies.costRuntime.applyBudgetSnapshot(budgetSnapshot);
       await dependencies.costRuntime.applyUsageCycle(cycle);
     } catch (error) {
+      recordPreparationFailure(error);
       dependencies.costRuntime.markStale(error);
     }
   };
@@ -88,9 +102,15 @@ export const createApplicationRuntime = (
         dependencies.costRuntime.markStale(error);
       }),
       dependencies.budgetRuntime.subscribe((snapshot) => {
-        void (costInitialization ?? Promise.resolve())
+        const pending = (costInitialization ?? Promise.resolve())
           .then(() => dependencies.costRuntime.applyBudgetSnapshot(snapshot))
-          .catch((error: unknown) => dependencies.costRuntime.markStale(error));
+          .then(() => undefined)
+          .catch((error: unknown) => {
+            recordPreparationFailure(error);
+            dependencies.costRuntime.markStale(error);
+          });
+        pendingBudgetUpdates.add(pending);
+        void pending.finally(() => pendingBudgetUpdates.delete(pending));
       })
     );
     initialized = true;
@@ -105,6 +125,44 @@ export const createApplicationRuntime = (
     initialized = false;
   };
 
+  const pause = (): (() => void) => {
+    const restoreUsage = dependencies.usageRuntime.pause();
+    if (pauseDepth === 0) {
+      preparationFailure = undefined;
+    }
+    pauseDepth += 1;
+    let restored = false;
+    return () => {
+      if (restored) {
+        return;
+      }
+      restored = true;
+      pauseDepth -= 1;
+      if (pauseDepth === 0) {
+        preparationFailure = undefined;
+      }
+      restoreUsage();
+    };
+  };
+
+  const drain = async (): Promise<void> => {
+    const producers = await Promise.allSettled([
+      dependencies.usageRuntime.drain(),
+      costInitialization,
+    ]);
+    const failedProducer = producers.find((result) => result.status === 'rejected');
+    await analysisQueue;
+    while (pendingBudgetUpdates.size > 0) {
+      await Promise.all([...pendingBudgetUpdates]);
+    }
+    if (failedProducer?.status === 'rejected') {
+      throw failedProducer.reason;
+    }
+    if (preparationFailure) {
+      throw preparationFailure.error;
+    }
+  };
+
   return {
     initialize,
     getInitialUsage: dependencies.usageRuntime.getInitialUsage,
@@ -112,6 +170,8 @@ export const createApplicationRuntime = (
     refresh: dependencies.usageRuntime.refresh,
     refreshOnFocus: dependencies.usageRuntime.refreshOnFocus,
     start: dependencies.usageRuntime.start,
+    pause,
+    drain,
     stop,
   };
 };

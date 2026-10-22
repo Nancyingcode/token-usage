@@ -45,9 +45,32 @@ npm run build:win
 dist\Codex-Token-Usage-Setup-<version>-x64.exe
 ```
 
+`build:win` 明确使用 `--publish never`，只构建本地产物，不上传或创建 GitHub Release。
+
 安装向导默认按系统语言选择英文或简体中文，支持当前用户/所有用户安装、自定义安装目录、
 桌面快捷方式选择以及安装完成后启动应用。当前用户安装默认不要求管理员权限；选择所有用户
 安装时，Windows 会请求管理员授权。
+
+已安装后重新运行安装包会显示维护选项：
+
+- **修复当前版本**：使用与已安装版本相同的包，重新部署程序文件、卸载器和开始菜单入口；
+  桌面快捷方式可以按修复页选项恢复。
+- **更新至安装包版本**：使用更高版本的包原位更新，保留原安装目录、安装范围与快捷方式选择。
+  这是离线安装包更新，不会联网检查或下载最新版本；要修复旧版本，应使用该版本的安装包。
+- **无法维护**：安装包低于已安装版本、版本无法识别或同时存在当前用户与所有用户两份安装时，
+  安装器会说明原因并停止替换。禁降级保护仅适用于包含维护逻辑的安装包，无法追溯保护历史旧包。
+
+修复和更新保留 `%APPDATA%\codex-token-usage` 中的全部应用数据，不重置语言、主题、预算、
+缓存或数据源设置，也不通过维护操作搬迁目录或切换安装范围。当前支持稳定版 `major.minor.patch`；
+预发布版本、构建元数据或异常版本需要对应的版本支持，不能当作普通稳定版维护。
+维护入口位于安装包内，Windows“已安装的应用”继续提供原有卸载入口。
+
+安装器采用 [electron-builder v26 NSIS](https://www.electron.build/v26/docs/nsis/) 的 include
+扩展方式；修复/更新菜单与版本校验属于本项目扩展。实际安装、UAC 和文件损坏恢复需要按
+[隔离验收步骤](docs/testing/installer-maintenance.md)验证，配置测试不能代替这些验收。
+
+原生 NSIS 初始化可能在参数检查前创建 `/D` 指定的空目录；维护仍会拒绝目录迁移，
+不会向被拒绝的目标部署程序。此模板边界及静默失败退出码见隔离验收文档。
 
 本地构建在没有代码签名证书时仍可生成安装包，但 Windows 可能显示未知发布者或 SmartScreen
 提示。正式发布前必须使用可信证书和时间戳服务签名，并分别验证安装器、应用可执行文件和
@@ -58,6 +81,44 @@ dist\Codex-Token-Usage-Setup-<version>-x64.exe
 或删除 `%USERPROFILE%\.codex` 或用户在设置中选择的 Codex 会话数据源。如需清除应用自身
 配置，应在确认不再需要预算、语言、主题和自定义数据路径后，手动删除且仅删除
 `%APPDATA%\codex-token-usage`。
+
+## 应用内稳定版更新
+
+打包后的 Windows x64 应用在 Settings（设置）的“版本与更新”中提供在线更新：
+
+1. 点击“检查更新”，从固定的公开仓库
+   [Nancyingcode/token-usage Releases](https://github.com/Nancyingcode/token-usage/releases)
+   查找更高的稳定版本，查看版本号与纯文本更新说明。
+2. 点击“下载更新”后才开始下载。应用不会启动时自动检查，也不会自动下载。
+3. 下载完成后点击“重启并安装”，再在主进程的原生确认框中确认。默认选项是“稍后”；
+   取消后继续使用当前版本，普通关闭或退出应用不会安装已下载的更新。
+4. 确认后应用会暂停新业务操作，等待已开始的应用数据写入完成，再交给现有 NSIS 安装器。
+   准备失败时保留当前运行状态并提示重试，不启动安装器。
+
+首期仅支持稳定版 `major.minor.patch`，不接受预发布、构建元数据或降级。开发模式、
+非 Windows 平台，以及构建时未配置 `WINDOWS_PUBLISHER_NAME` 的版本会显示在线更新不可用；
+“下载安装包 / 修复”入口仍可打开固定发布页。已有安装尚未包含 updater 时，需要先手动安装一次
+包含该能力且正确签名的新版，之后才能使用应用内更新。
+
+在线更新沿用既有安装目录、范围和应用身份，保留应用配置；本次没有修改存储 schema。
+所有用户安装可能请求 UAC 授权。取消 UAC 时应用可能已经退出，原安装应保持不变，可重新启动；
+这不等于自动重启或任意阶段自动回滚。更新失败可使用对应版本离线安装包修复，问题版本应通过
+更高版本修复发布。完整边界与待执行场景见[在线更新验证说明](docs/testing/app-update.md)。
+
+### 维护者的签名与草稿发布
+
+新增的[手动工作流](.github/workflows/release-draft.yml)仅为后续发布准备：输入已有稳定标签
+`vX.Y.Z`，要求它与该标签下的 `package.json` 版本精确一致。流程强制签名，
+验证安装包、同次构建的 `latest.yml` 和 `.blockmap`，只创建新的草稿 Release；
+同标签已有草稿或正式 Release 时拒绝覆盖。草稿不会被普通客户端当作可用更新。
+
+运行前配置仓库变量 `vars.WINDOWS_PUBLISHER_NAME`，值须与证书的 SimpleName/CN 精确一致，
+并配置 `secrets.CSC_LINK`（建议使用 Base64 编码的 PFX）和 `secrets.CSC_KEY_PASSWORD`。
+签名构建使用[专用配置](electron-builder.release.cjs)，缺少身份或证书时停止。
+`GH_TOKEN` 仅在创建草稿的 CI 步骤中取自内置 `GITHUB_TOKEN`，客户端不内置令牌或其他仓库凭证。
+
+本次未运行工作流、未创建远程草稿，也未正式发布。真实签名、双版本在线更新、当前用户/所有用户
+安装、UAC 与界面缩放仍待另行授权后在隔离环境验收；本地未签名打包和自动化测试不替代这些验证。
 
 ## 测试与质量检查
 
@@ -169,7 +230,7 @@ Cost Optimization 是独立的分析工作台，可按全局周期和项目筛�
 - Performance：缓存、成本、高峰和错误率分析
 - Cost Optimization：异常、预测、节省建议和会话诊断
 - Budgets：预算状态、规则编辑、预警和模型价格维护
-- Settings（设置）：会话数据路径、隐私说明和扫描 warning
+- Settings（设置）：版本与更新、会话数据路径、隐私说明和扫描 warning
 
 界面支持英文和简体中文，并使用本地 locale 格式化金额、百分比和日期。
 
@@ -211,7 +272,7 @@ Cost Optimization 是独立的分析工作台，可按全局周期和项目筛�
 - React
 - TypeScript
 - Vite / electron-vite
-- electron-builder
+- electron-builder / electron-updater
 - Vitest / Testing Library
 - i18next
 - lucide-react

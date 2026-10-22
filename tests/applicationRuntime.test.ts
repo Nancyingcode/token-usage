@@ -102,6 +102,50 @@ const COST_SNAPSHOT: CostOptimizationSnapshot = {
 };
 
 describe('application runtime', () => {
+  it('drains initialization, queued analysis and budget subscription work without dropping subscriptions', async () => {
+    const analysisSaved = deferred<CostOptimizationSnapshot>();
+    const budgetSaved = deferred<CostOptimizationSnapshot>();
+    const harness = makeRuntimeHarness();
+    const runtime = createApplicationRuntime(harness.dependencies);
+    await runtime.initialize();
+    await runtime.waitForCostOptimization();
+    harness.costRuntime.applyUsageCycle = vi.fn(() => analysisSaved.promise);
+    harness.emitUsageCycle(USAGE_CYCLE);
+    await vi.waitFor(() => expect(harness.costRuntime.applyUsageCycle).toHaveBeenCalledOnce());
+    const restore = runtime.pause();
+    harness.costRuntime.applyBudgetSnapshot = vi.fn(() => budgetSaved.promise);
+    harness.emitBudgetSnapshot(BUDGET_SNAPSHOT);
+    let drained = false;
+    const draining = runtime.drain().then(() => {
+      drained = true;
+    });
+    analysisSaved.resolve(COST_SNAPSHOT);
+    await vi.waitFor(() => expect(harness.costRuntime.applyBudgetSnapshot).toHaveBeenCalledOnce());
+    expect(drained).toBe(false);
+    budgetSaved.resolve(COST_SNAPSHOT);
+    await draining;
+    expect(harness.usageRuntime.stop).not.toHaveBeenCalled();
+    restore();
+    await runtime.refresh();
+    await runtime.drain();
+    expect(harness.costRuntime.applyUsageCycle).toHaveBeenCalledTimes(2);
+  });
+
+  it('surfaces in-flight persistence failure during preparation after all queued work settles', async () => {
+    const harness = makeRuntimeHarness();
+    const runtime = createApplicationRuntime(harness.dependencies);
+    await runtime.initialize();
+    await runtime.waitForCostOptimization();
+    const restore = runtime.pause();
+    harness.budgetRuntime.applyUsageResult = vi.fn().mockRejectedValue(new Error('save failed'));
+    harness.emitUsageCycle(USAGE_CYCLE);
+    await expect(runtime.drain()).rejects.toThrow('save failed');
+    restore();
+    harness.budgetRuntime.applyUsageResult = vi.fn(async () => BUDGET_SNAPSHOT);
+    await runtime.refresh();
+    await expect(runtime.drain()).resolves.toBeUndefined();
+  });
+
   it('distributes one usage cycle to budget and cost analysis in order', async () => {
     const callOrder: string[] = [];
     const harness = makeRuntimeHarness(callOrder);
@@ -203,11 +247,13 @@ interface RuntimeHarness {
   costRuntime: CostOptimizationRuntime;
   emitUsageError: (error: unknown) => void;
   emitUsageCycle: (cycle: UsageScanCycle) => void;
+  emitBudgetSnapshot: (snapshot: BudgetSnapshot) => void;
 }
 
 const makeRuntimeHarness = (callOrder: string[] = []): RuntimeHarness => {
   let cycleListener: ((cycle: UsageScanCycle) => void | Promise<void>) | undefined;
   let errorListener: ((error: unknown) => void) | undefined;
+  let budgetListener: ((snapshot: BudgetSnapshot) => void) | undefined;
   const usageRuntime: UsageRuntime = {
     refresh: vi.fn(async () => {
       void cycleListener?.(USAGE_CYCLE);
@@ -228,6 +274,8 @@ const makeRuntimeHarness = (callOrder: string[] = []): RuntimeHarness => {
     }),
     start: vi.fn(),
     stop: vi.fn(),
+    pause: vi.fn(() => () => undefined),
+    drain: vi.fn(async () => undefined),
   };
   const budgetRuntime: BudgetRuntime = {
     initialize: vi.fn(async () => undefined),
@@ -244,7 +292,10 @@ const makeRuntimeHarness = (callOrder: string[] = []): RuntimeHarness => {
     resetPricingOverride: vi.fn(async () => BUDGET_SNAPSHOT),
     saveUnknownModelPricing: vi.fn(async () => BUDGET_SNAPSHOT),
     deleteUnknownModelPricing: vi.fn(async () => BUDGET_SNAPSHOT),
-    subscribe: vi.fn(() => () => undefined),
+    subscribe: vi.fn((listener) => {
+      budgetListener = listener;
+      return () => undefined;
+    }),
     subscribeNavigation: vi.fn(() => () => undefined),
     navigateToPolicy: vi.fn(),
   };
@@ -278,6 +329,7 @@ const makeRuntimeHarness = (callOrder: string[] = []): RuntimeHarness => {
     budgetRuntime,
     costRuntime,
     emitUsageError: (error) => errorListener?.(error),
+    emitBudgetSnapshot: (snapshot) => budgetListener?.(snapshot),
     emitUsageCycle: (cycle) => {
       void cycleListener?.(cycle);
     },

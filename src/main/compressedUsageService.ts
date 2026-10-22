@@ -29,6 +29,7 @@ export interface CompressedUsageService {
   subscribe: (listener: (status: CompressedDataStatus) => void) => () => void;
   subscribeCycle: (listener: (cycle: UsageScanCycle) => void) => () => void;
   stop: () => void;
+  drain: () => Promise<void>;
 }
 
 const sourceIdentity = (sourceFile: string): string => {
@@ -68,6 +69,16 @@ export const createCompressedUsageService = (
   let publishedDirectory: string | undefined;
   let activeImport: { generation: number; promise: Promise<CompressedDataStatus> } | undefined;
   let activeScan: { generation: number; promise: Promise<UsageScanCycle> } | undefined;
+  // 目录切换只使结果失效，不能丢失仍在保存的旧任务；安装准备等待实例拥有的全部在途任务。
+  const pendingTasks = new Set<Promise<unknown>>();
+  // 导入协议会把提交异常转换成状态；保留至排空报告一次或同目录重试成功，不把源文件解析告警当写入失败。
+  let importFailure: { error: unknown; directory: string } | undefined;
+
+  const trackTask = <Value>(promise: Promise<Value>): Promise<Value> => {
+    pendingTasks.add(promise);
+    void promise.finally(() => pendingTasks.delete(promise)).catch(() => undefined);
+    return promise;
+  };
 
   const updateStatus = (patch: Partial<CompressedDataStatus>): void => {
     const importedIdentities = new Set(
@@ -249,7 +260,7 @@ export const createCompressedUsageService = (
         }
       });
     activeScan = { generation: taskGeneration, promise };
-    return promise;
+    return trackTask(promise);
   };
 
   const refresh = (): Promise<CompressedDataStatus> => {
@@ -276,16 +287,24 @@ export const createCompressedUsageService = (
         }
         discoveredFiles = files;
         updateStatus({ phase: 'importing', totalCount: files.length });
-        const imported = await dependencies.store.importFiles(
-          importDirectory,
-          files,
-          (processedCount, totalCount) => {
-            if (isCurrent()) {
-              updateStatus({ processedCount, totalCount });
-            }
-          },
-          isCurrent
-        );
+        const imported = await dependencies.store
+          .importFiles(
+            importDirectory,
+            files,
+            (processedCount, totalCount) => {
+              if (isCurrent()) {
+                updateStatus({ processedCount, totalCount });
+              }
+            },
+            isCurrent
+          )
+          .catch((error: unknown) => {
+            importFailure ??= { error, directory: importDirectory };
+            throw error;
+          });
+        if (importFailure?.directory === importDirectory) {
+          importFailure = undefined;
+        }
         if (!isCurrent()) {
           return status;
         }
@@ -320,7 +339,7 @@ export const createCompressedUsageService = (
       }
     });
     activeImport = { generation: taskGeneration, promise };
-    return promise;
+    return trackTask(promise);
   };
 
   return {
@@ -328,6 +347,21 @@ export const createCompressedUsageService = (
     setDirectory,
     getStatus: () => status,
     refresh,
+    drain: async () => {
+      let failure: PromiseRejectedResult | undefined;
+      while (pendingTasks.size > 0) {
+        const results = await Promise.allSettled([...pendingTasks]);
+        failure ??= results.find((result) => result.status === 'rejected');
+      }
+      const failedImport = importFailure;
+      importFailure = undefined;
+      if (failure) {
+        throw failure.reason;
+      }
+      if (failedImport) {
+        throw failedImport.error;
+      }
+    },
     subscribe: (listener) => {
       listeners.add(listener);
       return () => {

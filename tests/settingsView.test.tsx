@@ -198,7 +198,7 @@ describe('SettingsView', () => {
       </I18nextProvider>
     );
 
-    expect(screen.getByRole('status').textContent).toContain('Theme saved');
+    expect(screen.getByText('Theme saved.').getAttribute('role')).toBe('status');
 
     rerender(
       <I18nextProvider i18n={createTestI18n('en')}>

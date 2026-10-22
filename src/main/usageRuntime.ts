@@ -20,6 +20,7 @@ export interface UsageRuntimeDependencies<IntervalId> {
   subscribeExternalCycle?: (listener: (cycle: UsageScanCycle) => void) => () => void;
   onDirectoryChange?: (sessionsDir: string) => void;
   onStop?: () => void;
+  drainExternal?: () => Promise<void>;
 }
 
 export interface UsageRuntime {
@@ -33,6 +34,8 @@ export interface UsageRuntime {
   subscribeError: (listener: ErrorListener) => () => void;
   start: () => void;
   stop: () => void;
+  pause: () => () => void;
+  drain: () => Promise<void>;
 }
 
 const subscribeTo = <Listener>(listeners: Set<Listener>, listener: Listener): (() => void) => {
@@ -124,6 +127,14 @@ export const createUsageRuntime = <IntervalId>(
     subscribeCycle: (listener) => subscribeTo(cycleListeners, listener),
     subscribeError: (listener) => subscribeTo(errorListeners, listener),
     start: monitor.start,
+    pause: monitor.pause,
+    drain: async () => {
+      const results = await Promise.allSettled([monitor.drain(), dependencies.drainExternal?.()]);
+      const failure = results.find((result) => result.status === 'rejected');
+      if (failure?.status === 'rejected') {
+        throw failure.reason;
+      }
+    },
     stop: () => {
       monitor.stop();
       unsubscribeExternal?.();

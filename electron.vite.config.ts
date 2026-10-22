@@ -6,6 +6,9 @@ const sourceRoot = resolve(__dirname, 'src');
 
 export default defineConfig({
   main: {
+    define: {
+      __APP_UPDATE_PUBLISHER__: JSON.stringify(process.env.WINDOWS_PUBLISHER_NAME?.trim() ?? ''),
+    },
     resolve: {
       alias: {
         '@': sourceRoot,

@@ -2,7 +2,14 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CompressedDataApi, CompressedDataStatus } from '../src/shared/compressedDataTypes';
+import type { AppUpdateApi, AppUpdateSnapshot } from '../src/shared/appUpdateTypes';
 import {
+  APP_UPDATE_CHECK_CHANNEL,
+  APP_UPDATE_DOWNLOAD_CHANNEL,
+  APP_UPDATE_GET_CHANNEL,
+  APP_UPDATE_INSTALL_CHANNEL,
+  APP_UPDATE_OPEN_RELEASE_CHANNEL,
+  APP_UPDATE_UPDATED_CHANNEL,
   COMPRESSED_DATA_GET_STATUS_CHANNEL,
   COMPRESSED_DATA_REFRESH_CHANNEL,
   COMPRESSED_DATA_UPDATED_CHANNEL,
@@ -10,6 +17,7 @@ import {
 } from '../src/shared/ipcChannels';
 
 interface ExposedApi {
+  appUpdate: AppUpdateApi;
   compressedData: CompressedDataApi;
   scan: () => Promise<unknown>;
 }
@@ -94,6 +102,38 @@ describe('compressed data preload bridge', () => {
     unsubscribe();
     expect(electronMocks.removeListener).toHaveBeenCalledExactlyOnceWith(
       COMPRESSED_DATA_UPDATED_CHANNEL,
+      handler
+    );
+  });
+
+  it('only exposes parameterless update operations and payload-only subscriptions', async () => {
+    const api = await loadPreload();
+    const update: AppUpdateSnapshot = { phase: 'idle', revision: 0, currentVersion: '0.1.0' };
+    electronMocks.invoke.mockResolvedValue(update);
+    expect(electronMocks.invoke).not.toHaveBeenCalled();
+    await api.appUpdate.get();
+    await api.appUpdate.check();
+    await api.appUpdate.download();
+    await api.appUpdate.install();
+    await api.appUpdate.openReleasePage();
+    expect(electronMocks.invoke.mock.calls).toEqual([
+      [APP_UPDATE_GET_CHANNEL],
+      [APP_UPDATE_CHECK_CHANNEL],
+      [APP_UPDATE_DOWNLOAD_CHANNEL],
+      [APP_UPDATE_INSTALL_CHANNEL],
+      [APP_UPDATE_OPEN_RELEASE_CHANNEL],
+    ]);
+    const listener = vi.fn();
+    const unsubscribe = api.appUpdate.onUpdated(listener);
+    const subscription = electronMocks.on.mock.calls.find(
+      ([channel]) => channel === APP_UPDATE_UPDATED_CHANNEL
+    );
+    const handler = subscription?.[1] as (event: unknown, value: AppUpdateSnapshot) => void;
+    handler({ sender: 'privileged-electron-event' }, update);
+    expect(listener).toHaveBeenCalledExactlyOnceWith(update);
+    unsubscribe();
+    expect(electronMocks.removeListener).toHaveBeenCalledExactlyOnceWith(
+      APP_UPDATE_UPDATED_CHANNEL,
       handler
     );
   });

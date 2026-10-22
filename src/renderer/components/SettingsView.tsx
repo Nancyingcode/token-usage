@@ -21,6 +21,7 @@ import type { ThemeFeedback } from '../hooks/useTheme';
 import { ICON_SIZE_MEDIUM } from '../constants/ui';
 import { translateUsageWarning } from '../utils/usageWarnings';
 import PageHeader from './PageHeader';
+import { AppUpdateSettings } from './AppUpdateSettings';
 
 interface SettingsViewProps {
   result?: UsageScanResult;
@@ -141,6 +142,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
     <section className="page-stack">
       <PageHeader title={t('title')} description={t('description')} />
       <div className="settings-grid">
+        <AppUpdateSettings />
         <article className="panel settings-appearance-panel">
           <div className="settings-item settings-appearance-item">
             <Palette size={ICON_SIZE_MEDIUM} />

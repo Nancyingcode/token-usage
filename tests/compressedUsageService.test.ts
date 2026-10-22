@@ -77,6 +77,53 @@ const harness = (initial = snapshot([])) => {
 };
 
 describe('compressed usage service', () => {
+  it('retains a failed import commit after the UI response has completed and reports it once', async () => {
+    const test = harness();
+    const failure = new Error('fixture manifest save failed');
+    vi.mocked(test.store.importFiles).mockRejectedValueOnce(failure);
+    await expect(test.service.refresh()).resolves.toMatchObject({ phase: 'error' });
+    await expect(test.service.drain()).rejects.toBe(failure);
+    await expect(test.service.drain()).resolves.toBeUndefined();
+  });
+
+  it('does not block installation for source parsing reports or a recovered import commit', async () => {
+    const test = harness();
+    vi.mocked(test.store.importFiles).mockRejectedValueOnce(new Error('fixture commit failed'));
+    await test.service.refresh();
+    const partial = imported([]);
+    partial.report.failures = [{ message: 'Invalid compressed source.' }];
+    vi.mocked(test.store.importFiles).mockResolvedValueOnce(partial);
+    await expect(test.service.refresh()).resolves.toMatchObject({
+      phase: 'error',
+      error: undefined,
+    });
+    await expect(test.service.drain()).resolves.toBeUndefined();
+  });
+
+  it('drains a previous-directory scan even when a newer scan finishes first', async () => {
+    const fixture = harness();
+    let finishFirst: (value: UsageScanCycle) => void = () => undefined;
+    fixture.scanCycle.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishFirst = resolve;
+        })
+    );
+    const first = fixture.service.scanCycle(ROOT);
+    const rejectedFirst = expect(first).rejects.toThrow('directory changed');
+    await fixture.service.scanCycle('D:\\fixture');
+    let drained = false;
+    const draining = fixture.service.drain().finally(() => {
+      drained = true;
+    });
+    const rejectedDrain = expect(draining).rejects.toThrow('directory changed');
+    await Promise.resolve();
+    expect(drained).toBe(false);
+    finishFirst(cycle([]));
+    await rejectedFirst;
+    await rejectedDrain;
+  });
+
   it('loads local history without importing and diffs the selected sources when live data disappears', async () => {
     const archive = source('C:\\sessions\\a.jsonl.zst', 10);
     const fixture = harness(snapshot([archive]));

@@ -5,15 +5,24 @@
  */
 import {
   app,
+  autoUpdater as nativeAutoUpdater,
   BrowserWindow,
   dialog,
   Menu,
   nativeTheme,
   Notification,
+  shell,
   type OpenDialogOptions,
 } from 'electron';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { AppNsisUpdater } from './appNsisUpdater';
+import { createAppUpdateService, type AppUpdateService } from './appUpdateService';
+import { createAppUpdateEngine } from './appUpdateEngine';
+import { registerAppUpdateIpc } from './appUpdateIpc';
+import { createAppOperationGate } from './appOperationGate';
+import { createAppUpdatePreparation } from './appUpdatePreparation';
+import { createAppUpdateQuitGuard } from './appUpdateQuitGuard';
 import { configureStableUserDataPath } from './appPaths';
 import { createApplicationRuntime, type ApplicationRuntime } from './applicationRuntime';
 import { createBudgetRuntime, type BudgetRuntime } from './budgetRuntime';
@@ -54,6 +63,9 @@ import { createMainWindowOptions } from './windowConfig';
 import { registerWindowControlIpc, registerWindowStateEvents } from './windowControls';
 
 const CURRENT_DIRECTORY = fileURLToPath(new URL('.', import.meta.url));
+// 发布者在签名构建时注入；本地未配置的构建不能下载或执行在线安装包。
+declare const __APP_UPDATE_PUBLISHER__: string;
+const APP_RELEASE_PAGE = 'https://github.com/Nancyingcode/token-usage/releases';
 const BUDGET_CONFIG_FILENAME = 'budget-config.json';
 const COST_OPTIMIZATION_CONFIG_FILENAME = 'cost-optimization-config.json';
 const COST_OPTIMIZATION_CACHE_FILENAME = 'cost-optimization-cache.json';
@@ -67,6 +79,10 @@ const LEGACY_PRICING_CACHE_FILENAME = 'pricing-cache.json';
 
 // 价格同步资源由应用入口拥有，退出时统一释放订阅、IPC、定时器和在途请求。
 let disposePricing: (() => void) | undefined;
+// 更新服务及 IPC 属于应用进程，退出时统一释放；普通退出不会请求安装。
+let appUpdateService: AppUpdateService | undefined;
+let unregisterAppUpdateIpc: (() => void) | undefined;
+const updateQuitGuard = createAppUpdateQuitGuard(() => appUpdateService?.getSnapshot().phase);
 
 let mainWindow: BrowserWindow | null = null;
 let budgetRuntime: BudgetRuntime | undefined;
@@ -117,6 +133,9 @@ const createWindow = (
     })
   );
   const unregisterWindowStateListeners = registerWindowStateEvents(window);
+  window.on('close', (event) => {
+    if (appUpdateService?.getSnapshot().phase === 'preparing') event.preventDefault();
+  });
 
   window.on('focus', () => {
     void runtime.refreshOnFocus().catch(() => undefined);
@@ -139,6 +158,7 @@ const createWindow = (
 };
 
 const initializeApplication = async (): Promise<void> => {
+  const operationGate = createAppOperationGate();
   const userDataPath = configureStableUserDataPath(app);
   const localeStore = createLocaleStore(join(userDataPath, LOCALE_PREFERENCES_FILENAME));
   const themeStore = createThemeStore(join(userDataPath, THEME_PREFERENCES_FILENAME));
@@ -195,6 +215,7 @@ const initializeApplication = async (): Promise<void> => {
     subscribeExternalCycle: compressedUsageService.subscribeCycle,
     onDirectoryChange: compressedUsageService.setDirectory,
     onStop: compressedUsageService.stop,
+    drainExternal: compressedUsageService.drain,
     initialSessionsDir,
     now: Date.now,
     setIntervalFn: (callback, delay) => setInterval(callback, delay),
@@ -236,7 +257,7 @@ const initializeApplication = async (): Promise<void> => {
   applicationThemeService = themeService;
 
   await currentApplicationRuntime.initialize();
-  const unregisterPricing = registerPricingIpc(pricingService, () => mainWindow);
+  const unregisterPricing = registerPricingIpc(pricingService, () => mainWindow, operationGate);
   const unsubscribePricingBudget = currentBudgetRuntime.subscribe((snapshot) => {
     void pricingService.check(snapshot.unpricedModels.length > 0);
   });
@@ -246,6 +267,7 @@ const initializeApplication = async (): Promise<void> => {
     pricingService.destroy();
   };
   const unregisterUsageIpc = registerUsageIpc({
+    operationGate,
     applicationRuntime: currentApplicationRuntime,
     usageRuntime,
     budgetRuntime: currentBudgetRuntime,
@@ -257,6 +279,7 @@ const initializeApplication = async (): Promise<void> => {
     getWindow: () => mainWindow,
   });
   const unregisterCompressedDataIpc = registerCompressedDataIpc({
+    operationGate,
     getStatus: compressedUsageService.getStatus,
     refresh: compressedUsageService.refresh,
     subscribe: compressedUsageService.subscribe,
@@ -267,6 +290,67 @@ const initializeApplication = async (): Promise<void> => {
     unregisterCompressedDataIpc();
   };
   unregisterWindowControls = registerWindowControlIpc();
+
+  let unavailableReason: 'development' | 'platform' | 'publisher-missing' | undefined;
+  if (!app.isPackaged) unavailableReason = 'development';
+  else if (process.platform !== 'win32' || process.arch !== 'x64') unavailableReason = 'platform';
+  else if (!__APP_UPDATE_PUBLISHER__) unavailableReason = 'publisher-missing';
+
+  const engine = unavailableReason
+    ? {
+        check: async () => undefined,
+        download: async () => {
+          throw new Error('Online updates are unavailable.');
+        },
+        install: () => {
+          throw new Error('Online updates are unavailable.');
+        },
+        destroy: () => undefined,
+      }
+    : createAppUpdateEngine(
+        new AppNsisUpdater({
+          provider: 'github',
+          owner: 'Nancyingcode',
+          repo: 'token-usage',
+          private: false,
+          protocol: 'https',
+        }),
+        __APP_UPDATE_PUBLISHER__
+      );
+  const currentAppUpdateService = createAppUpdateService({
+    currentVersion: app.getVersion(),
+    engine,
+    unavailableReason,
+    prepareForInstall: createAppUpdatePreparation(
+      operationGate,
+      pricingService,
+      currentApplicationRuntime
+    ),
+    confirmInstall: async () => {
+      const window = mainWindow;
+      const version = currentAppUpdateService.getSnapshot().targetVersion;
+      if (!window || window.isDestroyed() || !version) return false;
+      const result = await dialog.showMessageBox(window, {
+        type: 'question',
+        title: mainI18n.t('appUpdate:confirmTitle'),
+        message: mainI18n.t('appUpdate:confirmMessage', {
+          version,
+        }),
+        detail: mainI18n.t('appUpdate:confirmDetail'),
+        buttons: [mainI18n.t('appUpdate:confirmCancel'), mainI18n.t('appUpdate:confirmInstall')],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true,
+      });
+      return result.response === 1;
+    },
+  });
+  appUpdateService = currentAppUpdateService;
+  unregisterAppUpdateIpc = registerAppUpdateIpc(
+    currentAppUpdateService,
+    () => mainWindow,
+    () => shell.openExternal(APP_RELEASE_PAGE)
+  );
 
   const menuPolicy = getApplicationMenuPolicy(app.isPackaged);
   if (menuPolicy.removeApplicationMenu) {
@@ -286,7 +370,17 @@ const initializeApplication = async (): Promise<void> => {
 
 void app.whenReady().then(initializeApplication);
 
-app.on('before-quit', () => {
+nativeAutoUpdater.on('before-quit-for-update', updateQuitGuard.markUpdateQuit);
+app.on('before-quit', (event) => {
+  if (updateQuitGuard.preventQuit()) {
+    event.preventDefault();
+    return;
+  }
+  unregisterAppUpdateIpc?.();
+  unregisterAppUpdateIpc = undefined;
+  appUpdateService?.destroy();
+  appUpdateService = undefined;
+  nativeAutoUpdater.removeListener('before-quit-for-update', updateQuitGuard.markUpdateQuit);
   disposePricing?.();
   disposePricing = undefined;
   applicationRuntime?.stop();

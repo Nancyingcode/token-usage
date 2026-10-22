@@ -2,11 +2,19 @@ appId: io.github.nancyingcode.tokenusage
 productName: Codex Token Usage
 artifactName: Codex-Token-Usage-Setup-${version}-${arch}.${ext}
 asar: true
+publish:
+  provider: github
+  owner: Nancyingcode
+  repo: token-usage
+  private: false
+  releaseType: draft
 directories:
   output: dist
   buildResources: build
 files:
-  - out/**/*
+  - out/main/**/*
+  - out/preload/**/*
+  - out/renderer/**/*
   - package.json
 win:
   executableName: CodexTokenUsage
@@ -19,7 +27,7 @@ nsis:
   oneClick: false
   perMachine: false
   selectPerMachineByDefault: false
-  allowToChangeInstallationDirectory: true
+  allowToChangeInstallationDirectory: false
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: Codex Token Usage

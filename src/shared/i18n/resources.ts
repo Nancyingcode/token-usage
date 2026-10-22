@@ -17,6 +17,7 @@ export const I18N_NAMESPACES = [
   'analytics',
   'budgets',
   'costOptimization',
+  'appUpdate',
 ] as const;
 
 export const I18N_RESOURCES = {

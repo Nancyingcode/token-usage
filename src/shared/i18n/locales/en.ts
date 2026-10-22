@@ -1088,4 +1088,65 @@ export const en = {
       'diagnosis-id-empty': 'Session diagnosis ID is required.',
     },
   },
+  appUpdate: {
+    channel: 'Stable releases',
+    title: 'Version and updates',
+    description:
+      'Check for a stable release. Downloads and installation only begin when you choose.',
+    currentVersion: 'Current version',
+    targetVersion: 'Available version',
+    unknownVersion: 'Unavailable',
+    check: 'Check for updates',
+    download: 'Download update',
+    retryDownload: 'Retry download',
+    install: 'Restart and install',
+    retryInstall: 'Retry installation',
+    downloadProgress: 'Update download progress',
+    releaseNotes: 'Release notes',
+    offlineInstaller: 'Download installer / repair',
+    offlineDescription:
+      'Use a matching installer to repair this version, or a newer installer to update offline. Your settings are kept.',
+    bridgeUnavailable: 'Version updates are available in the desktop application.',
+    unavailable: {
+      development: 'Online updates are disabled while running in development mode.',
+      platform: 'Online updates are currently available for Windows only.',
+      'publisher-missing':
+        'This build does not have a configured trusted publisher. Use an official installer for updates.',
+    },
+    states: {
+      loading: 'Reading update status…',
+      unavailable: 'Online updates are unavailable for this build.',
+      idle: 'Ready to check for updates.',
+      checking: 'Checking for a stable update…',
+      'up-to-date': 'You are using the latest available stable version.',
+      available: 'A stable update is available. Choose Download update to continue.',
+      downloading: 'Downloading the update…',
+      downloaded:
+        'The update is ready. You can restart and install now or keep using this version.',
+      preparing: 'Waiting for your changes to be saved before installation…',
+      installing: 'Starting the installer…',
+      error: 'The update did not complete. You can retry or use an offline installer.',
+    },
+    errors: {
+      'check-failed': 'Could not check for updates. Check your connection and try again.',
+      'invalid-release':
+        'The release is not a supported newer stable version. Installation was stopped.',
+      'download-failed':
+        'Download or verification failed. Retry the download or use an official installer.',
+      'install-failed':
+        'The installer could not start. Retry installation or use an offline installer.',
+      'save-failed':
+        'Your changes could not be saved safely. Installation was stopped; try again after saving.',
+    },
+    feedback: {
+      connection: 'Could not contact the update service. Retry the operation.',
+      'release-page': 'Could not open the release page. Please try again.',
+    },
+    confirmTitle: 'Install update',
+    confirmMessage: 'Restart and install version {{version}}?',
+    confirmDetail:
+      'The application will save pending changes and close. Windows may ask for administrator permission. Your settings will be kept.',
+    confirmInstall: 'Restart and install',
+    confirmCancel: 'Later',
+  },
 } as const;

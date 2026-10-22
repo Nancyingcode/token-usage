@@ -16,9 +16,10 @@ const NODE_FILES = [
   'src/preload/**/*.ts',
   'tests/**/*.{ts,tsx}',
   'scripts/**/*.cjs',
+  'electron-builder.release.cjs',
   '*.config.{js,cjs,mjs,ts}',
 ];
-const COMMONJS_FILES = ['scripts/**/*.cjs', '*.config.cjs'];
+const COMMONJS_FILES = ['scripts/**/*.cjs', '*.config.cjs', 'electron-builder.release.cjs'];
 const RESTRICTED_REACT_DOM_IMPORTS = [
   {
     name: 'react-dom',

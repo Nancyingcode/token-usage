@@ -3,6 +3,8 @@
  * @description 只暴露目录状态、刷新和布尔偏好；Renderer 无法指定下载地址或存储路径。
  */
 import { ipcMain, type BrowserWindow } from 'electron';
+import { createOperationHandler } from './ipcOperationHandler';
+import type { AppOperationGate } from './appOperationGate';
 import {
   PRICING_GET_CHANNEL,
   PRICING_REFRESH_CHANNEL,
@@ -13,11 +15,13 @@ import type { PricingSyncService } from './pricingSyncService';
 
 export const registerPricingIpc = (
   service: PricingSyncService,
-  getWindow: () => BrowserWindow | null
+  getWindow: () => BrowserWindow | null,
+  operationGate?: AppOperationGate
 ): (() => void) => {
-  ipcMain.handle(PRICING_GET_CHANNEL, () => service.getSnapshot());
-  ipcMain.handle(PRICING_REFRESH_CHANNEL, () => service.refresh());
-  ipcMain.handle(PRICING_SET_AUTO_CHANNEL, (_event, enabled: unknown) =>
+  const registerHandler = createOperationHandler(operationGate);
+  registerHandler(PRICING_GET_CHANNEL, () => service.getSnapshot());
+  registerHandler(PRICING_REFRESH_CHANNEL, () => service.refresh());
+  registerHandler(PRICING_SET_AUTO_CHANNEL, (_event, enabled: unknown) =>
     service.setAutoUpdate(enabled)
   );
   const unsubscribe = service.subscribe((snapshot) => {

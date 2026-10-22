@@ -1,0 +1,73 @@
+name: Build signed Windows release draft
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing stable tag matching package.json (for example v0.1.1)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-release-draft
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    if: github.repository == 'Nancyingcode/token-usage'
+    runs-on: windows-latest
+    timeout-minutes: 40
+    env:
+      APP_RELEASE_TAG: ${{ inputs.tag }}
+      WINDOWS_PUBLISHER_NAME: ${{ vars.WINDOWS_PUBLISHER_NAME }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Pin and validate release commit
+        run: |
+          git remote set-url origin git@github.com:Nancyingcode/token-usage.git
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $releaseCommit = git rev-parse --verify HEAD
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $tagCommit = git rev-parse --verify "refs/tags/$($env:APP_RELEASE_TAG)^{commit}"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($releaseCommit -ne $tagCommit) { throw 'Checkout does not match the exact release tag.' }
+          $env:APP_RELEASE_COMMIT = $releaseCommit
+          "APP_RELEASE_COMMIT=$releaseCommit" >> $env:GITHUB_ENV
+          node scripts/release-draft.cjs --validate
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Build signed artifacts without publishing
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          npm run build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npx electron-builder --config electron-builder.release.cjs --win nsis --x64 --publish never
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Validate application and installer
+        run: |
+          npm test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run typecheck
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run lint
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify signatures and create a new draft only
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/release-draft.cjs

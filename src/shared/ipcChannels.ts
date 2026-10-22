@@ -3,6 +3,12 @@
  * @description 集中定义主进程、preload 与 Renderer 共用的稳定通道名称。
  */
 export const USAGE_SCAN_CHANNEL = 'usage:scan';
+export const APP_UPDATE_GET_CHANNEL = 'app-update:get';
+export const APP_UPDATE_CHECK_CHANNEL = 'app-update:check';
+export const APP_UPDATE_DOWNLOAD_CHANNEL = 'app-update:download';
+export const APP_UPDATE_INSTALL_CHANNEL = 'app-update:install';
+export const APP_UPDATE_OPEN_RELEASE_CHANNEL = 'app-update:open-release';
+export const APP_UPDATE_UPDATED_CHANNEL = 'app-update:updated';
 export const PRICING_GET_CHANNEL = 'pricing:get';
 export const PRICING_REFRESH_CHANNEL = 'pricing:refresh';
 export const PRICING_SET_AUTO_CHANNEL = 'pricing:set-auto';
