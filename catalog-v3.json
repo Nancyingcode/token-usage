@@ -1,7 +1,7 @@
 {
   "schemaVersion": 3,
-  "version": "2026-10-26T09:06:35.824Z",
-  "publishedAt": "2026-10-26T09:06:35.824Z",
+  "version": "2026-10-27T09:08:35.919Z",
+  "publishedAt": "2026-10-27T09:08:35.919Z",
   "currency": "USD",
   "unit": "per-million-tokens",
   "models": [
@@ -402,6 +402,15 @@
       "outputUsdPerMillion": 10,
       "effectiveAt": "2026-10-21T08:42:29.466Z",
       "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-6.1-sol"
+    },
+    {
+      "modelId": "gpt-6.1-terra",
+      "aliases": [],
+      "inputUsdPerMillion": 1,
+      "cachedInputUsdPerMillion": 0.05,
+      "outputUsdPerMillion": 5,
+      "effectiveAt": "2026-10-27T09:08:35.919Z",
+      "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-6.1-terra"
     }
   ]
 }
