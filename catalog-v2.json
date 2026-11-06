@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "version": "2026-11-05T11:09:54.095Z",
-  "publishedAt": "2026-11-05T11:09:54.095Z",
+  "version": "2026-11-06T11:08:09.219Z",
+  "publishedAt": "2026-11-06T11:08:09.219Z",
   "currency": "USD",
   "unit": "per-million-tokens",
   "models": [
@@ -303,6 +303,15 @@
           "outputMultiplier": 1.5
         }
       }
+    },
+    {
+      "modelId": "gpt-6-cyber",
+      "aliases": [],
+      "inputUsdPerMillion": 20,
+      "cachedInputUsdPerMillion": 2,
+      "outputUsdPerMillion": 100,
+      "effectiveAt": "2026-11-06T11:08:09.219Z",
+      "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-6-cyber"
     },
     {
       "modelId": "gpt-6-luna",
