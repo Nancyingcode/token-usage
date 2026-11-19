@@ -85,7 +85,7 @@ PowerShell 可执行文件做只读正反验证：正确发布者通过，错误
 结构/总大小与 ASAR 文件范围。安装器、应用和提权辅助程序的实际签名状态均为 `NotSigned`，
 不能将 builder 输出的 signing 日志解释为已签名；本次产物仅用于本地构建检查。
 
-## 4. 签名与仅草稿发布流程
+## 4. 签名、草稿与正式发布流程
 
 当前流程适用于公开仓库。若未来转为私有分发，需要重新设计下载授权，不能把维护者令牌写入客户端。
 
@@ -97,7 +97,7 @@ PowerShell 可执行文件做只读正反验证：正确发布者通过，错误
 | `CSC_LINK` | 仓库 Secret `secrets.CSC_LINK`；用于导入签名证书，建议 Base64 编码的 PFX |
 | `CSC_KEY_PASSWORD` | 仓库 Secret `secrets.CSC_KEY_PASSWORD`；证书密码，不写入源码或日志 |
 | `GITHUB_TOKEN` | GitHub Actions 内置凭证，工作流需要 `contents: write`；无需为客户端配置 PAT |
-| `GH_TOKEN` | 只在创建草稿的 CI 步骤中赋值为内置 `secrets.GITHUB_TOKEN`，不传入客户端或签名构建步骤 |
+| `GH_TOKEN` | 只在创建草稿或正式发布的 CI 步骤中赋值为内置 `secrets.GITHUB_TOKEN`，不传入客户端或签名构建步骤 |
 
 发布构建使用 [electron-builder.release.cjs](../../electron-builder.release.cjs)，继承已有 NSIS
 身份并强制代码签名与更新签名验证。缺少证书、密码或发布者时停止。初始安装与后续更新必须使用
@@ -116,6 +116,10 @@ PowerShell 可执行文件做只读正反验证：正确发布者通过，错误
    再核对 GitHub 上的远程标签仍指向固定提交，兼容 annotated tag。
 6. 草稿脚本拒绝任何同标签已有 Release，包括草稿；不会更新、覆盖、删除或发布既有 Release。
    仅调用 `gh release create --draft --verify-tag` 创建新草稿，后续正式发布必须另行授权。
+7. 确认草稿及隔离验收后，手动运行 [.github/workflows/release-publish.yml](../../.github/workflows/release-publish.yml)，
+   输入同一标签。流程重新核对版本、标签和固定提交，下载草稿中的三个既定资产并验证安装器签名、
+   `latest.yml` 与 `.blockmap`，全部通过后才将现有草稿转为正式 Release。它不重新构建、
+   不上传或替换资产；已发布、预发布、标签不符或资产异常时停止。
 
 必须来自同一次构建的发布资产为：
 
@@ -131,7 +135,7 @@ latest.yml
 独立提取卸载器验签，因此仍须在隔离安装后补验。不能只看构建日志中的 signing 字样判断签名成功。
 
 草稿仅供维护者检查，普通客户端不能从草稿获取更新。创建草稿不等于完成在线升级验收或正式发布；
-本次没有实际执行上述工作流，也没有创建任何远程草稿。
+本次没有实际执行上述工作流，也没有创建或正式发布任何远程 Release。
 
 ## 5. 待授权的真实隔离验收
 

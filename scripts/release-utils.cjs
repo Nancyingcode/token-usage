@@ -106,6 +106,7 @@ const verifyReleaseArtifacts = ({
   directory,
   publisherName,
   verifySignature = verifyWindowsSignature,
+  verifyUnpacked = true,
 }) => {
   if (!isStableVersion(version)) {
     throw new Error('Artifact version must be stable.');
@@ -116,8 +117,12 @@ const verifyReleaseArtifacts = ({
   const metadataPath = join(directory, 'latest.yml');
   const executablePaths = [
     installerPath,
-    join(directory, 'win-unpacked', 'CodexTokenUsage.exe'),
-    join(directory, 'win-unpacked', 'resources', 'elevate.exe'),
+    ...(verifyUnpacked
+      ? [
+          join(directory, 'win-unpacked', 'CodexTokenUsage.exe'),
+          join(directory, 'win-unpacked', 'resources', 'elevate.exe'),
+        ]
+      : []),
   ];
   for (const file of [...executablePaths, blockmapPath, metadataPath]) {
     const info = statSync(file);
