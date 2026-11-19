@@ -151,6 +151,23 @@ describe('buildTrendPoints', () => {
     });
   });
 
+  it('stretches the trend chart to fill the available width', () => {
+    const { container } = render(
+      <I18nextProvider i18n={createTestI18n('en')}>
+        <Overview
+          summary={buildUsageSummary([PRICED_SESSION])}
+          pricing={PRICING}
+          period="month"
+          scannedAt="2026-07-20T12:00:00.000Z"
+        />
+      </I18nextProvider>
+    );
+
+    expect(container.querySelector('.trend-chart svg')?.getAttribute('preserveAspectRatio')).toBe(
+      'none'
+    );
+  });
+
   it('maps boundaries, cost, and placement for chart points', () => {
     const dailyCosts = new Map<string, CostEstimate>([
       [

@@ -180,7 +180,12 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
   return (
     <div className="trend-chart">
       <div className="trend-chart-plot">
-        <svg viewBox={CHART_VIEWBOX} role="img" aria-label={t('overview.tokenTrendChart')}>
+        <svg
+          viewBox={CHART_VIEWBOX}
+          preserveAspectRatio="none"
+          role="img"
+          aria-label={t('overview.tokenTrendChart')}
+        >
           {CHART_GRID_LINES.map((line) => (
             <line
               key={line}
