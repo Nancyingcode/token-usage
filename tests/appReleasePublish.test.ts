@@ -210,7 +210,15 @@ describe('signed draft publication', () => {
     expect(workflow).not.toMatch(/^\s+(?:push|pull_request|schedule):/m);
     expect(workflow).toContain('windows-latest');
     expect(workflow).toContain('node scripts/release-publish.cjs');
-    expect(workflow).toMatch(/refs\/tags\/\$\{\{ inputs\.tag \}\}/u);
+    const normalizeTagStep = workflow.indexOf('id: release_tag');
+    const verifyTagStep = workflow.indexOf('name: Verify remote release tag exists');
+    const checkoutStep = workflow.indexOf('uses: actions/checkout@v4');
+    expect(normalizeTagStep).toBeGreaterThanOrEqual(0);
+    expect(verifyTagStep).toBeGreaterThan(normalizeTagStep);
+    expect(checkoutStep).toBeGreaterThan(verifyTagStep);
+    expect(workflow).toMatch(/INPUT_RELEASE_TAG: \$\{\{ inputs\.tag \}\}/u);
+    expect(workflow).toMatch(/refs\/tags\/\$\{\{ steps\.release_tag\.outputs\.tag \}\}/u);
+    expect(workflow).not.toMatch(/APP_RELEASE_TAG: \$\{\{ inputs\.tag \}\}/u);
     expect(workflow).toContain('persist-credentials: false');
     expect(workflow).toMatch(/GH_TOKEN: \$\{\{ secrets\.GITHUB_TOKEN \}\}/u);
     expect(workflow).not.toContain('CSC_LINK');

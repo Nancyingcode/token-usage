@@ -87,6 +87,9 @@ describe('stable release configuration', () => {
       commit,
       publisherName: 'Example Publisher',
     });
+    expect(
+      validateReleaseInputs('0.1.1', { ...environment(), APP_RELEASE_TAG: '0.1.1' })
+    ).toMatchObject({ tag: 'v0.1.1' });
     expect(() => validateReleaseInputs('0.1.1-beta.1', environment())).toThrow();
     expect(() => validateReleaseInputs('01.1.1', environment())).toThrow();
     expect(() => validateReleaseInputs('0.1.1\n', environment())).toThrow();
@@ -336,7 +339,15 @@ describe('draft-only publication', () => {
     expect(workflow).toContain('windows-latest');
     expect(workflow).toContain('--publish never');
     expect(workflow).toContain('node scripts/release-draft.cjs');
-    expect(workflow).toMatch(/refs\/tags\/\$\{\{ inputs\.tag \}\}/u);
+    const normalizeTagStep = workflow.indexOf('id: release_tag');
+    const verifyTagStep = workflow.indexOf('name: Verify remote release tag exists');
+    const checkoutStep = workflow.indexOf('uses: actions/checkout@v4');
+    expect(normalizeTagStep).toBeGreaterThanOrEqual(0);
+    expect(verifyTagStep).toBeGreaterThan(normalizeTagStep);
+    expect(checkoutStep).toBeGreaterThan(verifyTagStep);
+    expect(workflow).toMatch(/INPUT_RELEASE_TAG: \$\{\{ inputs\.tag \}\}/u);
+    expect(workflow).toMatch(/ref: refs\/tags\/\$\{\{ steps\.release_tag\.outputs\.tag \}\}/u);
+    expect(workflow).not.toMatch(/APP_RELEASE_TAG: \$\{\{ inputs\.tag \}\}/u);
     expect(workflow).toContain('persist-credentials: false');
     expect(workflow).toMatch(/CSC_LINK: \$\{\{ secrets\.CSC_LINK \}\}/u);
   });

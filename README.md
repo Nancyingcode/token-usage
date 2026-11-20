@@ -107,18 +107,18 @@ dist\Codex-Token-Usage-Setup-<version>-x64.exe
 
 ### 维护者的签名与 Release 发布
 
-[草稿工作流](.github/workflows/release-draft.yml)用于发布准备：输入已有稳定标签
-`vX.Y.Z`，要求它与该标签下的 `package.json` 版本精确一致。流程强制签名，
+[草稿工作流](.github/workflows/release-draft.yml)接受 `vX.Y.Z` 或 `X.Y.Z`。流程在检出前统一为
+`vX.Y.Z` 并确认远端标签存在，再核对标签下的 `package.json` 版本。流程强制签名，
 验证安装包、同次构建的 `latest.yml` 和 `.blockmap`，只创建新的草稿 Release；
 同标签已有草稿或正式 Release 时拒绝覆盖。草稿不会被普通客户端当作可用更新。
 
 运行前配置仓库变量 `vars.WINDOWS_PUBLISHER_NAME`，值须与证书的 SimpleName/CN 精确一致，
 并配置 `secrets.CSC_LINK`（建议使用 Base64 编码的 PFX）和 `secrets.CSC_KEY_PASSWORD`。
 签名构建使用[专用配置](electron-builder.release.cjs)，缺少身份或证书时停止。
-`GH_TOKEN` 仅在创建草稿或正式发布的 CI 步骤中取自内置 `GITHUB_TOKEN`，客户端不内置令牌或其他仓库凭证。
+读取远端标签、创建草稿或正式发布的 CI 步骤使用内置 `GITHUB_TOKEN` 作为 `GH_TOKEN`，客户端不内置令牌或其他仓库凭证。
 
-确认草稿及隔离验收后，手动运行[正式发布工作流](.github/workflows/release-publish.yml)并输入同一标签。
-该流程不重新构建或上传资产，而是下载草稿中的三个既定资产，重新核对远程标签、安装器签名、
+确认草稿及隔离验收后，手动运行[正式发布工作流](.github/workflows/release-publish.yml)并输入同一标签，
+版本输入可省略开头的 `v`。该流程先确认远端标签存在，再下载草稿中的三个既定资产，重新核对远端标签、安装器签名、
 `latest.yml` 和 `.blockmap`，全部通过后才将现有草稿转为正式 Release；已发布、预发布、
 标签不符或资产异常时停止。
 

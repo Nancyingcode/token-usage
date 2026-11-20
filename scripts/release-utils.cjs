@@ -34,7 +34,8 @@ const validateReleaseInputs = (version, environment) => {
   if (!isStableVersion(version)) {
     throw new Error('Release requires a three-component stable package version.');
   }
-  const tag = requiredEnvironment(environment, 'APP_RELEASE_TAG');
+  const inputTag = requiredEnvironment(environment, 'APP_RELEASE_TAG');
+  const tag = inputTag.startsWith('v') ? inputTag : `v${inputTag}`;
   if (tag !== `v${version}`) {
     throw new Error('Release tag must match the package version.');
   }

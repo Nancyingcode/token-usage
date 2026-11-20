@@ -97,7 +97,7 @@ PowerShell 可执行文件做只读正反验证：正确发布者通过，错误
 | `CSC_LINK` | 仓库 Secret `secrets.CSC_LINK`；用于导入签名证书，建议 Base64 编码的 PFX |
 | `CSC_KEY_PASSWORD` | 仓库 Secret `secrets.CSC_KEY_PASSWORD`；证书密码，不写入源码或日志 |
 | `GITHUB_TOKEN` | GitHub Actions 内置凭证，工作流需要 `contents: write`；无需为客户端配置 PAT |
-| `GH_TOKEN` | 只在创建草稿或正式发布的 CI 步骤中赋值为内置 `secrets.GITHUB_TOKEN`，不传入客户端或签名构建步骤 |
+| `GH_TOKEN` | 只在读取远端标签、创建草稿或正式发布的 CI 步骤中赋值为内置 `secrets.GITHUB_TOKEN`，不传入客户端或签名构建步骤 |
 
 发布构建使用 [electron-builder.release.cjs](../../electron-builder.release.cjs)，继承已有 NSIS
 身份并强制代码签名与更新签名验证。缺少证书、密码或发布者时停止。初始安装与后续更新必须使用
@@ -108,7 +108,8 @@ PowerShell 可执行文件做只读正反验证：正确发布者通过，错误
 1. 在授权发布准备后，确定稳定版本和对应已有标签。标签必须为 `vX.Y.Z`，与标签所指代码中的
    `package.json` 完全一致；三个数字段不得含前导零，不接受预发布或构建元数据。
 2. 手动运行 [.github/workflows/release-draft.yml](../../.github/workflows/release-draft.yml)，
-   输入该标签。流程只接受 `workflow_dispatch`，普通提交、标签推送或本地构建不会触发发布。
+   输入该标签或省略开头的 `v`。流程在检出前统一为 `vX.Y.Z` 并确认远端标签存在。
+   流程只接受 `workflow_dispatch`，普通提交、标签推送或本地构建不会触发发布。
 3. 工作流检出 `refs/tags/<tag>`，验证本地标签并固定 40 位提交 SHA，使用
    [scripts/release-draft.cjs](../../scripts/release-draft.cjs) 的 `--validate` 检查版本与身份。
 4. 执行签名构建，仍传入 `--publish never`，并运行测试、类型检查和 lint。
@@ -117,8 +118,8 @@ PowerShell 可执行文件做只读正反验证：正确发布者通过，错误
 6. 草稿脚本拒绝任何同标签已有 Release，包括草稿；不会更新、覆盖、删除或发布既有 Release。
    仅调用 `gh release create --draft --verify-tag` 创建新草稿，后续正式发布必须另行授权。
 7. 确认草稿及隔离验收后，手动运行 [.github/workflows/release-publish.yml](../../.github/workflows/release-publish.yml)，
-   输入同一标签。流程重新核对版本、标签和固定提交，下载草稿中的三个既定资产并验证安装器签名、
-   `latest.yml` 与 `.blockmap`，全部通过后才将现有草稿转为正式 Release。它不重新构建、
+   输入同一标签，版本输入可省略开头的 `v`。流程先确认远程标签存在，再重新核对版本、标签和固定提交，
+   下载草稿中的三个既定资产并验证安装器签名、`latest.yml` 与 `.blockmap`，全部通过后才将现有草稿转为正式 Release。它不重新构建、
    不上传或替换资产；已发布、预发布、标签不符或资产异常时停止。
 
 必须来自同一次构建的发布资产为：
