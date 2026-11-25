@@ -127,10 +127,13 @@ const getTooltipPlacement = (x: number): TooltipPlacement => {
   return 'center';
 };
 
+const toChartPercentage = (value: number, size: number): string =>
+  `${(value / size) * PERCENT_SCALE}%`;
+
 const getTooltipStyle = (point: TrendPoint): React.CSSProperties => {
   return {
-    '--tooltip-x': `${(point.x / CHART_VIEWBOX_WIDTH) * PERCENT_SCALE}%`,
-    '--tooltip-y': `${(point.y / CHART_VIEWBOX_HEIGHT) * PERCENT_SCALE}%`,
+    '--tooltip-x': toChartPercentage(point.x, CHART_VIEWBOX_WIDTH),
+    '--tooltip-y': toChartPercentage(point.y, CHART_VIEWBOX_HEIGHT),
   } as React.CSSProperties;
 };
 
@@ -180,34 +183,41 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
   return (
     <div className="trend-chart">
       <div className="trend-chart-plot">
-        <svg
-          viewBox={CHART_VIEWBOX}
-          preserveAspectRatio="none"
-          role="img"
-          aria-label={t('overview.tokenTrendChart')}
-        >
-          {CHART_GRID_LINES.map((line) => (
-            <line
-              key={line}
-              x1={CHART_LEFT}
-              x2={CHART_RIGHT}
-              y1={CHART_GRID_TOP + line * CHART_GRID_GAP}
-              y2={CHART_GRID_TOP + line * CHART_GRID_GAP}
-            />
-          ))}
-          {area ? <path className="trend-area" d={area} /> : null}
-          {path ? <path className="trend-line" d={path} pathLength={1} /> : null}
-          {activePoint ? (
-            <line
-              className="trend-guide"
-              x1={activePoint.x}
-              x2={activePoint.x}
-              y1={activePoint.y}
-              y2={CHART_BASELINE}
-            />
-          ) : null}
+        <svg role="img" aria-label={t('overview.tokenTrendChart')}>
+          {/* 数据点和日期跟随折线定位，同时保持固定的像素尺寸。 */}
+          <svg
+            width="100%"
+            height="100%"
+            viewBox={CHART_VIEWBOX}
+            preserveAspectRatio="none"
+            overflow="visible"
+            aria-hidden="true"
+          >
+            {CHART_GRID_LINES.map((line) => (
+              <line
+                key={line}
+                x1={CHART_LEFT}
+                x2={CHART_RIGHT}
+                y1={CHART_GRID_TOP + line * CHART_GRID_GAP}
+                y2={CHART_GRID_TOP + line * CHART_GRID_GAP}
+              />
+            ))}
+            {area ? <path className="trend-area" d={area} /> : null}
+            {path ? <path className="trend-line" d={path} pathLength={1} /> : null}
+            {activePoint ? (
+              <line
+                className="trend-guide"
+                x1={activePoint.x}
+                x2={activePoint.x}
+                y1={activePoint.y}
+                y2={CHART_BASELINE}
+              />
+            ) : null}
+          </svg>
           {points.map((point) => {
             const active = point.day.date === activeDate;
+            const x = toChartPercentage(point.x, CHART_VIEWBOX_WIDTH);
+            const y = toChartPercentage(point.y, CHART_VIEWBOX_HEIGHT);
             const pricingState = point.pricingIncomplete
               ? t('overview.pricingState')
               : point.assumedPricing
@@ -229,14 +239,14 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
               <g key={point.day.date}>
                 <circle
                   className={active ? 'trend-point active' : 'trend-point'}
-                  cx={point.x}
-                  cy={point.y}
+                  cx={x}
+                  cy={y}
                   r={active ? ACTIVE_POINT_RADIUS : INACTIVE_POINT_RADIUS}
                 />
                 <circle
                   className="trend-hit-target"
-                  cx={point.x}
-                  cy={point.y}
+                  cx={x}
+                  cy={y}
                   r={TREND_HIT_RADIUS}
                   tabIndex={0}
                   role="img"
@@ -256,7 +266,12 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
                   index % Math.max(1, Math.ceil(points.length / MAX_X_AXIS_LABEL_COUNT)) === 0
               )
               .map((point) => (
-                <text key={point.day.date} x={point.x} y={CHART_DATE_LABEL_Y} textAnchor="middle">
+                <text
+                  key={point.day.date}
+                  x={toChartPercentage(point.x, CHART_VIEWBOX_WIDTH)}
+                  y={toChartPercentage(CHART_DATE_LABEL_Y, CHART_VIEWBOX_HEIGHT)}
+                  textAnchor="middle"
+                >
                   {point.day.date.slice(DATE_LABEL_START_INDEX)}
                 </text>
               ))}

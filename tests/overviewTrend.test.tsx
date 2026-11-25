@@ -151,7 +151,7 @@ describe('buildTrendPoints', () => {
     });
   });
 
-  it('stretches the trend chart to fill the available width', () => {
+  it('stretches the drawing layer to fill the available width', () => {
     const { container } = render(
       <I18nextProvider i18n={createTestI18n('en')}>
         <Overview
@@ -163,9 +163,8 @@ describe('buildTrendPoints', () => {
       </I18nextProvider>
     );
 
-    expect(container.querySelector('.trend-chart svg')?.getAttribute('preserveAspectRatio')).toBe(
-      'none'
-    );
+    const drawing = container.querySelector('.trend-chart-plot > svg > svg');
+    expect(drawing?.getAttribute('preserveAspectRatio')).toBe('none');
   });
 
   it('maps boundaries, cost, and placement for chart points', () => {

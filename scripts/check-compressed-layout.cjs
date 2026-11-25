@@ -1,6 +1,6 @@
 /**
  * @file 压缩状态条与概览布局回归
- * @description 在隔离的 Electron 窗口中渲染生产组件与 CSS，仅使用合成数据，验证图表高度、滚动与详情展开。
+ * @description 在隔离的 Electron 窗口中渲染生产组件与 CSS，仅使用合成数据，验证图表比例、滚动与详情展开。
  */
 const assert = require('node:assert/strict');
 const { mkdtemp, mkdir, readFile, rm, writeFile } = require('node:fs/promises');
@@ -13,6 +13,7 @@ const TEMP_PREFIX = 'token-usage-layout-';
 const MIN_PLOT_HEIGHT = 190;
 const COMPACT_PANEL_MAX_HEIGHT = 92;
 const GEOMETRY_TOLERANCE = 1;
+const SCALE_TOLERANCE = 0.01;
 const RENDER_WAIT_MS = 100;
 const RENDER_ATTEMPTS = 50;
 const CASES = [
@@ -53,7 +54,13 @@ const runElectron = async () => {
     window.webContents.executeJavaScript(`(() => {
     const box = (selector) => document.querySelector(selector)?.getBoundingClientRect().toJSON();
     const main = document.querySelector('main');
+    const trendLine = document.querySelector('.trend-line');
+    const marker = box('.trend-point');
+    const lineStart = trendLine.getPointAtLength(0).matrixTransform(trendLine.getScreenCTM());
+    const labelTransform = document.querySelector('.trend-x-axis text').getScreenCTM();
     return { plot: box('.trend-chart-plot'), chart: box('.chart-panel'), calendar: box('.activity-panel'),
+      trendSvg: box('.trend-chart-plot > svg'), marker, lineStart: { x: lineStart.x, y: lineStart.y },
+      labelScaleX: labelTransform.a, labelScaleY: labelTransform.d,
       panel: box('.compressed-data-panel'), main: box('main'),
       clientHeight: main.clientHeight, scrollHeight: main.scrollHeight,
       clientWidth: main.clientWidth, scrollWidth: main.scrollWidth,
@@ -61,9 +68,28 @@ const runElectron = async () => {
       button: box('.compressed-data-heading button:last-child') };
   })()`);
   const check = (geometry, label) => {
+    const { plot, trendSvg, marker, lineStart, labelScaleX, labelScaleY } = geometry;
     assert.ok(
-      geometry.plot.height >= MIN_PLOT_HEIGHT - GEOMETRY_TOLERANCE,
-      `${label}: trend plot collapsed to ${geometry.plot.height}px`
+      plot.height >= MIN_PLOT_HEIGHT - GEOMETRY_TOLERANCE,
+      `${label}: trend plot collapsed to ${plot.height}px`
+    );
+    assert.ok(
+      Math.abs(trendSvg.width - plot.width) <= GEOMETRY_TOLERANCE &&
+        Math.abs(trendSvg.height - plot.height) <= GEOMETRY_TOLERANCE,
+      `${label}: SVG does not fill the trend plot`
+    );
+    assert.ok(
+      Math.abs(marker.width - marker.height) <= GEOMETRY_TOLERANCE,
+      `${label}: trend marker is stretched to ${marker.width}x${marker.height}px`
+    );
+    assert.ok(
+      Math.abs(labelScaleX - 1) <= SCALE_TOLERANCE && Math.abs(labelScaleY - 1) <= SCALE_TOLERANCE,
+      `${label}: trend date text is scaled by ${labelScaleX}x${labelScaleY}`
+    );
+    assert.ok(
+      Math.abs(marker.x + marker.width / 2 - lineStart.x) <= GEOMETRY_TOLERANCE &&
+        Math.abs(marker.y + marker.height / 2 - lineStart.y) <= GEOMETRY_TOLERANCE,
+      `${label}: trend marker is detached from the line`
     );
     assert.ok(
       geometry.chart.bottom <= geometry.calendar.top + GEOMETRY_TOLERANCE,
