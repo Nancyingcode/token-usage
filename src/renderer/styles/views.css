@@ -5747,6 +5747,12 @@ code {
   white-space: nowrap;
 }
 
+/* 前两个标签落在相邻周列时，利用星期标签上方的留白显示首月。 */
+.activity-months > span:first-child:has(+ span:not(:empty)) {
+  width: max-content;
+  justify-self: end;
+}
+
 .activity-wrap {
   display: grid;
   grid-template-columns: 2.75rem max-content;

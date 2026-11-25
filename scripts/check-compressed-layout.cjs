@@ -1,6 +1,6 @@
 /**
  * @file 压缩状态条与概览布局回归
- * @description 在隔离的 Electron 窗口中渲染生产组件与 CSS，仅使用合成数据，验证图表比例、滚动与详情展开。
+ * @description 在隔离的 Electron 窗口中渲染生产组件与 CSS，仅使用合成数据，验证图表比例、活动日历标签、滚动与详情展开。
  */
 const assert = require('node:assert/strict');
 const { mkdtemp, mkdir, readFile, rm, writeFile } = require('node:fs/promises');
@@ -58,9 +58,16 @@ const runElectron = async () => {
     const marker = box('.trend-point');
     const lineStart = trendLine.getPointAtLength(0).matrixTransform(trendLine.getScreenCTM());
     const labelTransform = document.querySelector('.trend-x-axis text').getScreenCTM();
+    const monthSpans = document.querySelectorAll('.activity-months > span:not(:empty)');
+    const monthLabels = Array.from(monthSpans, (span) => {
+      const textRange = document.createRange();
+      textRange.selectNodeContents(span);
+      const { left, right } = textRange.getBoundingClientRect();
+      return { text: span.textContent, left, right };
+    });
     return { plot: box('.trend-chart-plot'), chart: box('.chart-panel'), calendar: box('.activity-panel'),
       trendSvg: box('.trend-chart-plot > svg'), marker, lineStart: { x: lineStart.x, y: lineStart.y },
-      labelScaleX: labelTransform.a, labelScaleY: labelTransform.d,
+      labelScaleX: labelTransform.a, labelScaleY: labelTransform.d, monthLabels,
       panel: box('.compressed-data-panel'), main: box('main'),
       clientHeight: main.clientHeight, scrollHeight: main.scrollHeight,
       clientWidth: main.clientWidth, scrollWidth: main.scrollWidth,
@@ -68,7 +75,7 @@ const runElectron = async () => {
       button: box('.compressed-data-heading button:last-child') };
   })()`);
   const check = (geometry, label) => {
-    const { plot, trendSvg, marker, lineStart, labelScaleX, labelScaleY } = geometry;
+    const { plot, trendSvg, marker, lineStart, labelScaleX, labelScaleY, monthLabels } = geometry;
     assert.ok(
       plot.height >= MIN_PLOT_HEIGHT - GEOMETRY_TOLERANCE,
       `${label}: trend plot collapsed to ${plot.height}px`
@@ -95,6 +102,14 @@ const runElectron = async () => {
       geometry.chart.bottom <= geometry.calendar.top + GEOMETRY_TOLERANCE,
       `${label}: chart overlaps calendar`
     );
+    assert.equal(monthLabels.length, 13, `${label}: activity calendar lost month labels`);
+    monthLabels.slice(1).forEach((month, index) => {
+      const previous = monthLabels[index];
+      assert.ok(
+        previous.right <= month.left,
+        `${label}: activity month labels ${previous.text} and ${month.text} overlap`
+      );
+    });
     assert.ok(
       geometry.plot.bottom <= geometry.chart.bottom + GEOMETRY_TOLERANCE,
       `${label}: plot overflows chart`
