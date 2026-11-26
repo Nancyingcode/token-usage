@@ -1,4 +1,6 @@
+import { parseCalendarDate } from '../../shared/calendarDate';
 import type { SupportedLocale } from '../../shared/i18n/locale';
+import type { UsageDateRange } from '../../shared/usageTypes';
 
 const COMPACT_NUMBER_THRESHOLD = 1_000;
 const PERCENT_BASE = 100;
@@ -32,6 +34,21 @@ export const formatPercent = (
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits,
   }).format(value / PERCENT_BASE);
+
+export const createCalendarDateRangeFormatter = (
+  locale: SupportedLocale
+): ((range: UsageDateRange) => string) => {
+  const formatter = new Intl.DateTimeFormat(locale, { dateStyle: 'long', timeZone: 'UTC' });
+  const formatDate = (value: string): string => {
+    const date = parseCalendarDate(value);
+    return date ? formatter.format(date) : value;
+  };
+
+  return ({ startDate, endDate }) => {
+    const start = formatDate(startDate);
+    return startDate === endDate ? start : `${start} – ${formatDate(endDate)}`;
+  };
+};
 
 export const formatShortDateTime = (
   value: string,

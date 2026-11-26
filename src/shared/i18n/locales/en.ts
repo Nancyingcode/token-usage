@@ -39,6 +39,20 @@ export const en = {
       week: 'Week',
       month: 'Month',
       total: 'Total',
+      customRange: {
+        label: 'Custom',
+        title: 'Custom date range',
+        startDate: 'Start date',
+        endDate: 'End date',
+        apply: 'Apply',
+        applied: 'Date range applied. {{range}}',
+        validation: {
+          required: 'Enter both dates.',
+          invalid: 'Enter valid calendar dates.',
+          reversed: 'Start date must be on or before end date.',
+          future: 'Choose dates on or before today.',
+        },
+      },
       refresh: 'Refresh real-time data',
       language: 'Language',
       languageChangeFailed: 'Unable to save the language preference.',
@@ -120,6 +134,7 @@ export const en = {
       noSessions: 'No Codex sessions found',
       scannedPath: 'Scanned: {{path}}',
       periodEmptyTitle: 'No sessions in this period',
+      dateRangeEmptyTitle: 'No sessions in the selected date range',
       periodEmptyDescription: 'No Codex sessions started during {{period}}.',
       period: {
         today: 'today',
@@ -226,6 +241,7 @@ export const en = {
   analytics: {
     overview: {
       description: 'Track local cost, tokens, cache efficiency, and activity.',
+      dateRangeSummary: '{{range}} · By session start date',
       totalCost: 'Total Cost',
       tokens: 'Tokens',
       linesChanged: 'Lines Changed',
@@ -239,6 +255,10 @@ export const en = {
       reasoning: '+{{tokens}} reasoning',
       projects: '{{count}} projects',
       tokenUsageTrend: 'Token Usage Trend',
+      trendGranularity: {
+        daily: 'Daily',
+        grouped: '{{days}}-day totals',
+      },
       totalTokens: 'Total Tokens',
       total: 'Total',
       input: 'Input',
@@ -246,6 +266,7 @@ export const en = {
       cached: 'Cached',
       estimatedCost: 'Estimated cost',
       activity: 'Activity',
+      activityVisibleRange: 'Calendar shows {{range}}',
       activityDay: '{{date}}, {{tokens}} tokens',
       activityTokens: '{{tokens}} tokens',
       activityCalendar: 'Token activity calendar',

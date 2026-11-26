@@ -2,13 +2,12 @@
  * @file Overview activity calendar model
  * @description Builds complete natural weeks with selected-period, future-day, and intensity metadata.
  */
-import type { UsageDay, UsagePeriod } from '../../shared/usageTypes';
+import { formatCalendarDateKey, MILLISECONDS_PER_DAY } from '../../shared/calendarDate';
+import type { UsageDateRange, UsageDay, UsagePeriod } from '../../shared/usageTypes';
 
 export const ACTIVITY_WEEK_COUNT = 53;
 const DAYS_PER_WEEK = 7;
 export const ACTIVITY_CELL_COUNT = ACTIVITY_WEEK_COUNT * DAYS_PER_WEEK;
-const MILLISECONDS_PER_DAY = 86_400_000;
-const ISO_DATE_LENGTH = 10;
 const FIRST_DAY_OF_MONTH = 1;
 enum ActivityLevel {
   None,
@@ -42,8 +41,17 @@ export interface ActivityMonthLabel {
 
 const parseUtcDate = (date: string): number => Date.parse(`${date}T00:00:00.000Z`);
 
-const formatUtcDate = (timestamp: number): string =>
-  new Date(timestamp).toISOString().slice(0, ISO_DATE_LENGTH);
+const getActivityWindowStart = (anchorTimestamp: number): number => {
+  const anchorWeekday = new Date(anchorTimestamp).getUTCDay();
+  const daysBeforeAnchor = anchorWeekday + (ACTIVITY_WEEK_COUNT - 1) * DAYS_PER_WEEK;
+  return anchorTimestamp - daysBeforeAnchor * MILLISECONDS_PER_DAY;
+};
+
+export const getClippedActivityRange = (range: UsageDateRange): UsageDateRange | undefined => {
+  const startTime = getActivityWindowStart(parseUtcDate(range.endDate));
+  const startDate = formatCalendarDateKey(new Date(startTime));
+  return range.startDate < startDate ? { startDate, endDate: range.endDate } : undefined;
+};
 
 const getLevel = (tokens: number, maxTokens: number): ActivityCell['level'] => {
   if (tokens <= 0) {
@@ -55,46 +63,40 @@ const getLevel = (tokens: number, maxTokens: number): ActivityCell['level'] => {
 
 export const buildActivityCells = (
   days: UsageDay[],
-  period: UsagePeriod,
-  anchorDate: string
+  period: UsagePeriod | UsageDateRange,
+  referenceDate: string
 ): ActivityCell[] => {
-  const anchorTimestamp = parseUtcDate(anchorDate);
-  const anchorWeekday = new Date(anchorTimestamp).getUTCDay();
-  const anchorWeekStartTimestamp = anchorTimestamp - anchorWeekday * MILLISECONDS_PER_DAY;
-  const firstTimestamp =
-    anchorWeekStartTimestamp - (ACTIVITY_WEEK_COUNT - 1) * DAYS_PER_WEEK * MILLISECONDS_PER_DAY;
+  const todayTimestamp = parseUtcDate(referenceDate);
+  const anchorTimestamp =
+    typeof period === 'string' ? todayTimestamp : parseUtcDate(period.endDate);
+  const firstTimestamp = getActivityWindowStart(anchorTimestamp);
   const periodStartTimestamp =
-    anchorTimestamp - (PERIOD_DAY_COUNTS[period] - 1) * MILLISECONDS_PER_DAY;
+    typeof period === 'string'
+      ? anchorTimestamp - (PERIOD_DAY_COUNTS[period] - 1) * MILLISECONDS_PER_DAY
+      : parseUtcDate(period.startDate);
+  const periodEndTimestamp = Math.min(anchorTimestamp, todayTimestamp);
   const tokensByDate = new Map(days.map((day) => [day.date, day.totalTokens]));
-  const dates = Array.from({ length: ACTIVITY_CELL_COUNT }, (_, index) =>
-    formatUtcDate(firstTimestamp + index * MILLISECONDS_PER_DAY)
-  );
-  const maxTokens = Math.max(
-    1,
-    ...dates
-      .filter((date) => {
-        const timestamp = parseUtcDate(date);
-        return timestamp >= periodStartTimestamp && timestamp <= anchorTimestamp;
-      })
-      .map((date) => tokensByDate.get(date) ?? 0)
-  );
-
-  return dates.map((date, index) => {
-    const timestamp = parseUtcDate(date);
-    const isFuture = timestamp > anchorTimestamp;
+  const cells = Array.from({ length: ACTIVITY_CELL_COUNT }, (_, index) => {
+    const timestamp = firstTimestamp + index * MILLISECONDS_PER_DAY;
+    const date = formatCalendarDateKey(new Date(timestamp));
+    const isFuture = timestamp > todayTimestamp;
     const tokens = isFuture ? 0 : (tokensByDate.get(date) ?? 0);
-    const inPeriod = timestamp >= periodStartTimestamp && !isFuture;
+    const inPeriod = timestamp >= periodStartTimestamp && timestamp <= periodEndTimestamp;
 
     return {
       date,
       tokens,
-      level: inPeriod ? getLevel(tokens, maxTokens) : 0,
       inPeriod,
       isFuture,
       weekIndex: Math.floor(index / DAYS_PER_WEEK),
       weekday: index % DAYS_PER_WEEK,
     };
   });
+  const maxTokens = Math.max(1, ...cells.map(({ inPeriod, tokens }) => (inPeriod ? tokens : 0)));
+  return cells.map((cell) => ({
+    ...cell,
+    level: cell.inPeriod ? getLevel(cell.tokens, maxTokens) : ActivityLevel.None,
+  }));
 };
 
 export const buildActivityMonthLabels = (cells: ActivityCell[]): ActivityMonthLabel[] => {

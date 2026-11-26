@@ -1220,7 +1220,8 @@ code {
 }
 
 .drawer-heading h2,
-.confirm-dialog h2 {
+.confirm-dialog h2,
+.date-range-dialog h2 {
   margin: 0;
   font-size: var(--font-size-body);
   letter-spacing: 0;
@@ -1541,6 +1542,55 @@ code {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.date-range-dialog {
+  width: min(24rem, calc(100% - 2 * var(--space-4)));
+  max-height: calc(100% - 2 * var(--space-4));
+  padding: var(--space-4);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-overlay);
+  -webkit-app-region: no-drag;
+}
+
+.date-range-dialog::backdrop {
+  background: var(--color-shadow-dialog);
+}
+
+.date-range-dialog form,
+.date-range-field {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.date-range-field {
+  gap: var(--space-1);
+  font-size: var(--font-size-body-small);
+  font-weight: 600;
+}
+
+.date-range-field input {
+  width: 100%;
+  min-height: var(--control-height-default);
+  padding: var(--space-2);
+  color: var(--color-text);
+  font: inherit;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.date-range-issue {
+  margin: 0;
+  color: var(--color-danger-text);
+  font-size: var(--font-size-body-small);
+}
+
+.date-range-issue:empty {
+  position: absolute;
 }
 
 .model-pricing-view {

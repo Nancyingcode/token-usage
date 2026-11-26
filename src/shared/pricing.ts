@@ -319,7 +319,8 @@ export const buildDailyCostEstimates = (
 export const buildOverviewCostEstimates = (
   sessions: UsageSession[],
   pricingEntries: ModelPricingEntry[],
-  unknownModelPricing?: UnknownModelPricing
+  unknownModelPricing?: UnknownModelPricing,
+  getSessionCostDate?: (session: UsageSession) => string | undefined
 ): { totalCost: CostEstimate; dailyCosts: Map<string, CostEstimate> } => {
   const context = createPricingContext(pricingEntries, unknownModelPricing);
   let totalCost = createEmptyCostEstimate();
@@ -327,10 +328,12 @@ export const buildOverviewCostEstimates = (
 
   // 每条用量只执行一次条件计价，分别按原始顺序累加，保持总计和每日金额的浮点求和顺序。
   for (const session of sessions) {
+    // 自定义日期按会话开始日筛选，跨午夜片段的费用也随整场会话归入同一日期段。
+    const sessionCostDate = getSessionCostDate?.(session);
     for (const slice of getSessionUsageSlices(session)) {
       const result = priceTokenUsage(slice, slice.modelId, context);
       totalCost = appendCostEstimate(totalCost, slice, result);
-      const date = toLocalDateKey(slice.occurredAt);
+      const date = getSessionCostDate ? sessionCostDate : toLocalDateKey(slice.occurredAt);
       // 无效日期仍计入总费用，但不能归属到任何自然日。
       if (date) {
         dailyCosts.set(

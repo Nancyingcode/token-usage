@@ -14,10 +14,150 @@ import Overview, {
   buildOverviewMotionKey,
   buildTrendPoints,
 } from '../src/renderer/components/Overview';
+import { buildOverviewTrendBuckets } from '../src/renderer/utils/overviewTrend';
 import type { CostEstimate, ModelPricingEntry } from '../src/shared/budgetTypes';
 import { buildUsageSummary } from '../src/shared/usageMath';
 import type { UsageDay, UsageSession } from '../src/shared/usageTypes';
 import { createTestI18n, renderWithI18n } from './helpers/renderWithI18n';
+
+describe('custom overview trend', () => {
+  it('generates zero days and keeps a full month at daily granularity', () => {
+    const range = { startDate: '2026-01-01', endDate: '2026-01-31' };
+    const { daysPerPoint, buckets } = buildOverviewTrendBuckets(
+      [makeDay('2026-01-02', 125)],
+      range
+    );
+
+    expect(daysPerPoint).toBe(1);
+    expect(buckets).toHaveLength(31);
+    expect(buckets.slice(0, 2)).toMatchObject([
+      { date: '2026-01-01', endDate: '2026-01-01', totalTokens: 0, sessionCount: 0 },
+      { date: '2026-01-02', endDate: '2026-01-02', totalTokens: 125, sessionCount: 1 },
+    ]);
+    expect(buckets.at(-1)).toMatchObject({ date: '2026-01-31', endDate: '2026-01-31' });
+    expect(
+      buildOverviewTrendBuckets([], { startDate: '2024-02-29', endDate: '2024-02-29' }).buckets
+    ).toMatchObject([{ date: '2024-02-29', endDate: '2024-02-29', totalTokens: 0 }]);
+  });
+
+  it('groups 90 days into 30 contiguous points and clips the final group in longer ranges', () => {
+    const range = { startDate: '2026-01-01', endDate: '2026-03-31' };
+    const days = [
+      makeDay('2025-12-31', 10_000),
+      makeDay('2026-01-01', 25),
+      makeDay('2026-01-03', 50),
+      makeDay('2026-03-31', 100),
+      makeDay('2026-04-01', 10_000),
+    ];
+    const { daysPerPoint, buckets, bucketStartByDay } = buildOverviewTrendBuckets(days, range);
+
+    expect(daysPerPoint).toBe(3);
+    expect(buckets).toHaveLength(30);
+    expect(buckets[0]).toMatchObject({
+      date: '2026-01-01',
+      endDate: '2026-01-03',
+      totalTokens: 75,
+    });
+    expect(buckets[1]).toMatchObject({ date: '2026-01-04', endDate: '2026-01-06', totalTokens: 0 });
+    expect(buckets.at(-1)).toMatchObject({
+      date: '2026-03-29',
+      endDate: '2026-03-31',
+      totalTokens: 100,
+    });
+    expect([...bucketStartByDay]).toEqual([
+      ['2026-01-01', '2026-01-01'],
+      ['2026-01-03', '2026-01-01'],
+      ['2026-03-31', '2026-03-29'],
+    ]);
+    const longRange = buildOverviewTrendBuckets(days, {
+      startDate: '2000-01-01',
+      endDate: '2026-03-31',
+    });
+    expect(longRange.buckets.length).toBeLessThanOrEqual(31);
+    expect(longRange.buckets.at(-1)?.endDate).toBe('2026-03-31');
+  });
+
+  it('shows both endpoints, grouping and the cost of the full session at its start bucket', () => {
+    const startedAt = new Date(2026, 7, 20, 23, 55).toISOString();
+    const afterMidnight = new Date(2026, 7, 21, 0, 5).toISOString();
+    const lastDay = new Date(2026, 10, 15, 10).toISOString();
+    const summary = buildUsageSummary([
+      {
+        ...PRICED_SESSION,
+        startedAt,
+        endedAt: afterMidnight,
+        usageSlices: [{ ...PRICED_SESSION.usageSlices[0], occurredAt: afterMidnight }],
+      },
+      {
+        ...UNKNOWN_SESSION,
+        startedAt: lastDay,
+        endedAt: lastDay,
+        usageSlices: [{ ...UNKNOWN_SESSION.usageSlices[0], occurredAt: lastDay }],
+      },
+    ]);
+    const { container } = render(
+      <I18nextProvider i18n={createTestI18n('en')}>
+        <Overview
+          summary={summary}
+          pricing={PRICING}
+          period="month"
+          scannedAt="2026-11-26T12:00:00.000Z"
+          overviewDateFilter={{
+            range: { startDate: '2026-08-18', endDate: '2026-11-15' },
+            today: '2026-11-26',
+          }}
+        />
+      </I18nextProvider>
+    );
+
+    expect(screen.getByText('3-day totals')).toBeTruthy();
+    const points = [...container.querySelectorAll<SVGCircleElement>('.trend-hit-target')];
+    expect(points).toHaveLength(30);
+    expect(points[0].getAttribute('aria-label')).toMatch(
+      /August 18, 2026 – August 20, 2026.*110 total tokens.*\$0\.0003/i
+    );
+    expect(points[1].getAttribute('aria-label')).toMatch(/\b0 total tokens.*\$0\.00/i);
+    expect(points.at(-1)?.getAttribute('aria-label')).toMatch(
+      /November 13, 2026 – November 15, 2026.*pricing incomplete/i
+    );
+    const labels = [...container.querySelectorAll('.trend-x-axis text')];
+    expect(labels[0].textContent).toBe('08-18');
+    expect(labels.at(-1)?.textContent).toBe('11-15');
+    fireEvent.focus(points[0]);
+    expect(container.querySelector('.trend-tooltip')?.textContent).toContain(
+      'August 18, 2026 – August 20, 2026'
+    );
+    expect(screen.getByTestId('activity-day-2026-11-15')).toBeTruthy();
+    expect(screen.queryByTestId('activity-day-2026-11-16')).toBeNull();
+  });
+
+  it('keeps one focusable point for a single day and labels the calendar viewport when clipped', () => {
+    const overview = (startDate: string) => (
+      <I18nextProvider i18n={createTestI18n('en')}>
+        <Overview
+          summary={buildUsageSummary([PRICED_SESSION])}
+          pricing={PRICING}
+          period="total"
+          scannedAt="2026-11-26T12:00:00.000Z"
+          overviewDateFilter={{
+            range: { startDate, endDate: '2026-07-20' },
+            today: '2026-11-26',
+          }}
+        />
+      </I18nextProvider>
+    );
+    const { container, rerender } = render(overview('2026-07-20'));
+    expect(container.querySelectorAll('.trend-hit-target[tabindex="0"]')).toHaveLength(1);
+    expect(screen.getByText('Daily')).toBeTruthy();
+
+    rerender(overview('2024-01-01'));
+    expect(screen.getByText('Calendar shows July 20, 2025 – July 20, 2026')).toBeTruthy();
+    expect(screen.queryByTestId('activity-day-2025-07-19')).toBeNull();
+    expect(screen.getByTestId('activity-day-2025-07-20').getAttribute('aria-label')).toContain(
+      '0 tokens'
+    );
+  });
+});
 
 describe('buildTrendPoints', () => {
   it('prices each slice once for both the total and daily trend', () => {

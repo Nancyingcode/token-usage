@@ -3,9 +3,14 @@
  * @description Coordinates scan state, budget state, navigation, period selection, and view data.
  */
 import React, { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
+import { formatLocalDateKey } from '../shared/calendarDate';
 import type { CostOptimizationTab, SessionDiagnosisSummary } from '../shared/costOptimizationTypes';
-import { filterUsageSummary } from '../shared/usageMath';
-import type { UsagePeriod, UsageScanResult } from '../shared/usageTypes';
+import {
+  filterUsageSummary,
+  filterUsageSummaryByDateRange,
+  getInitialUsageDateRange,
+} from '../shared/usageMath';
+import type { UsageDateRange, UsagePeriod, UsageScanResult } from '../shared/usageTypes';
 import type {
   UsageDataPathSettings,
   UsageDataPathUpdateResult,
@@ -144,6 +149,7 @@ const App: React.FC = () => {
   const [period, setPeriod] = useState<UsagePeriod>(() =>
     loadUsagePeriodPreference(window.localStorage)
   );
+  const [overviewDateRange, setOverviewDateRange] = useState<UsageDateRange>();
   const [result, setResult] = useState<UsageScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -152,6 +158,8 @@ const App: React.FC = () => {
   const budgetState = useBudgetSnapshot();
   const compressedData = useCompressedData();
   const themeState = useTheme();
+  const isOverview = activeView === 'overview';
+  const activeOverviewRange = isOverview ? overviewDateRange : undefined;
   const costOptimizationEnabled = needsCostOptimization(activeView);
   const costOptimizationState = useCostOptimizationSnapshot(period, costOptimizationEnabled);
   const setCostOptimizationProjectPath = costOptimizationState.setProjectPath;
@@ -198,10 +206,18 @@ const App: React.FC = () => {
   const handleDataPathReset = useCallback(async (): Promise<void> => {
     applyDataPathUpdate(await window.codexUsage.dataPath.reset());
   }, [applyDataPathUpdate]);
-  const handlePeriodChange = useCallback((nextPeriod: UsagePeriod): void => {
-    setPeriod(nextPeriod);
-    saveUsagePeriodPreference(nextPeriod, window.localStorage);
-  }, []);
+  const handlePeriodChange = useCallback(
+    (nextPeriod: UsagePeriod): void => {
+      if (isOverview) {
+        setOverviewDateRange(undefined);
+      }
+      setPeriod(nextPeriod);
+      saveUsagePeriodPreference(nextPeriod, window.localStorage);
+    },
+    [isOverview]
+  );
+  const getInitialOverviewDateRange = (now: Date): UsageDateRange =>
+    getInitialUsageDateRange(period, result?.summary.byDay ?? [], now);
   const handleViewChange = useCallback((view: ViewKey): void => {
     dispatchNavigation({ type: 'select-view', view });
   }, []);
@@ -264,10 +280,22 @@ const App: React.FC = () => {
     []
   );
 
-  const filteredSummary = useMemo(
-    () => (result ? filterUsageSummary(result.summary, period) : null),
-    [period, result]
-  );
+  const { filteredSummary, overviewDateFilter } = useMemo(() => {
+    if (!activeOverviewRange) {
+      return {
+        filteredSummary: result ? filterUsageSummary(result.summary, period) : null,
+        overviewDateFilter: undefined,
+      };
+    }
+
+    const now = new Date();
+    return {
+      filteredSummary: result
+        ? filterUsageSummaryByDateRange(result.summary, activeOverviewRange, now)
+        : null,
+      overviewDateFilter: { range: activeOverviewRange, today: formatLocalDateKey(now) },
+    };
+  }, [period, result, activeOverviewRange]);
   const costProjectOptions = useMemo(
     () => result?.summary.byProject.map(({ projectPath }) => projectPath) ?? [],
     [result]
@@ -297,6 +325,7 @@ const App: React.FC = () => {
     result,
     filteredSummary,
     period,
+    overviewDateFilter,
   });
   const viewTransitionKey = getViewTransitionKey(activeView, {
     usage: contentModel.kind,
@@ -320,10 +349,13 @@ const App: React.FC = () => {
         onRefresh={refresh}
         period={period}
         onPeriodChange={handlePeriodChange}
+        overviewDateRange={{
+          appliedRange: activeOverviewRange,
+          getInitialRange: getInitialOverviewDateRange,
+          onApply: setOverviewDateRange,
+        }}
       />
-      <main
-        className={activeView === 'overview' ? 'main-panel main-panel--overview' : 'main-panel'}
-      >
+      <main className={isOverview ? 'main-panel main-panel--overview' : 'main-panel'}>
         <CompressedDataPanel
           status={compressedData.status}
           pending={compressedData.pending}

@@ -2,10 +2,11 @@
  * @file Usage aggregation and project identity
  * @description Aggregates token usage and defines the shared identity rules for projects.
  */
-
+import { formatLocalDateKey, parseCalendarDate } from './calendarDate';
 import type {
   RollingUsagePeriod,
   TokenUsage,
+  UsageDateRange,
   UsageDay,
   UsagePeriod,
   UsageProject,
@@ -18,6 +19,11 @@ const PERIOD_DAY_COUNTS: Record<RollingUsagePeriod, number> = {
   week: 7,
   month: 30,
 };
+
+type UsageDateRangeIssue = 'required' | 'invalid' | 'reversed' | 'future';
+
+type ParsedUsageDateRange =
+  { kind: UsageDateRangeIssue } | { kind: 'valid'; start: Date; end: Date };
 
 export const emptyTokenUsage = (): TokenUsage => ({
   inputTokens: 0,
@@ -54,10 +60,7 @@ export const getLocalDateKey = (timestamp: string): string => {
     return 'Unknown Date';
   }
 
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return formatLocalDateKey(date);
 };
 
 export const buildUsageSummary = (sessions: UsageSession[]): UsageSummary => {
@@ -71,6 +74,13 @@ export const buildUsageSummary = (sessions: UsageSession[]): UsageSummary => {
     byProject: buildProjectTotals(sortedSessions),
     sessions: sortedSessions,
   };
+};
+
+const getRollingPeriodStart = (period: RollingUsagePeriod, now: Date): Date => {
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - (PERIOD_DAY_COUNTS[period] - 1));
+  return start;
 };
 
 export const filterUsageSummary = (
@@ -88,15 +98,91 @@ export const filterUsageSummary = (
     return buildUsageSummary([]);
   }
 
-  const start = new Date(now);
-  start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() - (PERIOD_DAY_COUNTS[period] - 1));
-  const startTime = start.getTime();
+  const startTime = getRollingPeriodStart(period, now).getTime();
 
   return buildUsageSummary(
     summary.sessions.filter((session) => {
       const startedAt = new Date(session.startedAt).getTime();
       return !Number.isNaN(startedAt) && startedAt >= startTime && startedAt <= endTime;
+    })
+  );
+};
+
+const parseUsageDateRange = (
+  { startDate, endDate }: UsageDateRange,
+  today: string
+): ParsedUsageDateRange => {
+  if (!startDate || !endDate) {
+    return { kind: 'required' };
+  }
+
+  const start = parseCalendarDate(startDate);
+  const end = parseCalendarDate(endDate);
+  if (!start || !end) {
+    return { kind: 'invalid' };
+  }
+
+  if (startDate > endDate) {
+    return { kind: 'reversed' };
+  }
+
+  if (endDate > today) {
+    return { kind: 'future' };
+  }
+
+  return { kind: 'valid', start, end };
+};
+
+export const getUsageDateRangeIssue = (
+  range: UsageDateRange,
+  today: string
+): UsageDateRangeIssue | null => {
+  const { kind } = parseUsageDateRange(range, today);
+  return kind === 'valid' ? null : kind;
+};
+
+export const getInitialUsageDateRange = (
+  period: UsagePeriod,
+  days: readonly UsageDay[],
+  now: Date = new Date()
+): UsageDateRange => {
+  const endDate = formatLocalDateKey(now);
+  if (period !== 'total') {
+    return { startDate: formatLocalDateKey(getRollingPeriodStart(period, now)), endDate };
+  }
+
+  const earliestDay = days.find(({ date }) => date <= endDate && parseCalendarDate(date));
+  return { startDate: earliestDay?.date ?? endDate, endDate };
+};
+
+const getLocalMidnight = (calendarDate: Date, daysAfter: number): number => {
+  const midnight = new Date(0);
+  midnight.setHours(0, 0, 0, 0);
+  return midnight.setFullYear(
+    calendarDate.getUTCFullYear(),
+    calendarDate.getUTCMonth(),
+    calendarDate.getUTCDate() + daysAfter
+  );
+};
+
+export const filterUsageSummaryByDateRange = (
+  summary: UsageSummary,
+  range: UsageDateRange,
+  now: Date = new Date()
+): UsageSummary => {
+  const currentTime = now.getTime();
+  const dates = parseUsageDateRange(range, formatLocalDateKey(now));
+  if (dates.kind !== 'valid' || !Number.isFinite(currentTime)) {
+    return buildUsageSummary([]);
+  }
+
+  // 分别解析两端的本地零点，避免夏令时切换使某天多计或少计一个小时。
+  const startTime = getLocalMidnight(dates.start, 0);
+  const endTime = getLocalMidnight(dates.end, 1);
+  return buildUsageSummary(
+    summary.sessions.filter((session) => {
+      const startedAt = new Date(session.startedAt).getTime();
+      return startedAt >= startTime && startedAt < endTime && startedAt <= currentTime;
     })
   );
 };

@@ -336,7 +336,8 @@
   min-width: 6.5rem;
 }
 
-.language-selector .select-menu-trigger {
+.language-selector .select-menu-trigger,
+.overview-period-menu .select-menu-trigger {
   min-height: var(--control-height-compact);
   padding: 0 1.625rem 0 var(--space-2);
   box-shadow: none;
@@ -369,6 +370,20 @@
   color: var(--color-brand-950);
   background: var(--color-surface);
   box-shadow: 0 0.0625rem 0.25rem var(--color-shadow-soft);
+}
+
+.overview-period-menu {
+  display: none;
+}
+
+@media (max-width: 960px) {
+  .period-toggle--overview {
+    display: none;
+  }
+
+  .overview-period-menu {
+    display: block;
+  }
 }
 
 .icon-button {

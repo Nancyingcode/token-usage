@@ -300,6 +300,13 @@ const AppContent: React.FC<AppContentProps> = ({
           <PeriodEmptyState period={model.period} />
         </>
       );
+    case 'date-range-empty':
+      return (
+        <>
+          {renderFreshnessBanner(model.freshness, model.result.scannedAt, onRefresh, t, locale)}
+          <PeriodEmptyState range={model.range} />
+        </>
+      );
     case 'ready': {
       const SessionsView = views?.SessionsView;
       const ProjectsView = views?.ProjectsView;
@@ -317,6 +324,7 @@ const AppContent: React.FC<AppContentProps> = ({
               unknownModelPricing={unknownModelPricing}
               period={period}
               scannedAt={model.result.scannedAt}
+              overviewDateFilter={model.overviewDateFilter}
             />
           ) : null}
           {showSessions ? (

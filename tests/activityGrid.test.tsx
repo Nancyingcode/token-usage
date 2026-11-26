@@ -79,6 +79,46 @@ describe('buildActivityCells', () => {
     });
   });
 
+  it('anchors to the selected historical end week and keeps its later days outside the range', () => {
+    const range = { startDate: '2026-11-01', endDate: '2026-11-15' };
+    const cells = buildActivityCells(
+      [makeDay('2026-11-01', 25), makeDay('2026-11-15', 100), makeDay('2026-11-16', 10_000)],
+      range,
+      '2026-11-26'
+    );
+
+    expect(cells).toHaveLength(371);
+    expect(cells.filter(({ inPeriod }) => inPeriod)).toHaveLength(15);
+    expect(cells.at(-1)).toMatchObject({ date: '2026-11-21', inPeriod: false, isFuture: false });
+    expect(cells.find(({ date }) => date === '2026-11-01')?.level).toBe(1);
+    expect(cells.find(({ date }) => date === '2026-11-03')).toMatchObject({
+      inPeriod: true,
+      tokens: 0,
+      level: 0,
+    });
+    expect(cells.find(({ date }) => date === '2026-11-15')?.level).toBe(4);
+    expect(cells.find(({ date }) => date === '2026-11-16')?.level).toBe(0);
+  });
+
+  it('marks only days after local today as future when a custom range ends today', () => {
+    const today = '2026-11-26';
+    const cells = buildActivityCells([], { startDate: today, endDate: today }, today);
+
+    expect(cells.find(({ date }) => date === '2026-11-25')).toMatchObject({
+      inPeriod: false,
+      isFuture: false,
+    });
+    expect(cells.find(({ date }) => date === today)).toMatchObject({
+      inPeriod: true,
+      isFuture: false,
+    });
+    expect(cells.at(-1)).toMatchObject({
+      date: '2026-11-28',
+      inPeriod: false,
+      isFuture: true,
+    });
+  });
+
   it('places month labels across the full GitHub-style year window', () => {
     const cells = buildActivityCells([], 'total', '2026-08-03');
     const labels = buildActivityMonthLabels(cells);

@@ -21,6 +21,7 @@ import { buildSavingsRecommendations } from '../src/shared/costOptimizationSugge
 import { rebuildCostOptimizationIndex } from '../src/shared/costOptimizationIndex';
 import { buildSessionDiagnosisObservations } from '../src/shared/sessionDiagnosisCandidates';
 import { detectModelCostDominance } from '../src/shared/sessionDiagnosisModelCost';
+import { getLocalDateKey } from '../src/shared/usageMath';
 import { astraPricing, requestUsage } from './helpers/conditionalPricingFixture';
 import {
   COVERAGE,
@@ -159,6 +160,47 @@ describe('partial cache pricing', () => {
     expect(calculateEstimatedCost([usage], mergeModelPricing([partialPricing], []))).toEqual(
       estimate
     );
+  });
+
+  it('can group all cross-midnight slices and legacy usage under the session start date', () => {
+    const firstNight = new Date(2026, 10, 1, 23, 50).toISOString();
+    const secondDay = new Date(2026, 10, 2, 0, 10).toISOString();
+    const crossMidnight = {
+      ...source.session,
+      startedAt: firstNight,
+      endedAt: secondDay,
+      usageSlices: [
+        { ...usage, occurredAt: firstNight },
+        {
+          ...requestUsage(),
+          occurredAt: secondDay,
+          pricingContext: { ...requestUsage().pricingContext!, mode: 'unknown' as const },
+        },
+      ],
+    };
+    const legacy = {
+      ...source.session,
+      startedAt: firstNight,
+      endedAt: secondDay,
+      usageSlices: [],
+    };
+    const entries = [partialPricing, astraPricing];
+
+    const preset = buildOverviewCostEstimates([crossMidnight, legacy], entries);
+    const custom = buildOverviewCostEstimates(
+      [crossMidnight, legacy],
+      entries,
+      undefined,
+      (session) => getLocalDateKey(session.startedAt)
+    );
+
+    expect([...preset.dailyCosts.keys()]).toEqual(['2026-11-01', '2026-11-02']);
+    expect(custom.totalCost).toEqual(preset.totalCost);
+    expect(custom.totalCost).toMatchObject({
+      unpricedTokens: usage.cachedInputTokens + legacy.totalTokens,
+      conditionAssumedTokens: requestUsage().totalTokens,
+    });
+    expect([...custom.dailyCosts]).toEqual([['2026-11-01', custom.totalCost]]);
   });
 
   it('keeps budget amounts useful while marking only cache usage incomplete', () => {

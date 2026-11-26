@@ -74,6 +74,11 @@ export type RollingUsagePeriod = 'today' | 'week' | 'month';
 
 export type UsagePeriod = RollingUsagePeriod | 'total';
 
+export interface UsageDateRange {
+  startDate: string;
+  endDate: string;
+}
+
 export interface UsageSummary {
   totals: TokenUsage;
   byDay: UsageDay[];

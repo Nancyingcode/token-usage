@@ -1,9 +1,15 @@
 import type {
   RollingUsagePeriod,
+  UsageDateRange,
   UsagePeriod,
   UsageScanResult,
   UsageSummary,
 } from '../../shared/usageTypes';
+
+export interface OverviewDateFilter {
+  range: UsageDateRange;
+  today: string;
+}
 
 export interface ResolveAppContentModelInput {
   error: string | null;
@@ -11,6 +17,7 @@ export interface ResolveAppContentModelInput {
   result: UsageScanResult | null;
   filteredSummary: UsageSummary | null;
   period: UsagePeriod;
+  overviewDateFilter?: OverviewDateFilter;
 }
 
 export interface AppFreshness {
@@ -24,6 +31,12 @@ export type AppContentModel =
   | { kind: 'idle' }
   | { kind: 'empty'; result: UsageScanResult; freshness: AppFreshness }
   | {
+      kind: 'date-range-empty';
+      range: UsageDateRange;
+      result: UsageScanResult;
+      freshness: AppFreshness;
+    }
+  | {
       kind: 'period-empty';
       period: RollingUsagePeriod;
       result: UsageScanResult;
@@ -34,6 +47,7 @@ export type AppContentModel =
       result: UsageScanResult;
       summary: UsageSummary;
       freshness: AppFreshness;
+      overviewDateFilter?: OverviewDateFilter;
     };
 
 export const resolveAppContentModel = ({
@@ -42,6 +56,7 @@ export const resolveAppContentModel = ({
   result,
   filteredSummary,
   period,
+  overviewDateFilter,
 }: ResolveAppContentModelInput): AppContentModel => {
   if (result && filteredSummary) {
     const freshness: AppFreshness = {
@@ -53,11 +68,22 @@ export const resolveAppContentModel = ({
       return { kind: 'empty', result, freshness };
     }
 
-    if (filteredSummary.sessions.length === 0 && period !== 'total') {
-      return { kind: 'period-empty', period, result, freshness };
+    if (filteredSummary.sessions.length === 0) {
+      if (overviewDateFilter) {
+        return { kind: 'date-range-empty', range: overviewDateFilter.range, result, freshness };
+      }
+      if (period !== 'total') {
+        return { kind: 'period-empty', period, result, freshness };
+      }
     }
 
-    return { kind: 'ready', result, summary: filteredSummary, freshness };
+    return {
+      kind: 'ready',
+      result,
+      summary: filteredSummary,
+      freshness,
+      ...(overviewDateFilter ? { overviewDateFilter } : {}),
+    };
   }
 
   if (error) {

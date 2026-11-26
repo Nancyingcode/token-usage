@@ -4,26 +4,36 @@
  * 展示令牌与成本摘要、每日趋势和活动分布，并计算图表所需的展示模型。
  */
 import { PricingQualityNotice } from './PricingQualityNotice';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Coins, FileCode2, LockKeyhole, MessageSquareText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { parseCalendarDate } from '../../shared/calendarDate';
 import type {
   CostEstimate,
   ModelPricingEntry,
   UnknownModelPricing,
 } from '../../shared/budgetTypes';
 import { buildOverviewCostEstimates } from '../../shared/pricing';
+import { getLocalDateKey } from '../../shared/usageMath';
 import { getCachePercentage } from '../../shared/usageMetrics';
-import type { UsageDay, UsagePeriod, UsageSummary } from '../../shared/usageTypes';
+import type { UsageDateRange, UsageDay, UsagePeriod, UsageSummary } from '../../shared/usageTypes';
 import { resolveRendererLocale } from '../i18n';
 import {
   ACTIVITY_CELL_COUNT,
   ACTIVITY_WEEK_COUNT,
   buildActivityCells,
   buildActivityMonthLabels,
+  getClippedActivityRange,
   type ActivityCell,
 } from '../utils/activityGrid';
-import { formatCompactNumber, formatNumber, formatUsd } from '../utils/formatters';
+import type { OverviewDateFilter } from '../utils/appContentModel';
+import {
+  createCalendarDateRangeFormatter,
+  formatCompactNumber,
+  formatNumber,
+  formatUsd,
+} from '../utils/formatters';
+import { buildOverviewTrendBuckets } from '../utils/overviewTrend';
 import MetricCard from './MetricCard';
 import PageHeader from './PageHeader';
 
@@ -33,17 +43,20 @@ interface OverviewProps {
   unknownModelPricing?: UnknownModelPricing;
   period: UsagePeriod;
   scannedAt: string;
+  overviewDateFilter?: OverviewDateFilter;
 }
 
+type TrendDay = UsageDay & { endDate?: string };
+
 interface TrendChartProps {
-  days: UsageDay[];
+  days: TrendDay[];
   max: number;
   dailyCosts: Map<string, CostEstimate>;
 }
 
 interface ActivityGridProps {
   days: UsageDay[];
-  period: UsagePeriod;
+  period: UsagePeriod | UsageDateRange;
   anchorDate: string;
 }
 
@@ -69,7 +82,6 @@ const TREND_HIT_RADIUS = 12;
 const ACTIVE_POINT_RADIUS = 4.8;
 const INACTIVE_POINT_RADIUS = 2.4;
 const PERCENT_SCALE = 100;
-const DATE_PART_COUNT = 3;
 const ACTIVITY_LEFT_TOOLTIP_WEEK = 1;
 const ACTIVITY_RIGHT_TOOLTIP_WEEK = ACTIVITY_WEEK_COUNT - 2;
 
@@ -78,7 +90,7 @@ export type TooltipPlacement = 'left' | 'center' | 'right';
 export interface TrendPoint {
   x: number;
   y: number;
-  day: UsageDay;
+  day: TrendDay;
   cost: number;
   pricingIncomplete: boolean;
   assumedPricing: boolean;
@@ -86,11 +98,17 @@ export interface TrendPoint {
   placement: TooltipPlacement;
 }
 
-export const buildOverviewMotionKey = (summary: UsageSummary, period: UsagePeriod): string =>
-  `${period}:${summary.sessions.length}:${summary.totals.totalTokens}:${summary.byDay.at(-1)?.date ?? 'empty'}`;
+export const buildOverviewMotionKey = (
+  summary: UsageSummary,
+  period: UsagePeriod,
+  range?: UsageDateRange
+): string => {
+  const periodKey = range ? `${range.startDate}:${range.endDate}` : period;
+  return `${periodKey}:${summary.sessions.length}:${summary.totals.totalTokens}:${summary.byDay.at(-1)?.date ?? 'empty'}`;
+};
 
 export const buildTrendPoints = (
-  days: UsageDay[],
+  days: TrendDay[],
   max: number,
   dailyCosts: Map<string, CostEstimate>
 ): TrendPoint[] => {
@@ -137,22 +155,31 @@ const getTooltipStyle = (point: TrendPoint): React.CSSProperties => {
   } as React.CSSProperties;
 };
 
-const parseActivityDate = (value: string): Date | null => {
-  const parts = value.split('-').map(Number);
-
-  if (parts.length !== DATE_PART_COUNT || parts.some((part) => !Number.isInteger(part))) {
-    return null;
-  }
-
-  const [year, month, day] = parts;
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return Number.isNaN(date.getTime()) ? null : date;
-};
-
 const formatActivityDate = (value: string, formatter: Intl.DateTimeFormat): string => {
-  const date = parseActivityDate(value);
+  const date = parseCalendarDate(value);
   return date ? formatter.format(date) : value;
 };
+
+const getTrendAxisPoints = (points: TrendPoint[], showEndpoints: boolean): TrendPoint[] => {
+  if (!showEndpoints) {
+    const step = Math.max(1, Math.ceil(points.length / MAX_X_AXIS_LABEL_COUNT));
+    return points.filter((_, index) => index % step === 0);
+  }
+
+  const labelCount = Math.min(points.length, MAX_X_AXIS_LABEL_COUNT);
+  if (labelCount < 2) {
+    return points;
+  }
+
+  const step = (points.length - 1) / (labelCount - 1);
+  return Array.from({ length: labelCount }, (_, index) => points[Math.round(index * step)]);
+};
+
+const shouldShowAssumedPricing = (
+  assumedPricing: boolean,
+  pricingIncomplete: boolean,
+  isDateRange: boolean
+): boolean => assumedPricing && (isDateRange || !pricingIncomplete);
 
 const getActivityTooltipPlacement = (cell: ActivityCell): TooltipPlacement => {
   if (cell.weekIndex <= ACTIVITY_LEFT_TOOLTIP_WEEK) {
@@ -171,19 +198,37 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
   const { t, i18n } = useTranslation('analytics');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const [activeDate, setActiveDate] = useState<string | null>(null);
-  const points = buildTrendPoints(days, max, dailyCosts);
+  const isDateRange = days[0]?.endDate !== undefined;
+  const points = useMemo(() => {
+    const formatRange = isDateRange ? createCalendarDateRangeFormatter(locale) : undefined;
+    return buildTrendPoints(days, max, dailyCosts).map((point) => {
+      const { date, endDate } = point.day;
+      const dateLabel = formatRange && endDate ? formatRange({ startDate: date, endDate }) : date;
+      return { ...point, dateLabel };
+    });
+  }, [dailyCosts, days, isDateRange, locale, max]);
   const activePoint = points.find(({ day }) => day.date === activeDate);
+  const showActiveAssumedPricing = activePoint
+    ? shouldShowAssumedPricing(
+        activePoint.assumedPricing,
+        activePoint.pricingIncomplete,
+        isDateRange
+      )
+    : false;
   const path = points
     .map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x},${point.y}`)
     .join(' ');
-  const area = points.length
+  const showArea = points.length > 0 && (!isDateRange || points.length > 1);
+  const area = showArea
     ? `${path} L${CHART_RIGHT},${CHART_BASELINE} L${CHART_LEFT},${CHART_BASELINE} Z`
     : '';
+  const axisPoints = getTrendAxisPoints(points, isDateRange);
+  const lastPoint = points.at(-1);
 
   return (
     <div className="trend-chart">
       <div className="trend-chart-plot">
-        <svg role="img" aria-label={t('overview.tokenTrendChart')}>
+        <svg role={isDateRange ? 'group' : 'img'} aria-label={t('overview.tokenTrendChart')}>
           {/* 数据点和日期跟随折线定位，同时保持固定的像素尺寸。 */}
           <svg
             width="100%"
@@ -218,13 +263,17 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
             const active = point.day.date === activeDate;
             const x = toChartPercentage(point.x, CHART_VIEWBOX_WIDTH);
             const y = toChartPercentage(point.y, CHART_VIEWBOX_HEIGHT);
-            const pricingState = point.pricingIncomplete
-              ? t('overview.pricingState')
-              : point.assumedPricing
-                ? t('overview.assumedPricingState')
-                : '';
+            const showAssumed = shouldShowAssumedPricing(
+              point.assumedPricing,
+              point.pricingIncomplete,
+              isDateRange
+            );
+            const pricingState = [
+              point.pricingIncomplete ? t('overview.pricingState') : '',
+              showAssumed ? t('overview.assumedPricingState') : '',
+            ].join('');
             const ariaLabel = t('overview.trendPoint', {
-              date: point.day.date,
+              date: point.dateLabel,
               tokens: formatNumber(point.day.totalTokens, locale),
               cost: formatUsd(point.cost, locale),
               pricingState: [
@@ -260,21 +309,20 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
             );
           })}
           <g className="trend-x-axis">
-            {points
-              .filter(
-                (_, index) =>
-                  index % Math.max(1, Math.ceil(points.length / MAX_X_AXIS_LABEL_COUNT)) === 0
-              )
-              .map((point) => (
+            {axisPoints.map((point) => {
+              const axisDate =
+                point === lastPoint ? (point.day.endDate ?? point.day.date) : point.day.date;
+              return (
                 <text
                   key={point.day.date}
                   x={toChartPercentage(point.x, CHART_VIEWBOX_WIDTH)}
                   y={toChartPercentage(CHART_DATE_LABEL_Y, CHART_VIEWBOX_HEIGHT)}
                   textAnchor="middle"
                 >
-                  {point.day.date.slice(DATE_LABEL_START_INDEX)}
+                  {axisDate.slice(DATE_LABEL_START_INDEX)}
                 </text>
-              ))}
+              );
+            })}
           </g>
         </svg>
         {activePoint ? (
@@ -283,14 +331,15 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
             style={getTooltipStyle(activePoint)}
             aria-hidden="true"
           >
-            <strong>{activePoint.day.date}</strong>
+            <strong>{activePoint.dateLabel}</strong>
             <div className="trend-tooltip-cost">
               <span>{t('overview.estimatedCost')}</span>
               <b>{formatUsd(activePoint.cost, locale)}</b>
             </div>
             {activePoint.pricingIncomplete ? (
               <span className="pricing-incomplete-label">{t('overview.pricingIncomplete')}</span>
-            ) : activePoint.assumedPricing ? (
+            ) : null}
+            {showActiveAssumedPricing ? (
               <span className="pricing-assumed-label">{t('overview.assumedPricing')}</span>
             ) : null}
             {activePoint.conditionalPricing ? (
@@ -325,6 +374,8 @@ const ActivityGrid: React.FC<ActivityGridProps> = ({ days, period, anchorDate })
   const { t, i18n } = useTranslation('analytics');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const [activeDate, setActiveDate] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const rangeEndDate = typeof period === 'string' ? undefined : period.endDate;
   // 日历使用 UTC 保留日期键的自然日语义；格式化器随组件卸载释放，语言变化时重建。
   const dateFormatters = useMemo(
     () => ({
@@ -352,9 +403,16 @@ const ActivityGrid: React.FC<ActivityGridProps> = ({ days, period, anchorDate })
       ),
     [cells, dateFormatters]
   );
+  useEffect(() => {
+    const scroll = scrollRef.current;
+    if (rangeEndDate && scroll) {
+      // 窄窗口优先呈现用户所选的结束周，较早的自然周仍可横向浏览。
+      scroll.scrollLeft = scroll.scrollWidth;
+    }
+  }, [rangeEndDate]);
 
   return (
-    <div className="activity-calendar-scroll">
+    <div className="activity-calendar-scroll" ref={scrollRef}>
       <div className="activity-calendar">
         <div className="activity-months" aria-hidden="true">
           {Array.from({ length: ACTIVITY_WEEK_COUNT }, (_, weekIndex) => {
@@ -431,48 +489,84 @@ const Overview: React.FC<OverviewProps> = ({
   unknownModelPricing,
   period,
   scannedAt,
+  overviewDateFilter,
 }) => {
   const { t, i18n } = useTranslation('analytics');
   const { t: tCommon } = useTranslation('common');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
-  const days = summary.byDay.slice(-TREND_HISTORY_DAYS);
-  const maxDay = Math.max(1, ...days.map((day) => day.totalTokens));
-  const { totalCost, dailyCosts } = useMemo(
-    () => buildOverviewCostEstimates(summary.sessions, pricing, unknownModelPricing),
-    [summary.sessions, pricing, unknownModelPricing]
+  const dateRange = overviewDateFilter?.range;
+  const trend = useMemo(
+    () => (dateRange ? buildOverviewTrendBuckets(summary.byDay, dateRange) : null),
+    [dateRange, summary.byDay]
   );
+  const days = trend?.buckets ?? summary.byDay.slice(-TREND_HISTORY_DAYS);
+  const maxDay = Math.max(1, ...days.map((day) => day.totalTokens));
+  const { totalCost, dailyCosts } = useMemo(() => {
+    if (!trend) {
+      return buildOverviewCostEstimates(summary.sessions, pricing, unknownModelPricing);
+    }
+
+    return buildOverviewCostEstimates(summary.sessions, pricing, unknownModelPricing, (session) =>
+      trend.bucketStartByDay.get(getLocalDateKey(session.startedAt))
+    );
+  }, [summary.sessions, pricing, trend, unknownModelPricing]);
   const pricingIncomplete = totalCost.unpricedTokens > 0;
-  const assumedPricing = totalCost.assumedTokens > 0;
-  const showAssumedPricing = !pricingIncomplete && assumedPricing;
+  const showAssumedPricing = shouldShowAssumedPricing(
+    totalCost.assumedTokens > 0,
+    pricingIncomplete,
+    dateRange !== undefined
+  );
+  const pricingDetails = [];
+  if (pricingIncomplete) {
+    pricingDetails.push(
+      t('overview.pricingIncomplete'),
+      t('overview.unpricedTokens', {
+        tokens: formatCompactNumber(totalCost.unpricedTokens, locale),
+      })
+    );
+  }
+  if (showAssumedPricing) {
+    pricingDetails.push(
+      t('overview.assumedPricing'),
+      t('overview.assumedTokens', { tokens: formatCompactNumber(totalCost.assumedTokens, locale) })
+    );
+  }
+  const costDetail =
+    pricingDetails.length > 0
+      ? pricingDetails.join(' · ')
+      : t('overview.tokensPriced', {
+          tokens: formatCompactNumber(summary.totals.totalTokens, locale),
+        });
   const cachePercentage = getCachePercentage(
     summary.totals.inputTokens,
     summary.totals.cachedInputTokens
   );
-  const motionKey = buildOverviewMotionKey(summary, period);
-  const anchorDate = scannedAt.slice(0, ISO_DATE_LENGTH);
+  const motionKey = buildOverviewMotionKey(summary, period, dateRange);
+  const anchorDate = overviewDateFilter?.today ?? scannedAt.slice(0, ISO_DATE_LENGTH);
+  const clippedActivityRange = dateRange ? getClippedActivityRange(dateRange) : undefined;
+  const description = dateRange
+    ? t('overview.dateRangeSummary', { range: createCalendarDateRangeFormatter(locale)(dateRange) })
+    : t('overview.description');
+  let granularity: string | null = null;
+  if (trend) {
+    granularity =
+      trend.daysPerPoint === 1
+        ? t('overview.trendGranularity.daily')
+        : t('overview.trendGranularity.grouped', {
+            days: formatNumber(trend.daysPerPoint, locale),
+          });
+  }
 
   return (
     <section className="page-stack">
-      <PageHeader title={tCommon('navigation.overview')} description={t('overview.description')} />
+      <PageHeader title={tCommon('navigation.overview')} description={description} />
       <PricingQualityNotice quality={totalCost} />
       <div key={motionKey} className="overview-grid" data-motion="overview-story">
         <div className="metric-grid">
           <MetricCard
             label={t('overview.totalCost')}
             value={formatUsd(totalCost.pricedCostUsd, locale)}
-            detail={
-              pricingIncomplete
-                ? `${t('overview.pricingIncomplete')} · ${t('overview.unpricedTokens', {
-                    tokens: formatCompactNumber(totalCost.unpricedTokens, locale),
-                  })}`
-                : assumedPricing
-                  ? `${t('overview.assumedPricing')} · ${t('overview.assumedTokens', {
-                      tokens: formatCompactNumber(totalCost.assumedTokens, locale),
-                    })}`
-                  : t('overview.tokensPriced', {
-                      tokens: formatCompactNumber(summary.totals.totalTokens, locale),
-                    })
-            }
+            detail={costDetail}
             icon={Coins}
             emphasis="featured"
           />
@@ -519,6 +613,7 @@ const Overview: React.FC<OverviewProps> = ({
             <span>
               <i aria-hidden="true" /> {t('overview.totalTokens')}
             </span>
+            {granularity ? <span>{granularity}</span> : null}
           </div>
         </article>
 
@@ -527,9 +622,16 @@ const Overview: React.FC<OverviewProps> = ({
             <div>
               <h3>{t('overview.activity')}</h3>
               <p>{t('overview.sessionsScanned', { count: summary.sessions.length })}</p>
+              {clippedActivityRange ? (
+                <p>
+                  {t('overview.activityVisibleRange', {
+                    range: createCalendarDateRangeFormatter(locale)(clippedActivityRange),
+                  })}
+                </p>
+              ) : null}
             </div>
           </div>
-          <ActivityGrid days={summary.byDay} period={period} anchorDate={anchorDate} />
+          <ActivityGrid days={summary.byDay} period={dateRange ?? period} anchorDate={anchorDate} />
         </article>
       </div>
     </section>

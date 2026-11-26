@@ -37,6 +37,20 @@ export const zhCN = {
       week: '近 7 天',
       month: '近 30 天',
       total: '全部',
+      customRange: {
+        label: '自定义',
+        title: '自定义日期范围',
+        startDate: '开始日期',
+        endDate: '结束日期',
+        apply: '应用',
+        applied: '已应用日期范围。{{range}}',
+        validation: {
+          required: '请输入开始日期和结束日期。',
+          invalid: '请输入有效的日期。',
+          reversed: '开始日期应早于或等于结束日期。',
+          future: '请选择今天或更早的日期。',
+        },
+      },
       refresh: '刷新实时数据',
       language: '语言',
       languageChangeFailed: '无法保存语言偏好。',
@@ -116,6 +130,7 @@ export const zhCN = {
       noSessions: '未找到 Codex 会话',
       scannedPath: '扫描路径：{{path}}',
       periodEmptyTitle: '此时间范围内没有会话',
+      dateRangeEmptyTitle: '所选日期范围内没有会话',
       periodEmptyDescription: '{{period}}没有启动过 Codex 会话。',
       period: {
         today: '今天',
@@ -220,6 +235,7 @@ export const zhCN = {
   analytics: {
     overview: {
       description: '查看本地费用、Token、缓存效率和活动。',
+      dateRangeSummary: '{{range}} · 按会话开始日统计',
       totalCost: '总费用',
       tokens: 'Token',
       linesChanged: '输出 Token',
@@ -233,6 +249,10 @@ export const zhCN = {
       reasoning: '+{{tokens}} 推理 Token',
       projects: '{{count}} 个项目',
       tokenUsageTrend: 'Token 用量趋势',
+      trendGranularity: {
+        daily: '按日汇总',
+        grouped: '每 {{days}} 天汇总',
+      },
       totalTokens: '总 Token',
       total: '总计',
       input: '输入',
@@ -240,6 +260,7 @@ export const zhCN = {
       cached: '缓存',
       estimatedCost: '估算费用',
       activity: '活动',
+      activityVisibleRange: '日历显示 {{range}}',
       activityDay: '{{date}}，{{tokens}} Token',
       activityTokens: '{{tokens}} Token',
       activityCalendar: 'Token 活动日历',
