@@ -236,7 +236,7 @@ export const zhCN = {
     overview: {
       description: '查看本地费用、Token、缓存效率和活动。',
       dateRangeSummary: '{{range}} · 按会话开始日统计',
-      totalCost: '总费用',
+      totalCost: '本地估算费用',
       tokens: 'Token',
       linesChanged: '输出 Token',
       sessions: '会话',
@@ -260,6 +260,8 @@ export const zhCN = {
       cached: '缓存',
       estimatedCost: '估算费用',
       activity: '活动',
+      activityShowWeeks: '显示 {{count}} 周',
+      activitySelectedWeeks: '仅显示所选周',
       activityVisibleRange: '日历显示 {{range}}',
       activityDay: '{{date}}，{{tokens}} Token',
       activityTokens: '{{tokens}} Token',

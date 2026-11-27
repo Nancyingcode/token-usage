@@ -4,7 +4,7 @@
  * 展示令牌与成本摘要、每日趋势和活动分布，并计算图表所需的展示模型。
  */
 import { PricingQualityNotice } from './PricingQualityNotice';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Coins, FileCode2, LockKeyhole, MessageSquareText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { parseCalendarDate } from '../../shared/calendarDate';
@@ -19,12 +19,10 @@ import { getCachePercentage } from '../../shared/usageMetrics';
 import type { UsageDateRange, UsageDay, UsagePeriod, UsageSummary } from '../../shared/usageTypes';
 import { resolveRendererLocale } from '../i18n';
 import {
-  ACTIVITY_CELL_COUNT,
   ACTIVITY_WEEK_COUNT,
   buildActivityCells,
   buildActivityMonthLabels,
   getClippedActivityRange,
-  type ActivityCell,
 } from '../utils/activityGrid';
 import type { OverviewDateFilter } from '../utils/appContentModel';
 import {
@@ -33,7 +31,7 @@ import {
   formatNumber,
   formatUsd,
 } from '../utils/formatters';
-import { buildOverviewTrendBuckets } from '../utils/overviewTrend';
+import { buildOverviewTrendBuckets, buildTrendTokenTicks } from '../utils/overviewTrend';
 import MetricCard from './MetricCard';
 import PageHeader from './PageHeader';
 
@@ -50,7 +48,6 @@ type TrendDay = UsageDay & { endDate?: string };
 
 interface TrendChartProps {
   days: TrendDay[];
-  max: number;
   dailyCosts: Map<string, CostEstimate>;
 }
 
@@ -58,6 +55,7 @@ interface ActivityGridProps {
   days: UsageDay[];
   period: UsagePeriod | UsageDateRange;
   anchorDate: string;
+  sessionCount: number;
 }
 
 const TREND_HISTORY_DAYS = 24;
@@ -69,21 +67,18 @@ const CHART_LEFT = 24;
 const CHART_RIGHT = 560;
 const CHART_BASELINE = 178;
 const CHART_VERTICAL_RANGE = 136;
-const CHART_GRID_LINE_COUNT = 5;
-const CHART_GRID_TOP = 42;
-const CHART_GRID_GAP = 34;
+const CHART_AXIS_LABEL_GAP = 8;
+const CHART_PEAK_LABEL_OFFSET_X = 6;
+const CHART_PEAK_LABEL_OFFSET_Y = 9;
 const DATE_LABEL_START_INDEX = 5;
 const CHART_DATE_LABEL_Y = 208;
 const MAX_X_AXIS_LABEL_COUNT = 8;
-const CHART_GRID_LINES = Array.from({ length: CHART_GRID_LINE_COUNT }, (_, index) => index);
 const TOOLTIP_LEFT_BOUNDARY = 160;
 const TOOLTIP_RIGHT_BOUNDARY = 424;
 const TREND_HIT_RADIUS = 12;
 const ACTIVE_POINT_RADIUS = 4.8;
 const INACTIVE_POINT_RADIUS = 2.4;
 const PERCENT_SCALE = 100;
-const ACTIVITY_LEFT_TOOLTIP_WEEK = 1;
-const ACTIVITY_RIGHT_TOOLTIP_WEEK = ACTIVITY_WEEK_COUNT - 2;
 
 export type TooltipPlacement = 'left' | 'center' | 'right';
 
@@ -98,14 +93,19 @@ export interface TrendPoint {
   placement: TooltipPlacement;
 }
 
+const getOverviewFilterKey = (period: UsagePeriod, range?: UsageDateRange): string =>
+  range ? `${range.startDate}:${range.endDate}` : period;
+
 export const buildOverviewMotionKey = (
   summary: UsageSummary,
   period: UsagePeriod,
   range?: UsageDateRange
 ): string => {
-  const periodKey = range ? `${range.startDate}:${range.endDate}` : period;
-  return `${periodKey}:${summary.sessions.length}:${summary.totals.totalTokens}:${summary.byDay.at(-1)?.date ?? 'empty'}`;
+  return `${getOverviewFilterKey(period, range)}:${summary.sessions.length}:${summary.totals.totalTokens}:${summary.byDay.at(-1)?.date ?? 'empty'}`;
 };
+
+const getTrendY = (tokens: number, max: number): number =>
+  CHART_BASELINE - (tokens / max) * CHART_VERTICAL_RANGE;
 
 export const buildTrendPoints = (
   days: TrendDay[],
@@ -117,7 +117,7 @@ export const buildTrendPoints = (
       days.length <= 1
         ? CHART_LEFT
         : CHART_LEFT + (index / (days.length - 1)) * (CHART_RIGHT - CHART_LEFT);
-    const y = CHART_BASELINE - (day.totalTokens / max) * CHART_VERTICAL_RANGE;
+    const y = getTrendY(day.totalTokens, max);
     const costEstimate = dailyCosts.get(day.date);
 
     return {
@@ -181,33 +181,29 @@ const shouldShowAssumedPricing = (
   isDateRange: boolean
 ): boolean => assumedPricing && (isDateRange || !pricingIncomplete);
 
-const getActivityTooltipPlacement = (cell: ActivityCell): TooltipPlacement => {
-  if (cell.weekIndex <= ACTIVITY_LEFT_TOOLTIP_WEEK) {
-    return 'left';
-  }
-
-  if (cell.weekIndex >= ACTIVITY_RIGHT_TOOLTIP_WEEK) {
-    return 'right';
-  }
-
-  return 'center';
-};
-
-const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
+const TrendChart: React.FC<TrendChartProps> = ({ days, dailyCosts }) => {
   const { t: tBudgets } = useTranslation('budgets');
   const { t, i18n } = useTranslation('analytics');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const [activeDate, setActiveDate] = useState<string | null>(null);
   const isDateRange = days[0]?.endDate !== undefined;
-  const points = useMemo(() => {
+  const { peakTokens, ticks, points } = useMemo(() => {
+    const peakTokens = Math.max(0, ...days.map(({ totalTokens }) => totalTokens));
+    const tickValues = buildTrendTokenTicks(peakTokens);
+    const scaleMax = tickValues[tickValues.length - 1];
+    const ticks = tickValues.map((value) => ({ value, y: getTrendY(value, scaleMax) }));
     const formatRange = isDateRange ? createCalendarDateRangeFormatter(locale) : undefined;
-    return buildTrendPoints(days, max, dailyCosts).map((point) => {
+    const points = buildTrendPoints(days, scaleMax, dailyCosts).map((point) => {
       const { date, endDate } = point.day;
       const dateLabel = formatRange && endDate ? formatRange({ startDate: date, endDate }) : date;
       return { ...point, dateLabel };
     });
-  }, [dailyCosts, days, isDateRange, locale, max]);
+    return { peakTokens, ticks, points };
+  }, [dailyCosts, days, isDateRange, locale]);
   const activePoint = points.find(({ day }) => day.date === activeDate);
+  const peakPoint =
+    peakTokens > 0 ? points.find(({ day }) => day.totalTokens === peakTokens) : null;
+  const alignPeakRight = peakPoint?.placement === 'right';
   const showActiveAssumedPricing = activePoint
     ? shouldShowAssumedPricing(
         activePoint.assumedPricing,
@@ -218,7 +214,7 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
   const path = points
     .map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x},${point.y}`)
     .join(' ');
-  const showArea = points.length > 0 && (!isDateRange || points.length > 1);
+  const showArea = points.length > 1;
   const area = showArea
     ? `${path} L${CHART_RIGHT},${CHART_BASELINE} L${CHART_LEFT},${CHART_BASELINE} Z`
     : '';
@@ -228,7 +224,7 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
   return (
     <div className="trend-chart">
       <div className="trend-chart-plot">
-        <svg role={isDateRange ? 'group' : 'img'} aria-label={t('overview.tokenTrendChart')}>
+        <svg role="group" aria-label={t('overview.tokenTrendChart')}>
           {/* 数据点和日期跟随折线定位，同时保持固定的像素尺寸。 */}
           <svg
             width="100%"
@@ -238,13 +234,14 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
             overflow="visible"
             aria-hidden="true"
           >
-            {CHART_GRID_LINES.map((line) => (
+            {ticks.map(({ value, y }) => (
               <line
-                key={line}
+                key={value}
+                className="trend-grid-line"
                 x1={CHART_LEFT}
                 x2={CHART_RIGHT}
-                y1={CHART_GRID_TOP + line * CHART_GRID_GAP}
-                y2={CHART_GRID_TOP + line * CHART_GRID_GAP}
+                y1={y}
+                y2={y}
               />
             ))}
             {area ? <path className="trend-area" d={area} /> : null}
@@ -259,6 +256,20 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
               />
             ) : null}
           </svg>
+          <g className="trend-y-axis" aria-hidden="true">
+            {ticks.map(({ value, y }) => (
+              <text
+                key={value}
+                x={toChartPercentage(CHART_LEFT, CHART_VIEWBOX_WIDTH)}
+                y={toChartPercentage(y, CHART_VIEWBOX_HEIGHT)}
+                dx={-CHART_AXIS_LABEL_GAP}
+                textAnchor="end"
+                dominantBaseline="middle"
+              >
+                {formatCompactNumber(value, locale)}
+              </text>
+            ))}
+          </g>
           {points.map((point) => {
             const active = point.day.date === activeDate;
             const x = toChartPercentage(point.x, CHART_VIEWBOX_WIDTH);
@@ -308,6 +319,19 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
               </g>
             );
           })}
+          {peakPoint ? (
+            <text
+              className="trend-peak-label"
+              x={toChartPercentage(peakPoint.x, CHART_VIEWBOX_WIDTH)}
+              y={toChartPercentage(peakPoint.y, CHART_VIEWBOX_HEIGHT)}
+              dx={alignPeakRight ? -CHART_PEAK_LABEL_OFFSET_X : CHART_PEAK_LABEL_OFFSET_X}
+              dy={-CHART_PEAK_LABEL_OFFSET_Y}
+              textAnchor={alignPeakRight ? 'end' : 'start'}
+              aria-hidden="true"
+            >
+              {formatCompactNumber(peakTokens, locale)}
+            </text>
+          ) : null}
           <g className="trend-x-axis">
             {axisPoints.map((point) => {
               const axisDate =
@@ -370,12 +394,16 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, max, dailyCosts }) => {
   );
 };
 
-const ActivityGrid: React.FC<ActivityGridProps> = ({ days, period, anchorDate }) => {
+const ActivityGrid: React.FC<ActivityGridProps> = ({ days, period, anchorDate, sessionCount }) => {
   const { t, i18n } = useTranslation('analytics');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const [activeDate, setActiveDate] = useState<string | null>(null);
+  const [showFullWindow, setShowFullWindow] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const rangeEndDate = typeof period === 'string' ? undefined : period.endDate;
+  const gridId = useId();
+  const range = typeof period === 'string' ? undefined : period;
+  const windowEndDate = range?.endDate ?? anchorDate;
+  const shouldAnchorEnd = range !== undefined || showFullWindow;
   // 日历使用 UTC 保留日期键的自然日语义；格式化器随组件卸载释放，语言变化时重建。
   const dateFormatters = useMemo(
     () => ({
@@ -386,12 +414,12 @@ const ActivityGrid: React.FC<ActivityGridProps> = ({ days, period, anchorDate })
   );
   const cells = useMemo(
     () =>
-      buildActivityCells(days, period, anchorDate).map((cell) => ({
+      buildActivityCells(days, period, anchorDate, showFullWindow).map((cell) => ({
         ...cell,
         formattedDate: cell.inPeriod ? formatActivityDate(cell.date, dateFormatters.day) : '',
         formattedTokens: cell.inPeriod ? formatNumber(cell.tokens, locale) : '',
       })),
-    [days, period, anchorDate, locale, dateFormatters]
+    [days, period, anchorDate, showFullWindow, locale, dateFormatters]
   );
   const monthLabels = useMemo(
     () =>
@@ -403,83 +431,127 @@ const ActivityGrid: React.FC<ActivityGridProps> = ({ days, period, anchorDate })
       ),
     [cells, dateFormatters]
   );
+  const weekCount = (cells.at(-1)?.weekIndex ?? -1) + 1;
+  const showWindowToggle = showFullWindow || weekCount < ACTIVITY_WEEK_COUNT;
+  const activeCell = cells.find(({ date }) => date === activeDate);
+  const clippedRange = range ? getClippedActivityRange(range) : undefined;
   useEffect(() => {
     const scroll = scrollRef.current;
-    if (rangeEndDate && scroll) {
+    if (shouldAnchorEnd && scroll) {
       // 窄窗口优先呈现用户所选的结束周，较早的自然周仍可横向浏览。
       scroll.scrollLeft = scroll.scrollWidth;
     }
-  }, [rangeEndDate]);
+  }, [shouldAnchorEnd, weekCount, windowEndDate]);
 
   return (
-    <div className="activity-calendar-scroll" ref={scrollRef}>
-      <div className="activity-calendar">
-        <div className="activity-months" aria-hidden="true">
-          {Array.from({ length: ACTIVITY_WEEK_COUNT }, (_, weekIndex) => {
-            const monthDate = monthLabels.get(weekIndex);
-            return <span key={weekIndex}>{monthDate ?? ''}</span>;
-          })}
+    <article className="panel activity-panel">
+      <div className="panel-heading compact">
+        <div>
+          <h3>{t('overview.activity')}</h3>
+          <p>{t('overview.sessionsScanned', { count: sessionCount })}</p>
+          {clippedRange ? (
+            <p>
+              {t('overview.activityVisibleRange', {
+                range: createCalendarDateRangeFormatter(locale)(clippedRange),
+              })}
+            </p>
+          ) : null}
         </div>
-        <div className="activity-wrap">
-          <div className="activity-labels" aria-hidden="true">
-            <span className="monday">{t('overview.weekday.monday')}</span>
-            <span className="wednesday">{t('overview.weekday.wednesday')}</span>
-            <span className="friday">{t('overview.weekday.friday')}</span>
-          </div>
-          <div
-            className="activity-grid"
-            role="group"
-            aria-label={t('overview.activityCalendar')}
-            data-day-count={ACTIVITY_CELL_COUNT}
-            data-week-count={ACTIVITY_WEEK_COUNT}
+        {showWindowToggle ? (
+          <button
+            className="secondary-button activity-window-toggle"
+            type="button"
+            aria-controls={gridId}
+            aria-expanded={showFullWindow}
+            onClick={() => setShowFullWindow((visible) => !visible)}
           >
-            {cells.map((cell) => {
-              const active = activeDate === cell.date;
-              const placement = getActivityTooltipPlacement(cell);
-              const { formattedDate, formattedTokens } = cell;
-
-              return (
-                <span key={cell.date} className="activity-cell-slot">
-                  {cell.isFuture ? (
-                    <span className="activity-cell future" aria-hidden="true" />
-                  ) : cell.inPeriod ? (
-                    <span
-                      className={`activity-cell level-${cell.level}${active ? ' active' : ''}`}
-                      role="img"
-                      tabIndex={0}
-                      aria-label={t('overview.activityDay', {
-                        date: formattedDate,
-                        tokens: formattedTokens,
-                      })}
-                      data-testid={`activity-day-${cell.date}`}
-                      onMouseEnter={() => setActiveDate(cell.date)}
-                      onMouseLeave={() => setActiveDate(null)}
-                      onFocus={() => setActiveDate(cell.date)}
-                      onBlur={() => setActiveDate(null)}
-                    />
-                  ) : (
-                    <span className="activity-cell outside-period" aria-hidden="true" />
-                  )}
-                  {active ? (
-                    <span className={`activity-tooltip ${placement}`} role="tooltip">
-                      <strong>{formattedDate}</strong>
-                      <span>{t('overview.activityTokens', { tokens: formattedTokens })}</span>
-                    </span>
-                  ) : null}
-                </span>
-              );
+            {showFullWindow
+              ? t('overview.activitySelectedWeeks')
+              : t('overview.activityShowWeeks', { count: ACTIVITY_WEEK_COUNT })}
+          </button>
+        ) : null}
+      </div>
+      <div className="activity-calendar-scroll" ref={scrollRef}>
+        <div
+          className="activity-calendar"
+          style={{ '--activity-week-count': weekCount } as React.CSSProperties}
+        >
+          <div className="activity-months" aria-hidden="true">
+            {Array.from({ length: weekCount }, (_, weekIndex) => {
+              const monthDate = monthLabels.get(weekIndex);
+              return <span key={weekIndex}>{monthDate ?? ''}</span>;
             })}
           </div>
-        </div>
-        <div className="activity-legend" aria-label={t('overview.activityLegend')}>
-          <span>{t('overview.activityLess')}</span>
-          {Array.from({ length: 5 }, (_, level) => (
-            <i key={level} className={`activity-cell level-${level}`} aria-hidden="true" />
-          ))}
-          <span>{t('overview.activityMore')}</span>
+          <div className="activity-wrap">
+            <div className="activity-labels" aria-hidden="true">
+              <span className="monday">{t('overview.weekday.monday')}</span>
+              <span className="wednesday">{t('overview.weekday.wednesday')}</span>
+              <span className="friday">{t('overview.weekday.friday')}</span>
+            </div>
+            <div
+              id={gridId}
+              className="activity-grid"
+              role="group"
+              aria-label={t('overview.activityCalendar')}
+              data-day-count={cells.length}
+              data-week-count={weekCount}
+            >
+              {cells.map((cell) => {
+                const active = activeDate === cell.date;
+                const { formattedDate, formattedTokens } = cell;
+
+                return (
+                  <span key={cell.date} className="activity-cell-slot">
+                    {cell.isFuture ? (
+                      <span className="activity-cell future" aria-hidden="true" />
+                    ) : cell.inPeriod ? (
+                      <span
+                        className={`activity-cell level-${cell.level}${active ? ' active' : ''}`}
+                        role="img"
+                        tabIndex={0}
+                        aria-label={t('overview.activityDay', {
+                          date: formattedDate,
+                          tokens: formattedTokens,
+                        })}
+                        data-testid={`activity-day-${cell.date}`}
+                        onMouseEnter={() => setActiveDate(cell.date)}
+                        onMouseLeave={() => setActiveDate(null)}
+                        onFocus={() => setActiveDate(cell.date)}
+                        onBlur={() => setActiveDate(null)}
+                      />
+                    ) : (
+                      <span className="activity-cell outside-period" aria-hidden="true" />
+                    )}
+                  </span>
+                );
+              })}
+            </div>
+            {activeCell ? (
+              <span
+                className="activity-tooltip"
+                style={
+                  {
+                    '--activity-tooltip-week': activeCell.weekIndex,
+                    '--activity-tooltip-weekday': activeCell.weekday,
+                  } as React.CSSProperties
+                }
+                role="tooltip"
+              >
+                <strong>{activeCell.formattedDate}</strong>
+                <span>{t('overview.activityTokens', { tokens: activeCell.formattedTokens })}</span>
+              </span>
+            ) : null}
+          </div>
+          <div className="activity-legend" aria-label={t('overview.activityLegend')}>
+            <span>{t('overview.activityLess')}</span>
+            {Array.from({ length: 5 }, (_, level) => (
+              <i key={level} className={`activity-cell level-${level}`} aria-hidden="true" />
+            ))}
+            <span>{t('overview.activityMore')}</span>
+          </div>
         </div>
       </div>
-    </div>
+    </article>
   );
 };
 
@@ -500,7 +572,6 @@ const Overview: React.FC<OverviewProps> = ({
     [dateRange, summary.byDay]
   );
   const days = trend?.buckets ?? summary.byDay.slice(-TREND_HISTORY_DAYS);
-  const maxDay = Math.max(1, ...days.map((day) => day.totalTokens));
   const { totalCost, dailyCosts } = useMemo(() => {
     if (!trend) {
       return buildOverviewCostEstimates(summary.sessions, pricing, unknownModelPricing);
@@ -543,26 +614,21 @@ const Overview: React.FC<OverviewProps> = ({
   );
   const motionKey = buildOverviewMotionKey(summary, period, dateRange);
   const anchorDate = overviewDateFilter?.today ?? scannedAt.slice(0, ISO_DATE_LENGTH);
-  const clippedActivityRange = dateRange ? getClippedActivityRange(dateRange) : undefined;
   const description = dateRange
     ? t('overview.dateRangeSummary', { range: createCalendarDateRangeFormatter(locale)(dateRange) })
     : t('overview.description');
-  let granularity: string | null = null;
-  if (trend) {
-    granularity =
-      trend.daysPerPoint === 1
-        ? t('overview.trendGranularity.daily')
-        : t('overview.trendGranularity.grouped', {
-            days: formatNumber(trend.daysPerPoint, locale),
-          });
-  }
+  const daysPerPoint = trend?.daysPerPoint ?? 1;
+  const granularity =
+    daysPerPoint === 1
+      ? t('overview.trendGranularity.daily')
+      : t('overview.trendGranularity.grouped', { days: formatNumber(daysPerPoint, locale) });
 
   return (
     <section className="page-stack">
       <PageHeader title={tCommon('navigation.overview')} description={description} />
       <PricingQualityNotice quality={totalCost} />
-      <div key={motionKey} className="overview-grid" data-motion="overview-story">
-        <div className="metric-grid">
+      <div className="overview-grid" data-motion="overview-story">
+        <div key={`metrics:${motionKey}`} className="metric-grid">
           <MetricCard
             label={t('overview.totalCost')}
             value={formatUsd(totalCost.pricedCostUsd, locale)}
@@ -597,42 +663,28 @@ const Overview: React.FC<OverviewProps> = ({
           />
         </div>
 
-        <article className="panel chart-panel">
+        <article key={`trend:${motionKey}`} className="panel chart-panel">
           <div className="panel-heading compact">
             <div>
               <h3>{t('overview.tokenUsageTrend')}</h3>
-              <p>
-                {t('overview.total')}: {formatUsd(totalCost.pricedCostUsd, locale)}
-                {pricingIncomplete ? ` · ${t('overview.pricingIncomplete')}` : ''}
-                {showAssumedPricing ? ` · ${t('overview.assumedPricing')}` : ''}
-              </p>
+              <p>{granularity}</p>
             </div>
           </div>
-          <TrendChart days={days} max={maxDay} dailyCosts={dailyCosts} />
+          <TrendChart days={days} dailyCosts={dailyCosts} />
           <div className="chart-legend">
             <span>
               <i aria-hidden="true" /> {t('overview.totalTokens')}
             </span>
-            {granularity ? <span>{granularity}</span> : null}
           </div>
         </article>
 
-        <article className="panel activity-panel">
-          <div className="panel-heading compact">
-            <div>
-              <h3>{t('overview.activity')}</h3>
-              <p>{t('overview.sessionsScanned', { count: summary.sessions.length })}</p>
-              {clippedActivityRange ? (
-                <p>
-                  {t('overview.activityVisibleRange', {
-                    range: createCalendarDateRangeFormatter(locale)(clippedActivityRange),
-                  })}
-                </p>
-              ) : null}
-            </div>
-          </div>
-          <ActivityGrid days={summary.byDay} period={dateRange ?? period} anchorDate={anchorDate} />
-        </article>
+        <ActivityGrid
+          key={`activity:${getOverviewFilterKey(period, dateRange)}`}
+          days={summary.byDay}
+          period={dateRange ?? period}
+          anchorDate={anchorDate}
+          sessionCount={summary.sessions.length}
+        />
       </div>
     </section>
   );

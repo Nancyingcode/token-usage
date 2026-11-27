@@ -3,15 +3,20 @@
  * @description Verifies natural-week alignment, rolling-period boundaries, and activity intensity.
  */
 import { describe, expect, it } from 'vitest';
-import { buildActivityCells, buildActivityMonthLabels } from '../src/renderer/utils/activityGrid';
+import {
+  buildActivityCells,
+  buildActivityMonthLabels,
+  getClippedActivityRange,
+} from '../src/renderer/utils/activityGrid';
 import type { UsageDay } from '../src/shared/usageTypes';
 
 describe('buildActivityCells', () => {
-  it('builds 53 complete Sunday-to-Saturday weeks around the anchor date', () => {
+  it('can expand to 53 complete Sunday-to-Saturday weeks around the anchor date', () => {
     const cells = buildActivityCells(
       [makeDay('2026-07-28', 50), makeDay('2026-08-02', 100)],
       'week',
-      '2026-08-03'
+      '2026-08-03',
+      true
     );
 
     expect(cells).toHaveLength(371);
@@ -38,6 +43,23 @@ describe('buildActivityCells', () => {
       level: 0,
       inPeriod: false,
       isFuture: true,
+    });
+  });
+
+  it.each([
+    { period: 'today', firstDate: '2026-08-02', weeks: 1 },
+    { period: 'week', firstDate: '2026-07-26', weeks: 2 },
+    { period: 'month', firstDate: '2026-07-05', weeks: 5 },
+    { period: 'total', firstDate: '2025-08-03', weeks: 53 },
+  ] as const)('shows $weeks natural weeks for $period', ({ period, firstDate, weeks }) => {
+    const cells = buildActivityCells([], period, '2026-08-03');
+
+    expect(cells).toHaveLength(weeks * 7);
+    expect(cells[0]).toMatchObject({ date: firstDate, weekIndex: 0, weekday: 0 });
+    expect(cells.at(-1)).toMatchObject({
+      date: '2026-08-08',
+      weekIndex: weeks - 1,
+      weekday: 6,
     });
   });
 
@@ -87,7 +109,7 @@ describe('buildActivityCells', () => {
       '2026-11-26'
     );
 
-    expect(cells).toHaveLength(371);
+    expect(cells).toHaveLength(21);
     expect(cells.filter(({ inPeriod }) => inPeriod)).toHaveLength(15);
     expect(cells.at(-1)).toMatchObject({ date: '2026-11-21', inPeriod: false, isFuture: false });
     expect(cells.find(({ date }) => date === '2026-11-01')?.level).toBe(1);
@@ -98,6 +120,53 @@ describe('buildActivityCells', () => {
     });
     expect(cells.find(({ date }) => date === '2026-11-15')?.level).toBe(4);
     expect(cells.find(({ date }) => date === '2026-11-16')?.level).toBe(0);
+  });
+
+  it('keeps month boundaries, zero and outside days when switching between the same range', () => {
+    const days = [
+      makeDay('2026-10-30', 10_000),
+      makeDay('2026-10-31', 25),
+      makeDay('2026-11-03', 100),
+    ];
+    const range = { startDate: '2026-10-31', endDate: '2026-11-03' };
+    const short = buildActivityCells(days, range, '2026-11-06');
+    const full = buildActivityCells(days, range, '2026-11-06', true);
+
+    expect(short).toHaveLength(14);
+    expect(short[0]).toMatchObject({ date: '2026-10-25', weekIndex: 0 });
+    expect(buildActivityMonthLabels(short)).toEqual([
+      { date: '2026-10-25', weekIndex: 0 },
+      { date: '2026-11-01', weekIndex: 1 },
+    ]);
+    expect(short.find(({ date }) => date === '2026-10-30')).toMatchObject({
+      inPeriod: false,
+      level: 0,
+    });
+    expect(short.find(({ date }) => date === '2026-11-01')).toMatchObject({
+      inPeriod: true,
+      level: 0,
+    });
+    expect(short.find(({ date }) => date === '2026-10-31')?.level).toBe(1);
+    expect(short.at(-1)).toMatchObject({ date: '2026-11-07', isFuture: true });
+    expect(full).toHaveLength(371);
+    expect(
+      full.filter(({ inPeriod }) => inPeriod).map(({ date, level }) => ({ date, level }))
+    ).toEqual(short.filter(({ inPeriod }) => inPeriod).map(({ date, level }) => ({ date, level })));
+  });
+
+  it('caps the selected natural weeks at 53 and clips only dates before the visible window', () => {
+    const endDate = '2026-11-27';
+    const ranges = [
+      { startDate: '2025-11-30', endDate },
+      { startDate: '2025-11-29', endDate },
+      { startDate: '2025-11-22', endDate },
+    ];
+
+    expect(ranges.map((range) => buildActivityCells([], range, endDate).length)).toEqual([
+      364, 371, 371,
+    ]);
+    expect(getClippedActivityRange(ranges[1])).toBeUndefined();
+    expect(getClippedActivityRange(ranges[2])).toEqual({ startDate: '2025-11-23', endDate });
   });
 
   it('marks only days after local today as future when a custom range ends today', () => {

@@ -17,7 +17,7 @@ import Overview, {
 import { buildOverviewTrendBuckets } from '../src/renderer/utils/overviewTrend';
 import type { CostEstimate, ModelPricingEntry } from '../src/shared/budgetTypes';
 import { buildUsageSummary } from '../src/shared/usageMath';
-import type { UsageDay, UsageSession } from '../src/shared/usageTypes';
+import type { UsageDateRange, UsageDay, UsageSession } from '../src/shared/usageTypes';
 import { createTestI18n, renderWithI18n } from './helpers/renderWithI18n';
 
 describe('custom overview trend', () => {
@@ -110,7 +110,9 @@ describe('custom overview trend', () => {
       </I18nextProvider>
     );
 
-    expect(screen.getByText('3-day totals')).toBeTruthy();
+    expect(container.querySelector('.chart-panel .panel-heading p')?.textContent).toBe(
+      '3-day totals'
+    );
     const points = [...container.querySelectorAll<SVGCircleElement>('.trend-hit-target')];
     expect(points).toHaveLength(30);
     expect(points[0].getAttribute('aria-label')).toMatch(
@@ -148,10 +150,16 @@ describe('custom overview trend', () => {
     );
     const { container, rerender } = render(overview('2026-07-20'));
     expect(container.querySelectorAll('.trend-hit-target[tabindex="0"]')).toHaveLength(1);
-    expect(screen.getByText('Daily')).toBeTruthy();
+    expect(container.querySelector('.trend-peak-label')?.textContent).toBe('110');
+    expect(container.querySelector('.trend-area')).toBeNull();
+    expect(screen.getByText('Daily totals')).toBeTruthy();
 
     rerender(overview('2024-01-01'));
     expect(screen.getByText('Calendar shows July 20, 2025 – July 20, 2026')).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'Token activity calendar' }).dataset.weekCount).toBe(
+      '53'
+    );
+    expect(screen.queryByRole('button', { name: 'Show 53 weeks' })).toBeNull();
     expect(screen.queryByTestId('activity-day-2025-07-19')).toBeNull();
     expect(screen.getByTestId('activity-day-2025-07-20').getAttribute('aria-label')).toContain(
       '0 tokens'
@@ -307,6 +315,63 @@ describe('buildTrendPoints', () => {
     expect(drawing?.getAttribute('preserveAspectRatio')).toBe('none');
   });
 
+  it('labels the highest point and aligns tick values to the same Token scale', () => {
+    const days = [
+      makeDay('2026-07-18', 125_000),
+      makeDay('2026-07-19', 640_000),
+      makeDay('2026-07-20', 640_000),
+    ];
+    const { container } = render(
+      <I18nextProvider i18n={createTestI18n('en')}>
+        <Overview
+          summary={{ ...buildUsageSummary([]), byDay: days }}
+          pricing={PRICING}
+          period="week"
+          scannedAt="2026-07-20T12:00:00.000Z"
+        />
+      </I18nextProvider>
+    );
+
+    expect(container.querySelector('.chart-panel .panel-heading p')?.textContent).toBe(
+      'Daily totals'
+    );
+    const chart = screen.getByRole('group', { name: 'Token trend chart' });
+    const ticks = Array.from(chart.querySelectorAll('.trend-y-axis text'));
+    expect(ticks.map((label) => label.textContent)).toEqual(['0', '250K', '500K', '750K']);
+    const peak = chart.querySelector('.trend-peak-label');
+    expect(peak?.textContent).toBe('640K');
+    const firstMaximum = chart.querySelector('.trend-hit-target[aria-label^="2026-07-19,"]');
+    expect(peak?.getAttribute('x')).toBe(firstMaximum?.getAttribute('cx'));
+    expect(peak?.getAttribute('y')).toBe(firstMaximum?.getAttribute('cy'));
+    const baseline = Number.parseFloat(ticks[0].getAttribute('y') ?? '');
+    const upperTick = Number.parseFloat(ticks[3].getAttribute('y') ?? '');
+    expect(Number.parseFloat(peak?.getAttribute('y') ?? '')).toBeCloseTo(
+      baseline - (baseline - upperTick) * (640_000 / 750_000)
+    );
+  });
+
+  it.each([{ days: [] }, { days: [makeDay('2026-07-20', 0)] }])(
+    'keeps the zero baseline without a peak for $days.length days',
+    ({ days }) => {
+      const { container } = render(
+        <I18nextProvider i18n={createTestI18n('en')}>
+          <Overview
+            summary={{ ...buildUsageSummary([]), byDay: days }}
+            pricing={PRICING}
+            period="week"
+            scannedAt="2026-07-20T12:00:00.000Z"
+          />
+        </I18nextProvider>
+      );
+
+      expect(
+        Array.from(container.querySelectorAll('.trend-y-axis text'), (label) => label.textContent)
+      ).toEqual(['0', '1', '2']);
+      expect(container.querySelector('.trend-peak-label')).toBeNull();
+      expect(container.querySelector('.trend-area')).toBeNull();
+    }
+  );
+
   it('maps boundaries, cost, and placement for chart points', () => {
     const dailyCosts = new Map<string, CostEstimate>([
       [
@@ -347,7 +412,7 @@ describe('buildTrendPoints', () => {
         summary={buildUsageSummary([PRICED_SESSION, UNKNOWN_SESSION])}
         pricing={PRICING}
         period="month"
-        scannedAt="2026-07-20T12:00:00.000Z"
+        scannedAt="2026-07-21T12:00:00.000Z"
       />
     );
 
@@ -364,8 +429,8 @@ describe('buildTrendPoints', () => {
     expect(markup).toContain('role="img" tabindex="0" aria-label="July 20, 2026, 220 tokens"');
     expect(markup).toContain('class="activity-cell outside-period" aria-hidden="true"');
     expect(markup).toContain('class="activity-months"');
-    expect(markup).toContain('data-week-count="53"');
-    expect(markup).toContain('data-day-count="371"');
+    expect(markup).toContain('data-week-count="5"');
+    expect(markup).toContain('data-day-count="35"');
     expect(markup).toContain('class="activity-cell future" aria-hidden="true"');
     expect(markup).toContain('Less');
     expect(markup).toContain('More');
@@ -383,6 +448,7 @@ describe('buildTrendPoints', () => {
     );
 
     expect(markup).toContain('Token 用量趋势');
+    expect(markup).toContain('按日汇总');
     expect(markup).toContain('US$0.0003');
     expect(markup).toContain('已在本地扫描 1 个会话');
   });
@@ -424,6 +490,59 @@ describe('buildTrendPoints', () => {
     expect(screen.queryByRole('tooltip')).toBeNull();
   });
 
+  it('expands the selected calendar weeks and retains the range and toggle focus on return', () => {
+    const i18n = createTestI18n('en');
+    const selectedRange = { startDate: '2026-07-20', endDate: '2026-07-22' };
+    const overview = (sessions: UsageSession[], range: UsageDateRange) => (
+      <I18nextProvider i18n={i18n}>
+        <Overview
+          summary={buildUsageSummary(sessions)}
+          pricing={PRICING}
+          period="total"
+          scannedAt="2026-07-26T12:00:00.000Z"
+          overviewDateFilter={{
+            range,
+            today: '2026-07-26',
+          }}
+        />
+      </I18nextProvider>
+    );
+    const { rerender } = render(overview([PRICED_SESSION], selectedRange));
+    const calendar = screen.getByRole('group', { name: 'Token activity calendar' });
+    const toggle = screen.getByRole('button', { name: 'Show 53 weeks' });
+    expect(calendar.dataset.weekCount).toBe('1');
+    expect(calendar.querySelectorAll('[tabindex="0"]')).toHaveLength(3);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    toggle.focus();
+    fireEvent.click(toggle);
+
+    expect(calendar.dataset.weekCount).toBe('53');
+    expect(calendar.dataset.dayCount).toBe('371');
+    expect(calendar.querySelectorAll('[tabindex="0"]')).toHaveLength(3);
+    expect(screen.queryByTestId('activity-day-2026-07-19')).toBeNull();
+    expect(screen.getByTestId('activity-day-2026-07-21').classList.contains('level-0')).toBe(true);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Show selected weeks' })).toBe(toggle);
+    expect(document.activeElement).toBe(toggle);
+
+    rerender(overview([PRICED_SESSION, UNKNOWN_SESSION], selectedRange));
+    expect(screen.getByRole('button', { name: 'Show selected weeks' })).toBe(toggle);
+    expect(calendar.dataset.weekCount).toBe('53');
+    expect(document.activeElement).toBe(toggle);
+    fireEvent.click(toggle);
+
+    expect(calendar.dataset.weekCount).toBe('1');
+    expect(screen.getByRole('button', { name: 'Show 53 weeks' })).toBe(toggle);
+    expect(document.activeElement).toBe(toggle);
+
+    fireEvent.click(toggle);
+    rerender(overview([PRICED_SESSION], { ...selectedRange, endDate: '2026-07-26' }));
+    expect(screen.getByRole('group', { name: 'Token activity calendar' }).dataset.weekCount).toBe(
+      '2'
+    );
+    expect(screen.getByRole('button', { name: 'Show 53 weeks' })).toBeTruthy();
+  });
+
   it('localizes the activity calendar labels and tooltip in Chinese', () => {
     render(
       <I18nextProvider i18n={createTestI18n('zh-CN')}>
@@ -438,6 +557,7 @@ describe('buildTrendPoints', () => {
 
     expect(screen.getByText('少')).toBeTruthy();
     expect(screen.getByText('多')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '显示 53 周' })).toBeTruthy();
     fireEvent.focus(screen.getByTestId('activity-day-2026-07-20'));
     expect(screen.getByRole('tooltip').textContent).toContain('2026年7月20日');
     expect(screen.getByRole('tooltip').textContent).toContain('110 Token');

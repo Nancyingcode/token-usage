@@ -7,7 +7,7 @@ import type { UsageDateRange, UsageDay, UsagePeriod } from '../../shared/usageTy
 
 export const ACTIVITY_WEEK_COUNT = 53;
 const DAYS_PER_WEEK = 7;
-export const ACTIVITY_CELL_COUNT = ACTIVITY_WEEK_COUNT * DAYS_PER_WEEK;
+const ACTIVITY_CELL_COUNT = ACTIVITY_WEEK_COUNT * DAYS_PER_WEEK;
 const FIRST_DAY_OF_MONTH = 1;
 enum ActivityLevel {
   None,
@@ -41,11 +41,12 @@ export interface ActivityMonthLabel {
 
 const parseUtcDate = (date: string): number => Date.parse(`${date}T00:00:00.000Z`);
 
-const getActivityWindowStart = (anchorTimestamp: number): number => {
-  const anchorWeekday = new Date(anchorTimestamp).getUTCDay();
-  const daysBeforeAnchor = anchorWeekday + (ACTIVITY_WEEK_COUNT - 1) * DAYS_PER_WEEK;
-  return anchorTimestamp - daysBeforeAnchor * MILLISECONDS_PER_DAY;
-};
+const getActivityWeekStart = (timestamp: number): number =>
+  timestamp - new Date(timestamp).getUTCDay() * MILLISECONDS_PER_DAY;
+
+const getActivityWindowStart = (anchorTimestamp: number): number =>
+  getActivityWeekStart(anchorTimestamp) -
+  (ACTIVITY_WEEK_COUNT - 1) * DAYS_PER_WEEK * MILLISECONDS_PER_DAY;
 
 export const getClippedActivityRange = (range: UsageDateRange): UsageDateRange | undefined => {
   const startTime = getActivityWindowStart(parseUtcDate(range.endDate));
@@ -62,21 +63,27 @@ const getLevel = (tokens: number, maxTokens: number): ActivityCell['level'] => {
 };
 
 export const buildActivityCells = (
-  days: UsageDay[],
+  days: readonly UsageDay[],
   period: UsagePeriod | UsageDateRange,
-  referenceDate: string
+  referenceDate: string,
+  showFullWindow = false
 ): ActivityCell[] => {
   const todayTimestamp = parseUtcDate(referenceDate);
   const anchorTimestamp =
     typeof period === 'string' ? todayTimestamp : parseUtcDate(period.endDate);
-  const firstTimestamp = getActivityWindowStart(anchorTimestamp);
   const periodStartTimestamp =
     typeof period === 'string'
       ? anchorTimestamp - (PERIOD_DAY_COUNTS[period] - 1) * MILLISECONDS_PER_DAY
       : parseUtcDate(period.startDate);
   const periodEndTimestamp = Math.min(anchorTimestamp, todayTimestamp);
+  const fullWindowStart = getActivityWindowStart(anchorTimestamp);
+  const firstTimestamp = showFullWindow
+    ? fullWindowStart
+    : Math.max(fullWindowStart, getActivityWeekStart(periodStartTimestamp));
+  const lastWeekStart = getActivityWeekStart(anchorTimestamp);
+  const dayCount = (lastWeekStart - firstTimestamp) / MILLISECONDS_PER_DAY + DAYS_PER_WEEK;
   const tokensByDate = new Map(days.map((day) => [day.date, day.totalTokens]));
-  const cells = Array.from({ length: ACTIVITY_CELL_COUNT }, (_, index) => {
+  const cells = Array.from({ length: dayCount }, (_, index) => {
     const timestamp = firstTimestamp + index * MILLISECONDS_PER_DAY;
     const date = formatCalendarDateKey(new Date(timestamp));
     const isFuture = timestamp > todayTimestamp;

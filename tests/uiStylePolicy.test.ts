@@ -282,11 +282,15 @@ describe('UI style policy', () => {
     }
   });
 
-  it('uses a full-width GitHub-style year for the overview activity calendar', () => {
+  it('aligns the overview calendar months and days to the selected week columns', () => {
     const views = readRendererStyle('styles/views.css');
 
-    expect(views).toContain('grid-template-columns: repeat(53, var(--activity-cell-size));');
-    expect(views).not.toContain('grid-template-columns: repeat(12, var(--activity-cell-size));');
+    expect(
+      views.match(
+        /grid-template-columns: repeat\(var\(--activity-week-count\), var\(--activity-cell-size\)\);/g
+      )
+    ).toHaveLength(2);
+    expect(views).toContain('grid-auto-flow: column;');
   });
 
   it('defines draggable title bar space without making controls draggable', () => {

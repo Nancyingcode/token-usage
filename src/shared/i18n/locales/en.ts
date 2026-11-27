@@ -242,7 +242,7 @@ export const en = {
     overview: {
       description: 'Track local cost, tokens, cache efficiency, and activity.',
       dateRangeSummary: '{{range}} · By session start date',
-      totalCost: 'Total Cost',
+      totalCost: 'Local Cost Estimate',
       tokens: 'Tokens',
       linesChanged: 'Lines Changed',
       sessions: 'Sessions',
@@ -256,7 +256,7 @@ export const en = {
       projects: '{{count}} projects',
       tokenUsageTrend: 'Token Usage Trend',
       trendGranularity: {
-        daily: 'Daily',
+        daily: 'Daily totals',
         grouped: '{{days}}-day totals',
       },
       totalTokens: 'Total Tokens',
@@ -266,6 +266,8 @@ export const en = {
       cached: 'Cached',
       estimatedCost: 'Estimated cost',
       activity: 'Activity',
+      activityShowWeeks: 'Show {{count}} weeks',
+      activitySelectedWeeks: 'Show selected weeks',
       activityVisibleRange: 'Calendar shows {{range}}',
       activityDay: '{{date}}, {{tokens}} tokens',
       activityTokens: '{{tokens}} tokens',

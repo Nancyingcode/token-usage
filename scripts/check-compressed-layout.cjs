@@ -14,23 +14,98 @@ const MIN_PLOT_HEIGHT = 190;
 const COMPACT_PANEL_MAX_HEIGHT = 92;
 const GEOMETRY_TOLERANCE = 1;
 const SCALE_TOLERANCE = 0.01;
+const MIN_TEXT_CONTRAST = 4.5;
+const LOCAL_COST_TITLES = { en: 'Local Cost Estimate', 'zh-CN': '本地估算费用' };
 const RENDER_WAIT_MS = 100;
 const RENDER_ATTEMPTS = 50;
 const CASES = [
   { width: 1264, height: 755, locale: 'zh-CN', theme: 'mint-light', scenario: 'pending' },
   { width: 1280, height: 720, locale: 'en', theme: 'mint-light', scenario: 'pending' },
   { width: 1440, height: 900, locale: 'zh-CN', theme: 'emerald-dark', scenario: 'pending' },
+  { width: 1280, height: 720, locale: 'en', theme: 'ocean-dark', scenario: 'none' },
+  { width: 1280, height: 720, locale: 'zh-CN', theme: 'sand-light', scenario: 'none' },
   { width: 640, height: 720, locale: 'en', theme: 'mint-light', scenario: 'partial' },
   { width: 800, height: 720, locale: 'en', theme: 'mint-light', scenario: 'pending' },
   { width: 1600, height: 1080, locale: 'zh-CN', theme: 'mint-light', scenario: 'pending' },
   { width: 1264, height: 755, locale: 'zh-CN', theme: 'mint-light', scenario: 'none' },
+  {
+    width: 1024,
+    height: 680,
+    locale: 'zh-CN',
+    theme: 'mint-light',
+    scenario: 'none',
+    range: 'short',
+  },
+  { width: 1024, height: 680, locale: 'en', theme: 'ocean-dark', scenario: 'none', range: 'short' },
+  {
+    width: 1360,
+    height: 900,
+    locale: 'zh-CN',
+    theme: 'mint-light',
+    scenario: 'none',
+    range: 'short',
+  },
 ];
+
+const relativeLuminance = (color) => {
+  const rgb = /^rgb\((\d+), (\d+), (\d+)\)$/.exec(color);
+  assert.ok(rgb, `Expected an opaque sRGB metric color, got ${color}`);
+  const [red, green, blue] = rgb.slice(1).map((value) => {
+    const channel = Number(value) / 255;
+    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+};
+
+const checkTextContrast = (foreground, background, label) => {
+  const lightness = [foreground, background].map(relativeLuminance);
+  const contrast = (Math.max(...lightness) + 0.05) / (Math.min(...lightness) + 0.05);
+  assert.ok(
+    contrast >= MIN_TEXT_CONTRAST,
+    `${label} contrast ${contrast.toFixed(2)}:1 is below ${MIN_TEXT_CONTRAST}:1`
+  );
+};
+
+const checkWithin = (box, container, label) => {
+  const edges = [
+    container.left - box.left,
+    box.right - container.right,
+    container.top - box.top,
+    box.bottom - container.bottom,
+  ];
+  assert.ok(
+    edges.every((edge) => edge <= GEOMETRY_TOLERANCE),
+    `${label} is clipped`
+  );
+};
+
+const checkMetricCards = (cards, locale, label) => {
+  assert.equal(cards.length, 4, `${label}: expected four overview metrics`);
+  const [cost, ...otherCards] = cards;
+  for (const [part, color] of Object.entries(cost.colors)) {
+    checkTextContrast(color, cost.background, `${label}: cost ${part}`);
+  }
+  for (const card of otherCards) {
+    assert.notEqual(card.background, cost.background, `${label}: another cost-style metric`);
+    assert.equal(
+      card.background,
+      otherCards[0].background,
+      `${label}: inconsistent neutral metrics`
+    );
+  }
+  assert.equal(
+    cost.title,
+    LOCAL_COST_TITLES[locale],
+    `${label}: cost should be labeled as a local estimate`
+  );
+};
 
 const runElectron = async () => {
   const { app, BrowserWindow } = require('electron');
   const directory = process.argv[3];
   const screenshots = process.argv[4];
   app.setPath('userData', join(directory, 'user-data'));
+  app.commandLine.appendSwitch('force-prefers-reduced-motion');
   app.disableHardwareAcceleration();
   await app.whenReady();
   const window = new BrowserWindow({
@@ -42,6 +117,7 @@ const runElectron = async () => {
       nodeIntegration: false,
       sandbox: true,
       backgroundThrottling: false,
+      offscreen: true,
     },
   });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -50,6 +126,18 @@ const runElectron = async () => {
       process.stderr.write(`${details.message}\n`);
     }
   });
+  const saveScreenshot = async (label) => {
+    if (!screenshots) {
+      return;
+    }
+    await window.webContents.executeJavaScript(
+      'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))'
+    );
+    const { data } = await window.webContents.debugger.sendCommand('Page.captureScreenshot', {
+      format: 'png',
+    });
+    await writeFile(join(screenshots, `${label}.png`), Buffer.from(data, 'base64'));
+  };
   const measure = () =>
     window.webContents.executeJavaScript(`(() => {
     const box = (selector) => document.querySelector(selector)?.getBoundingClientRect().toJSON();
@@ -58,6 +146,20 @@ const runElectron = async () => {
     const marker = box('.trend-point');
     const lineStart = trendLine.getPointAtLength(0).matrixTransform(trendLine.getScreenCTM());
     const labelTransform = document.querySelector('.trend-x-axis text').getScreenCTM();
+    const tickLabels = Array.from(document.querySelectorAll('.trend-y-axis text'), (label) => {
+      const { y } = new DOMPoint(0, label.y.baseVal.getItem(0).value).matrixTransform(label.getScreenCTM());
+      return { box: label.getBoundingClientRect().toJSON(), color: getComputedStyle(label).fill,
+        text: label.textContent, y };
+    });
+    const gridY = Array.from(document.querySelectorAll('.trend-grid-line'), (line) =>
+      line.getBoundingClientRect().top);
+    const calendarScroll = document.querySelector('.activity-calendar-scroll');
+    const calendarGrid = document.querySelector('.activity-grid');
+    const weekdayCenters = ['monday', 'wednesday', 'friday'].map((day, index) => {
+      const label = box('.activity-labels .' + day);
+      const cell = calendarGrid.children[index * 2 + 1].getBoundingClientRect();
+      return Math.abs(label.top + label.height / 2 - (cell.top + cell.height / 2));
+    });
     const monthSpans = document.querySelectorAll('.activity-months > span:not(:empty)');
     const monthLabels = Array.from(monthSpans, (span) => {
       const textRange = document.createRange();
@@ -65,16 +167,39 @@ const runElectron = async () => {
       const { left, right } = textRange.getBoundingClientRect();
       return { text: span.textContent, left, right };
     });
+    const metricCards = Array.from(document.querySelectorAll('.overview-grid .metric-card'), (card) => {
+      const title = card.querySelector('.metric-copy p');
+      return {
+        background: getComputedStyle(card).backgroundColor,
+        title: title.textContent,
+        colors: {
+          amount: getComputedStyle(card.querySelector('.metric-copy strong')).color,
+          title: getComputedStyle(title).color,
+          detail: getComputedStyle(card.querySelector('.metric-copy span')).color,
+        },
+      };
+    });
     return { plot: box('.trend-chart-plot'), chart: box('.chart-panel'), calendar: box('.activity-panel'),
-      trendSvg: box('.trend-chart-plot > svg'), marker, lineStart: { x: lineStart.x, y: lineStart.y },
-      labelScaleX: labelTransform.a, labelScaleY: labelTransform.d, monthLabels,
+      chartBackground: getComputedStyle(document.querySelector('.chart-panel')).backgroundColor,
+      tickLabels, gridY, peak: box('.trend-peak-label'),
+      peakColor: getComputedStyle(document.querySelector('.trend-peak-label')).fill,
+      lineDashoffset: parseFloat(getComputedStyle(trendLine).strokeDashoffset),
+      trendSvg: box('.trend-chart-plot > svg'), marker, metricCards, lineStart: { x: lineStart.x, y: lineStart.y },
+      labelScaleX: labelTransform.a, labelScaleY: labelTransform.d, monthLabels, weekdayCenters,
+      activity: {
+        weeks: Number(calendarGrid.dataset.weekCount),
+        days: calendarGrid.children.length,
+        focusableDays: calendarGrid.querySelectorAll('[tabindex="0"]').length,
+        scrollLeft: calendarScroll.scrollLeft, scrollWidth: calendarScroll.scrollWidth,
+        clientWidth: calendarScroll.clientWidth,
+      },
       panel: box('.compressed-data-panel'), main: box('main'),
       clientHeight: main.clientHeight, scrollHeight: main.scrollHeight,
       clientWidth: main.clientWidth, scrollWidth: main.scrollWidth,
       overflowY: getComputedStyle(main).overflowY,
       button: box('.compressed-data-heading button:last-child') };
   })()`);
-  const check = (geometry, label) => {
+  const check = (geometry, label, weeks = 53) => {
     const { plot, trendSvg, marker, lineStart, labelScaleX, labelScaleY, monthLabels } = geometry;
     assert.ok(
       plot.height >= MIN_PLOT_HEIGHT - GEOMETRY_TOLERANCE,
@@ -102,7 +227,31 @@ const runElectron = async () => {
       geometry.chart.bottom <= geometry.calendar.top + GEOMETRY_TOLERANCE,
       `${label}: chart overlaps calendar`
     );
-    assert.equal(monthLabels.length, 13, `${label}: activity calendar lost month labels`);
+    assert.ok([3, 4].includes(geometry.tickLabels.length), `${label}: unexpected Token tick count`);
+    assert.equal(geometry.lineDashoffset, 0, `${label}: trend line is hidden`);
+    assert.equal(geometry.tickLabels[0].text, '0', `${label}: Token axis does not start at zero`);
+    geometry.tickLabels.forEach((tick, index) => {
+      assert.ok(
+        Math.abs(tick.y - geometry.gridY[index]) <= GEOMETRY_TOLERANCE,
+        `${label}: Token tick ${tick.text} is detached from its grid line`
+      );
+      checkWithin(tick.box, geometry.chart, `${label}: Token tick ${tick.text}`);
+      checkTextContrast(tick.color, geometry.chartBackground, `${label}: Token tick`);
+    });
+    checkWithin(geometry.peak, geometry.chart, `${label}: trend peak`);
+    checkTextContrast(geometry.peakColor, geometry.chartBackground, `${label}: trend peak`);
+    assert.equal(geometry.activity.weeks, weeks, `${label}: unexpected activity week count`);
+    assert.equal(geometry.activity.days, weeks * 7, `${label}: incomplete activity weeks`);
+    assert.ok(
+      geometry.weekdayCenters.every((distance) => distance <= GEOMETRY_TOLERANCE),
+      `${label}: weekday labels are detached from the activity rows`
+    );
+    const expectedMonths = weeks === 53 ? 13 : 2;
+    assert.equal(
+      monthLabels.length,
+      expectedMonths,
+      `${label}: activity calendar lost month labels`
+    );
     monthLabels.slice(1).forEach((month, index) => {
       const previous = monthLabels[index];
       assert.ok(
@@ -125,6 +274,89 @@ const runElectron = async () => {
       );
     }
   };
+  const checkActivityTooltip = async (date, label, zero = false) => {
+    const detail = await window.webContents.executeJavaScript(`(async () => {
+      const day = document.querySelector('[data-testid="activity-day-' + ${JSON.stringify(date)} + '"]');
+      day.focus({ preventScroll: true });
+      await new Promise(requestAnimationFrame);
+      const tooltip = document.querySelector('.activity-tooltip');
+      return {
+        focused: document.activeElement === day,
+        tokens: tooltip?.querySelector('span')?.textContent,
+        box: tooltip?.getBoundingClientRect().toJSON(),
+        viewport: document.querySelector('.activity-calendar-scroll').getBoundingClientRect().toJSON(),
+      };
+    })()`);
+    assert.ok(detail.focused, `${label}: activity day did not receive focus`);
+    assert.ok(detail.box, `${label}: activity tooltip unavailable on focus`);
+    checkWithin(detail.box, detail.viewport, `${label}: activity tooltip for ${date}`);
+    if (zero) {
+      assert.match(detail.tokens, /^0 (tokens|Token)$/);
+    }
+  };
+  const pressKey = async ({ key, code, text, windowsVirtualKeyCode }) => {
+    const description = { key, code, windowsVirtualKeyCode };
+    const debuggerSession = window.webContents.debugger;
+    await debuggerSession.sendCommand('Input.dispatchKeyEvent', {
+      ...description,
+      type: 'keyDown',
+      text,
+      unmodifiedText: text,
+    });
+    await debuggerSession.sendCommand('Input.dispatchKeyEvent', { ...description, type: 'keyUp' });
+    await new Promise((resolveWait) => setTimeout(resolveWait, RENDER_WAIT_MS));
+  };
+  const checkShortCalendar = async (closed, label) => {
+    assert.equal(
+      closed.activity.scrollWidth,
+      closed.activity.clientWidth,
+      `${label}: short calendar scrolls`
+    );
+    assert.equal(closed.activity.focusableDays, 13, `${label}: selected dates are missing`);
+    await window.webContents.executeJavaScript(
+      "document.querySelector('.activity-panel').scrollIntoView({ block: 'end' })"
+    );
+    await checkActivityTooltip('2026-10-31', label);
+    await checkActivityTooltip('2026-11-12', label);
+    await checkActivityTooltip('2026-11-02', label, true);
+    const hitTarget = await window.webContents.executeJavaScript(`(() => {
+      const toggle = document.querySelector('.activity-window-toggle');
+      const { x, y, width, height } = toggle.getBoundingClientRect();
+      toggle.focus({ preventScroll: true });
+      return document.elementFromPoint(x + width / 2, y + height / 2)?.closest('button') === toggle;
+    })()`);
+    assert.ok(hitTarget, `${label}: calendar toggle is covered`);
+    await pressKey({ key: 'Enter', code: 'Enter', text: '\r', windowsVirtualKeyCode: 13 });
+    const expanded = await measure();
+    check(expanded, `${label}-53-weeks`);
+    assert.equal(
+      expanded.activity.focusableDays,
+      closed.activity.focusableDays,
+      `${label}: calendar toggle changed the selected dates`
+    );
+    assert.ok(
+      Math.abs(
+        expanded.activity.scrollWidth - expanded.activity.clientWidth - expanded.activity.scrollLeft
+      ) <= GEOMETRY_TOLERANCE,
+      `${label}: expanded calendar is scrolled away from its end week`
+    );
+    const toggleState = () =>
+      window.webContents.executeJavaScript(`(() => {
+        const toggle = document.querySelector('.activity-window-toggle');
+        return { focused: document.activeElement === toggle, expanded: toggle.getAttribute('aria-expanded') };
+      })()`);
+    assert.deepEqual(await toggleState(), { focused: true, expanded: 'true' });
+    await saveScreenshot(`${label}-53-weeks`);
+    await checkActivityTooltip('2026-11-12', `${label}-53-weeks`);
+    await window.webContents.executeJavaScript(
+      "document.querySelector('.activity-window-toggle').focus({ preventScroll: true })"
+    );
+    await pressKey({ key: ' ', code: 'Space', text: ' ', windowsVirtualKeyCode: 32 });
+    check(await measure(), `${label}-selected-weeks`, 3);
+    assert.deepEqual(await toggleState(), { focused: true, expanded: 'false' });
+    await window.webContents.executeJavaScript('document.activeElement.blur()');
+    await saveScreenshot(`${label}-activity`);
+  };
   try {
     for (const fixture of CASES) {
       window.setContentSize(fixture.width, fixture.height);
@@ -139,25 +371,45 @@ const runElectron = async () => {
         }
         await new Promise((resolveWait) => setTimeout(resolveWait, RENDER_WAIT_MS));
       }
+      if (!window.webContents.debugger.isAttached()) {
+        window.webContents.debugger.attach();
+      }
+      await window.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled', {
+        enabled: true,
+      });
       await window.webContents.executeJavaScript(
         `document.documentElement.dataset.theme = ${JSON.stringify(fixture.theme)}`
       );
       await new Promise((resolveWait) => setTimeout(resolveWait, RENDER_WAIT_MS));
-      const label = `${fixture.width}x${fixture.height}-${fixture.locale}-${fixture.theme}-${fixture.scenario}`;
+      const rangeSuffix = fixture.range ? `-${fixture.range}` : '';
+      const weeks = fixture.range === 'short' ? 3 : 53;
+      const label = `${fixture.width}x${fixture.height}-${fixture.locale}-${fixture.theme}-${fixture.scenario}${rangeSuffix}`;
       const closed = await measure();
-      if (screenshots) {
-        await writeFile(
-          join(screenshots, `${label}.png`),
-          (await window.webContents.capturePage()).toPNG()
-        );
-      }
-      check(closed, label);
-      const chartKeyboardAccess = await window.webContents.executeJavaScript(`(() => {
+      checkMetricCards(closed.metricCards, fixture.locale, label);
+      await saveScreenshot(label);
+      check(closed, label, weeks);
+      const chartKeyboardAccess = await window.webContents.executeJavaScript(`(async () => {
         const point = document.querySelector('.trend-chart [tabindex="0"]');
         point.focus({ preventScroll: true });
-        return document.activeElement === point;
+        await new Promise(requestAnimationFrame);
+        const hint = document.querySelector('.trend-tooltip');
+        const result = {
+          focused: document.activeElement === point,
+          hasEstimate: Boolean(hint?.querySelector('.trend-tooltip-cost b')?.textContent),
+          box: hint?.getBoundingClientRect().toJSON(),
+        };
+        point.blur();
+        return result;
       })()`);
-      assert.ok(chartKeyboardAccess, `${label}: chart lost keyboard access`);
+      assert.ok(chartKeyboardAccess.focused, `${label}: chart point did not receive focus`);
+      assert.ok(
+        chartKeyboardAccess.hasEstimate,
+        `${label}: chart keyboard tooltip lost the cost estimate`
+      );
+      checkWithin(chartKeyboardAccess.box, closed.chart, `${label}: trend tooltip`);
+      if (fixture.range === 'short') {
+        await checkShortCalendar(closed, label);
+      }
       if (fixture.scenario === 'pending' && fixture.width >= 1000) {
         assert.ok(
           closed.panel.height <= COMPACT_PANEL_MAX_HEIGHT,
@@ -170,25 +422,20 @@ const runElectron = async () => {
         );
         await new Promise((resolveWait) => setTimeout(resolveWait, RENDER_WAIT_MS));
         const expanded = await measure();
-        check(expanded, `${label}-expanded`);
+        check(expanded, `${label}-expanded`, weeks);
         assert.ok(expanded.panel.height > closed.panel.height, `${label}: details did not expand`);
         await window.webContents.executeJavaScript(
           `document.querySelector('.compressed-data-failures')?.setAttribute('open', '')`
         );
         await new Promise((resolveWait) => setTimeout(resolveWait, RENDER_WAIT_MS));
-        check(await measure(), `${label}-failures`);
-        if (screenshots) {
-          await writeFile(
-            join(screenshots, `${label}-expanded.png`),
-            (await window.webContents.capturePage()).toPNG()
-          );
-        }
+        check(await measure(), `${label}-failures`, weeks);
+        await saveScreenshot(`${label}-expanded`);
         await window.webContents.executeJavaScript(
           `document.querySelector('.compressed-data-failures')?.removeAttribute('open'); document.querySelector('.compressed-data-panel [aria-expanded]').click()`
         );
         await new Promise((resolveWait) => setTimeout(resolveWait, RENDER_WAIT_MS));
         const collapsed = await measure();
-        check(collapsed, `${label}-collapsed`);
+        check(collapsed, `${label}-collapsed`, weeks);
         assert.ok(
           Math.abs(collapsed.panel.height - closed.panel.height) <= GEOMETRY_TOLERANCE,
           `${label}: details did not collapse`
@@ -197,7 +444,7 @@ const runElectron = async () => {
       await window.webContents.executeJavaScript(
         `document.querySelector('.pricing-quality-notice').setAttribute('open', '')`
       );
-      check(await measure(), `${label}-pricing-details`);
+      check(await measure(), `${label}-pricing-details`, weeks);
       process.stdout.write(
         `${label}: plot ${closed.plot.height}px; panel ${closed.panel?.height ?? 0}px; passed\n`
       );

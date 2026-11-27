@@ -136,6 +136,15 @@ code {
   border-radius: 6px;
 }
 
+.overview-grid .metric-card--featured {
+  background: var(--color-brand-950);
+  border-color: var(--color-brand-950);
+}
+
+.overview-grid .metric-card--featured .metric-copy :is(p, span) {
+  color: var(--color-brand-sidebar-muted);
+}
+
 .tone-mint .metric-copy strong {
   color: var(--color-brand-500);
 }
@@ -5577,6 +5586,7 @@ code {
 
 .trend-chart {
   height: 13.5rem;
+  padding-inline-start: 2rem;
 }
 
 .trend-chart-plot {
@@ -5739,6 +5749,18 @@ code {
   font-size: var(--font-size-label);
 }
 
+.trend-y-axis {
+  fill: var(--color-text);
+  font-size: var(--font-size-label);
+}
+
+.trend-peak-label {
+  fill: var(--color-text);
+  font-size: var(--font-size-body-small);
+  font-weight: 700;
+  pointer-events: none;
+}
+
 .chart-legend {
   display: flex;
   justify-content: center;
@@ -5764,10 +5786,16 @@ code {
   overflow: visible;
 }
 
+.activity-window-toggle {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
 .activity-calendar-scroll {
   min-width: 0;
-  padding-top: 3.25rem;
-  margin-top: -3.25rem;
+  padding-top: 3.75rem;
+  margin-top: -3.75rem;
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-inline: contain;
@@ -5776,16 +5804,19 @@ code {
 .activity-calendar {
   --activity-cell-size: 0.6875rem;
   --activity-cell-gap: var(--space-1);
+  --activity-weekday-width: 2.75rem;
+  --activity-weekday-gap: 0.625rem;
   width: max-content;
   min-width: min(100%, 15rem);
+  padding-inline-end: var(--space-4);
   display: grid;
   gap: var(--space-2);
 }
 
 .activity-months {
-  margin-left: 3.375rem;
+  margin-inline-start: calc(var(--activity-weekday-width) + var(--activity-weekday-gap));
   display: grid;
-  grid-template-columns: repeat(53, var(--activity-cell-size));
+  grid-template-columns: repeat(var(--activity-week-count), var(--activity-cell-size));
   gap: var(--activity-cell-gap);
   color: var(--color-text-muted);
   font-size: var(--font-size-label);
@@ -5804,10 +5835,11 @@ code {
 }
 
 .activity-wrap {
+  position: relative;
   display: grid;
-  grid-template-columns: 2.75rem max-content;
+  grid-template-columns: var(--activity-weekday-width) max-content;
   align-items: start;
-  gap: 0.625rem;
+  gap: var(--activity-weekday-gap);
 }
 
 .activity-labels {
@@ -5834,7 +5866,7 @@ code {
 
 .activity-grid {
   display: grid;
-  grid-template-columns: repeat(53, var(--activity-cell-size));
+  grid-template-columns: repeat(var(--activity-week-count), var(--activity-cell-size));
   grid-template-rows: repeat(7, var(--activity-cell-size));
   grid-auto-flow: column;
   gap: var(--activity-cell-gap);
@@ -5842,7 +5874,6 @@ code {
 }
 
 .activity-cell-slot {
-  position: relative;
   width: var(--activity-cell-size);
   height: var(--activity-cell-size);
   display: block;
@@ -5858,7 +5889,7 @@ code {
 
 .activity-cell.active,
 .activity-cell:focus-visible {
-  outline: 2px solid var(--color-brand-950);
+  outline: 2px solid var(--color-brand-700);
   outline-offset: 2px;
 }
 
@@ -5894,12 +5925,21 @@ code {
 }
 
 .activity-tooltip {
-  --activity-tooltip-shift: -50%;
+  --activity-tooltip-half-width: min(5.5rem, 50%);
+  --activity-cell-step: calc(var(--activity-cell-size) + var(--activity-cell-gap));
+  --activity-tooltip-center: calc(
+    var(--activity-weekday-width) + var(--activity-weekday-gap) + var(--activity-cell-size) / 2 +
+      var(--activity-tooltip-week) * var(--activity-cell-step)
+  );
   position: absolute;
   z-index: 4;
-  left: 50%;
-  bottom: calc(100% + 0.5rem);
-  min-width: 9.5rem;
+  left: clamp(
+    var(--activity-tooltip-half-width),
+    var(--activity-tooltip-center),
+    100% - var(--activity-tooltip-half-width)
+  );
+  top: calc(var(--activity-tooltip-weekday) * var(--activity-cell-step) - var(--space-2));
+  width: calc(2 * var(--activity-tooltip-half-width));
   padding: var(--space-2) var(--space-3);
   display: grid;
   gap: var(--space-1);
@@ -5910,16 +5950,8 @@ code {
   box-shadow: var(--shadow-overlay);
   font-size: var(--font-size-label);
   pointer-events: none;
-  transform: translateX(var(--activity-tooltip-shift));
-  white-space: nowrap;
-}
-
-.activity-tooltip.left {
-  --activity-tooltip-shift: -8%;
-}
-
-.activity-tooltip.right {
-  --activity-tooltip-shift: -92%;
+  transform: translate(-50%, -100%);
+  overflow-wrap: anywhere;
 }
 
 .activity-tooltip strong {

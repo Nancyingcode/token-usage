@@ -1,6 +1,6 @@
 /**
- * @file 概览自定义趋势
- * @description 将选中的自然日连续分组，使长区间也能在有限数量的图表点上展示。
+ * @file 概览趋势的日期分组和 Token 纵轴
+ * @description 让不同跨度的区间使用有限数量的数据点，并按最大用量确定刻度。
  */
 import {
   formatCalendarDateKey,
@@ -11,6 +11,22 @@ import { addTokenUsage, emptyTokenUsage } from '../../shared/usageMath';
 import type { UsageDateRange, UsageDay } from '../../shared/usageTypes';
 
 const MAX_TREND_POINTS = 31;
+const MAX_TREND_TICK_INTERVALS = 3;
+const MIN_TREND_TICK_INTERVALS = 2;
+const DECIMAL_BASE = 10;
+const QUARTER_DECIMAL_MULTIPLIER = 2.5;
+const HALF_DECIMAL_MULTIPLIER = 5;
+const TREND_TICK_MULTIPLIERS = [1, 2, QUARTER_DECIMAL_MULTIPLIER, HALF_DECIMAL_MULTIPLIER];
+
+export const buildTrendTokenTicks = (maxTokens: number): number[] => {
+  const minimumStep = Math.max(1, maxTokens / MAX_TREND_TICK_INTERVALS);
+  const magnitude = DECIMAL_BASE ** Math.floor(Math.log10(minimumStep));
+  const multiplier =
+    TREND_TICK_MULTIPLIERS.find((value) => value * magnitude >= minimumStep) ?? DECIMAL_BASE;
+  const step = Math.ceil(multiplier * magnitude);
+  const intervals = Math.max(MIN_TREND_TICK_INTERVALS, Math.ceil(maxTokens / step));
+  return Array.from({ length: intervals + 1 }, (_, index) => index * step);
+};
 
 interface TrendBucket extends UsageDay {
   endDate: string;

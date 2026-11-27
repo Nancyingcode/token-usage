@@ -13,6 +13,10 @@ import { createTestI18n } from '../helpers/renderWithI18n';
 const params = new URLSearchParams(window.location.search);
 const locale = params.get('locale') === 'en' ? 'en' : 'zh-CN';
 const scenario = params.get('scenario');
+const shortRange =
+  params.get('range') === 'short'
+    ? { range: { startDate: '2026-10-31', endDate: '2026-11-12' }, today: '2026-11-13' }
+    : undefined;
 const SYNTHETIC_PRICING: ModelPricingEntry[] = [
   {
     modelId: 'layout-fixture',
@@ -25,27 +29,46 @@ const SYNTHETIC_PRICING: ModelPricingEntry[] = [
     rulesStatus: 'unavailable',
   },
 ];
-const sessions: UsageSession[] = Array.from({ length: 24 }, (_, index) => {
-  const date = `2026-10-${String(index + 1).padStart(2, '0')}T00:00:00Z`;
+const samples = shortRange
+  ? [
+      { date: '2026-10-31', input: 1_860_000 },
+      { date: '2026-11-01', input: 3_100_000 },
+      { date: '2026-11-03', input: 2_600_000 },
+      { date: '2026-11-04', input: 4_300_000 },
+      { date: '2026-11-06', input: 1_720_000 },
+      { date: '2026-11-07', input: 4_720_000 },
+      { date: '2026-11-08', input: 3_340_000 },
+      { date: '2026-11-09', input: 8_140_000 },
+      { date: '2026-11-10', input: 5_410_000 },
+      { date: '2026-11-11', input: 4_260_000 },
+      { date: '2026-11-12', input: 5_830_000 },
+    ]
+  : Array.from({ length: 24 }, (_, index) => ({
+      date: `2026-10-${String(index + 1).padStart(2, '0')}`,
+      input: 120_000 + (index % 5) * 60_000,
+    }));
+const sessions: UsageSession[] = samples.map(({ date, input }, index) => {
+  const timestamp = new Date(`${date}T12:00:00`).toISOString();
+  const output = shortRange ? Math.round(input * 0.04) : 20_000;
   const usage = {
-    inputTokens: 120_000 + (index % 5) * 60_000,
-    outputTokens: 20_000,
-    cachedInputTokens: 80_000,
-    reasoningOutputTokens: 4_000,
-    totalTokens: 140_000 + (index % 5) * 60_000,
+    inputTokens: input,
+    outputTokens: output,
+    cachedInputTokens: shortRange ? Math.round(input * 0.67) : 80_000,
+    reasoningOutputTokens: shortRange ? Math.round(output * 0.3) : 4_000,
+    totalTokens: input + output,
   };
   return {
     ...usage,
     sessionId: String(index),
     sourceFile: `synthetic/${index}.jsonl`,
-    startedAt: date,
-    endedAt: date,
+    startedAt: timestamp,
+    endedAt: timestamp,
     projectPath: 'synthetic',
     projectName: 'Synthetic project',
     eventCount: 1,
     turnOutcomes: [],
     warnings: [],
-    usageSlices: [{ ...usage, occurredAt: date, modelId: 'layout-fixture' }],
+    usageSlices: [{ ...usage, occurredAt: timestamp, modelId: 'layout-fixture' }],
   };
 });
 const status: CompressedDataStatus = {
@@ -100,7 +123,8 @@ createRoot(container).render(
             summary={buildUsageSummary(sessions)}
             pricing={SYNTHETIC_PRICING}
             period="total"
-            scannedAt="2026-10-24T00:24:00Z"
+            scannedAt={shortRange ? '2026-11-13T00:24:00Z' : '2026-10-24T00:24:00Z'}
+            overviewDateFilter={shortRange}
           />
         </div>
       </main>
