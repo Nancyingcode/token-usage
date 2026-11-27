@@ -5,20 +5,21 @@
  */
 
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { useExitTransition } from '../src/renderer/hooks/useExitTransition';
+import { fireAnimationEvent } from './helpers/fireAnimationEvent';
 
 interface ExitHarnessProps {
   onExited: () => void;
 }
 
 const ExitHarness: React.FC<ExitHarnessProps> = ({ onExited }) => {
-  const { state, requestExit, handleAnimationEnd } = useExitTransition(onExited);
+  const { state, requestExit, setExitSurface } = useExitTransition(onExited, 'drawer-exit');
 
   return (
-    <div data-testid="exit-surface" data-state={state} onAnimationEnd={handleAnimationEnd}>
+    <div data-testid="exit-surface" data-state={state} ref={setExitSurface}>
       <button type="button" onClick={requestExit}>
         Close
       </button>
@@ -27,16 +28,20 @@ const ExitHarness: React.FC<ExitHarnessProps> = ({ onExited }) => {
   );
 };
 
-const setReducedMotion = (matches: boolean): void => {
-  Object.defineProperty(window, 'matchMedia', {
-    configurable: true,
-    value: vi.fn().mockReturnValue({ matches }),
-  });
+const setReducedMotion = (matches: boolean) => {
+  const preference = Object.assign(new EventTarget(), { matches });
+  vi.stubGlobal('matchMedia', () => preference);
+  return (next: boolean) => {
+    act(() => {
+      preference.matches = next;
+      preference.dispatchEvent(Object.assign(new Event('change'), { matches: next }));
+    });
+  };
 };
 
 describe('useExitTransition', () => {
   afterEach(() => {
-    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('waits for the surface animation and completes only once', () => {
@@ -52,11 +57,14 @@ describe('useExitTransition', () => {
     expect(surface.getAttribute('data-state')).toBe('exiting');
     expect(onExited).not.toHaveBeenCalled();
 
-    fireEvent.animationEnd(screen.getByTestId('animated-child'));
+    fireAnimationEvent(screen.getByTestId('animated-child'), 'animationend', 'drawer-exit');
+    fireAnimationEvent(screen.getByTestId('animated-child'), 'animationcancel', 'drawer-exit');
+    fireAnimationEvent(surface, 'animationcancel', 'drawer-enter');
+    fireAnimationEvent(surface, 'animationend', 'drawer-enter');
     expect(onExited).not.toHaveBeenCalled();
 
-    fireEvent.animationEnd(surface);
-    fireEvent.animationEnd(surface);
+    fireAnimationEvent(surface, 'animationend', 'drawer-exit');
+    fireAnimationEvent(surface, 'animationend', 'drawer-exit');
     expect(onExited).toHaveBeenCalledTimes(1);
     expect(surface.getAttribute('data-state')).toBe('idle');
   });
@@ -70,5 +78,44 @@ describe('useExitTransition', () => {
 
     expect(onExited).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('exit-surface').getAttribute('data-state')).toBe('idle');
+  });
+
+  it.each(['preference', 'animationcancel'] as const)(
+    'completes a pending exit only once when %s interrupts it',
+    (firstNotification) => {
+      const changePreference = setReducedMotion(false);
+      const onExited = vi.fn();
+      render(<ExitHarness onExited={onExited} />);
+      const surface = screen.getByTestId('exit-surface');
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+      changePreference(false);
+      expect(onExited).not.toHaveBeenCalled();
+
+      if (firstNotification === 'preference') {
+        changePreference(true);
+      } else {
+        fireAnimationEvent(surface, 'animationcancel', 'drawer-exit');
+      }
+      expect(onExited).toHaveBeenCalledOnce();
+
+      fireAnimationEvent(surface, 'animationcancel', 'drawer-exit');
+      fireAnimationEvent(surface, 'animationend', 'drawer-exit');
+      changePreference(true);
+      expect(onExited).toHaveBeenCalledOnce();
+    }
+  );
+
+  it('discards the pending action and listeners when its surface unmounts', () => {
+    const changePreference = setReducedMotion(false);
+    const onExited = vi.fn();
+    const view = render(<ExitHarness onExited={onExited} />);
+    const surface = screen.getByTestId('exit-surface');
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    view.unmount();
+
+    changePreference(true);
+    fireAnimationEvent(surface, 'animationcancel', 'drawer-exit');
+    fireAnimationEvent(surface, 'animationend', 'drawer-exit');
+    expect(onExited).not.toHaveBeenCalled();
   });
 });

@@ -5,15 +5,12 @@
  */
 
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { describe, expect, it, vi } from 'vitest';
 import * as pricingCalculations from '../src/shared/pricing';
 import * as conditionalPricing from '../src/shared/conditionalPricing';
-import Overview, {
-  buildOverviewMotionKey,
-  buildTrendPoints,
-} from '../src/renderer/components/Overview';
+import Overview, { buildTrendPoints } from '../src/renderer/components/Overview';
 import { buildOverviewTrendBuckets } from '../src/renderer/utils/overviewTrend';
 import type { CostEstimate, ModelPricingEntry } from '../src/shared/budgetTypes';
 import { buildUsageSummary } from '../src/shared/usageMath';
@@ -444,12 +441,12 @@ describe('buildTrendPoints', () => {
     expect(markup).toContain('Pricing incomplete');
     expect(markup).toContain('Token Usage Trend');
     expect(markup).toContain('class="page-header"');
-    expect(markup).toContain('class="page-stack"');
+    expect(markup).toContain('class="page-stack page-stack--overview"');
     expect(markup.match(/Total Tokens/g)).toHaveLength(1);
     expect(markup).not.toContain('Cost Trends');
     expect(markup).not.toContain('>Input<');
-    expect(markup).toContain('data-motion="overview-story"');
-    expect(markup).toContain('pathLength="1"');
+    expect(markup).toContain('class="trend-line"');
+    expect(markup).not.toContain('trend-range-enter');
     expect(markup).toContain('role="img" tabindex="0" aria-label="July 20, 2026, 220 tokens"');
     expect(markup).toContain('class="activity-cell outside-period" aria-hidden="true"');
     expect(markup).toContain('class="activity-months"');
@@ -477,13 +474,55 @@ describe('buildTrendPoints', () => {
     expect(markup).toContain('已在本地扫描 1 个会话');
   });
 
-  it('builds a stable motion key that changes with the selected period', () => {
-    const summary = buildUsageSummary([PRICED_SESSION]);
-
-    expect(buildOverviewMotionKey(summary, 'week')).toBe(buildOverviewMotionKey(summary, 'week'));
-    expect(buildOverviewMotionKey(summary, 'week')).not.toBe(
-      buildOverviewMotionKey(summary, 'month')
+  it('updates a focused trend point in place when usage changes in the same period', () => {
+    const i18n = createTestI18n('en');
+    const overview = (sessions: UsageSession[]) => (
+      <I18nextProvider i18n={i18n}>
+        <Overview
+          summary={buildUsageSummary(sessions)}
+          pricing={PRICING}
+          period="month"
+          scannedAt="2026-07-26T12:00:00.000Z"
+        />
+      </I18nextProvider>
     );
+    const { container, rerender } = render(overview([PRICED_SESSION]));
+    const chart = container.querySelector('.chart-panel');
+    const metrics = container.querySelector('.metric-grid');
+    const calendar = screen.getByRole('group', { name: 'Token activity calendar' });
+    const toggle = screen.getByRole('button', { name: 'Show 53 weeks' });
+    fireEvent.click(toggle);
+
+    const point = screen.getByRole('img', { name: /110 total tokens.*\$0\.0003/i });
+    act(() => point.focus());
+    expect(document.activeElement).toBe(point);
+    expect(container.querySelector('.trend-tooltip')?.textContent).toContain('$0.0003');
+
+    const secondSession = makeSession('same-day', 'gpt-test');
+    rerender(overview([PRICED_SESSION, secondSession]));
+
+    expect(screen.getByRole('img', { name: /220 total tokens.*\$0\.0006/i })).toBe(point);
+    expect(document.activeElement).toBe(point);
+    expect(container.querySelector('.trend-tooltip')?.textContent).toContain('$0.0006');
+    expect(container.querySelector('.chart-panel')).toBe(chart);
+    expect(container.querySelector('.metric-grid')).toBe(metrics);
+    expect(screen.getByRole('group', { name: 'Token activity calendar' })).toBe(calendar);
+    expect(calendar.dataset.weekCount).toBe('53');
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+
+    const nextDay = '2026-07-21T10:00:00.000Z';
+    rerender(
+      overview([
+        {
+          ...secondSession,
+          startedAt: nextDay,
+          endedAt: nextDay,
+          usageSlices: [{ ...secondSession.usageSlices[0], occurredAt: nextDay }],
+        },
+      ])
+    );
+    expect(container.querySelector('.trend-tooltip')).toBeNull();
+    expect(point.isConnected).toBe(false);
   });
 
   it('shows the same activity tooltip on mouse hover and keyboard focus', () => {
@@ -565,6 +604,33 @@ describe('buildTrendPoints', () => {
       '2'
     );
     expect(screen.getByRole('button', { name: 'Show 53 weeks' })).toBeTruthy();
+  });
+
+  it('keeps the expanded calendar scroll position as the scan advances within its last week', () => {
+    const i18n = createTestI18n('en');
+    const summary = buildUsageSummary([PRICED_SESSION]);
+    const overview = (scannedAt: string) => (
+      <I18nextProvider i18n={i18n}>
+        <Overview summary={summary} pricing={PRICING} period="week" scannedAt={scannedAt} />
+      </I18nextProvider>
+    );
+    const view = render(overview('2026-07-20T12:00:00.000Z'));
+    const calendar = view.container.querySelector<HTMLElement>('.activity-calendar-scroll');
+    if (!calendar) {
+      throw new Error('Missing activity calendar scroll container');
+    }
+    const scrollWidth = 800;
+    const scrollPosition = 120;
+    Object.defineProperty(calendar, 'scrollWidth', { value: scrollWidth });
+    fireEvent.click(screen.getByRole('button', { name: 'Show 53 weeks' }));
+    expect(calendar.scrollLeft).toBe(scrollWidth);
+    calendar.scrollLeft = scrollPosition;
+
+    view.rerender(overview('2026-07-21T12:00:00.000Z'));
+    expect(calendar.scrollLeft).toBe(scrollPosition);
+
+    view.rerender(overview('2026-07-26T12:00:00.000Z'));
+    expect(calendar.scrollLeft).toBe(scrollWidth);
   });
 
   it('localizes the activity calendar labels and tooltip in Chinese', () => {

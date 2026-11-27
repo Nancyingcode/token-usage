@@ -24,4 +24,22 @@ describe('AnimatedValue', () => {
     expect(screen.getByTestId('total').textContent).toBe('12K');
     expect(screen.getByTestId('total')).not.toBe(initialValue);
   });
+
+  it('can display its initial value immediately and animate later value changes', () => {
+    const metric = (value: string) => (
+      <AnimatedValue value={value} animateOnMount={false} testId="total" />
+    );
+    const { rerender } = render(metric('10K'));
+    expect(screen.getByTestId('total').classList.contains('animated-value')).toBe(false);
+
+    rerender(metric('12K'));
+    const changedValue = screen.getByTestId('total');
+    expect(changedValue.textContent).toBe('12K');
+    expect(changedValue.classList.contains('animated-value')).toBe(true);
+    rerender(metric('12K'));
+    expect(screen.getByTestId('total')).toBe(changedValue);
+
+    rerender(metric('10K'));
+    expect(screen.getByTestId('total').classList.contains('animated-value')).toBe(true);
+  });
 });

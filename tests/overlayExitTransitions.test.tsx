@@ -16,6 +16,7 @@ import CostOptimizationSettingsDrawer from '../src/renderer/components/CostOptim
 import type { BudgetActions } from '../src/renderer/hooks/useBudgetSnapshot';
 import { createRendererI18n } from '../src/renderer/i18n';
 import { DEFAULT_COST_OPTIMIZATION_SETTINGS } from '../src/shared/costOptimizationValidation';
+import { fireAnimationEvent } from './helpers/fireAnimationEvent';
 
 const MODEL_OPTIONS = [
   { key: 'all', target: { kind: 'all' as const } },
@@ -42,7 +43,7 @@ describe('overlay exit transitions', () => {
   beforeEach(() => {
     Object.defineProperty(window, 'matchMedia', {
       configurable: true,
-      value: vi.fn().mockReturnValue({ matches: false }),
+      value: () => Object.assign(new EventTarget(), { matches: false }),
     });
   });
 
@@ -65,7 +66,7 @@ describe('overlay exit transitions', () => {
 
     expect(drawer.getAttribute('data-state')).toBe('exiting');
     expect(onClose).not.toHaveBeenCalled();
-    fireEvent.animationEnd(drawer);
+    fireAnimationEvent(drawer, 'animationend', 'drawer-exit');
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -87,7 +88,7 @@ describe('overlay exit transitions', () => {
 
     expect(drawer.getAttribute('data-state')).toBe('exiting');
     expect(onClose).not.toHaveBeenCalled();
-    fireEvent.animationEnd(drawer);
+    fireAnimationEvent(drawer, 'animationend', 'drawer-exit');
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -138,14 +139,18 @@ describe('overlay exit transitions', () => {
     );
 
     const dialog = screen.getByRole('alertdialog');
-    const backdrop = dialog.parentElement;
-    expect(backdrop).not.toBeNull();
+    const backdrop = dialog.parentElement as HTMLElement;
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    fireAnimationEvent(dialog, 'animationend', 'confirm-dialog-exit');
+    fireAnimationEvent(backdrop, 'animationcancel', 'dialog-backdrop-enter');
 
-    expect(backdrop?.getAttribute('data-state')).toBe('exiting');
+    expect(backdrop.getAttribute('data-state')).toBe('exiting');
     expect(onCancel).not.toHaveBeenCalled();
     expect(onConfirm).not.toHaveBeenCalled();
-    fireEvent.animationEnd(backdrop as HTMLElement);
+    fireAnimationEvent(backdrop, 'animationend', 'dialog-backdrop-exit');
+    fireAnimationEvent(backdrop, 'animationcancel', 'dialog-backdrop-exit');
     expect(onCancel).not.toHaveBeenCalled();
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });

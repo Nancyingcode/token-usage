@@ -22,7 +22,7 @@ const ToastNotice: React.FC<ToastNoticeProps> = ({
   durationMs = DEFAULT_TOAST_DURATION_MS,
 }) => {
   const { t } = useTranslation('common');
-  const { state, requestExit, handleAnimationEnd } = useExitTransition(onDismiss);
+  const { state, requestExit, setExitSurface } = useExitTransition(onDismiss, 'toast-exit');
 
   React.useEffect(() => {
     const timer = window.setTimeout(requestExit, durationMs);
@@ -30,12 +30,7 @@ const ToastNotice: React.FC<ToastNoticeProps> = ({
   }, [durationMs, requestExit]);
 
   return (
-    <div
-      className="toast-notice"
-      data-state={state}
-      role="status"
-      onAnimationEnd={handleAnimationEnd}
-    >
+    <div className="toast-notice" data-state={state} role="status" ref={setExitSurface}>
       <CheckCircle2 size={ICON_SIZE_SMALL} aria-hidden="true" />
       <span>{message}</span>
       <button type="button" aria-label={t('action.close')} onClick={requestExit}>

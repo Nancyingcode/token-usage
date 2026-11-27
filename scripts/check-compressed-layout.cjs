@@ -7,8 +7,10 @@ const { mkdtemp, mkdir, readFile, rm, writeFile } = require('node:fs/promises');
 const { basename, dirname, join, resolve } = require('node:path');
 const { tmpdir } = require('node:os');
 const { spawn } = require('node:child_process');
+const { checkRendererMotion } = require('./check-renderer-motion.cjs');
 
 const WORKSPACE = resolve(__dirname, '..');
+const checkMotion = process.argv.includes('--motion');
 const TEMP_PREFIX = 'token-usage-layout-';
 const MIN_PLOT_HEIGHT = 190;
 const COMPACT_PANEL_MAX_HEIGHT = 92;
@@ -142,7 +144,9 @@ const runElectron = async () => {
   const directory = process.argv[3];
   const screenshots = process.argv[4];
   app.setPath('userData', join(directory, 'user-data'));
-  app.commandLine.appendSwitch('force-prefers-reduced-motion');
+  if (!checkMotion) {
+    app.commandLine.appendSwitch('force-prefers-reduced-motion');
+  }
   app.disableHardwareAcceleration();
   await app.whenReady();
   const window = new BrowserWindow({
@@ -332,7 +336,7 @@ const runElectron = async () => {
       assert.match(detail.tokens, /^0 (tokens|Token)$/);
     }
   };
-  const pressKey = async ({ key, code, text, windowsVirtualKeyCode }) => {
+  const pressKey = async ({ key, code, text, windowsVirtualKeyCode }, waitMs = RENDER_WAIT_MS) => {
     const description = { key, code, windowsVirtualKeyCode };
     const debuggerSession = window.webContents.debugger;
     await debuggerSession.sendCommand('Input.dispatchKeyEvent', {
@@ -342,7 +346,9 @@ const runElectron = async () => {
       unmodifiedText: text,
     });
     await debuggerSession.sendCommand('Input.dispatchKeyEvent', { ...description, type: 'keyUp' });
-    await new Promise((resolveWait) => setTimeout(resolveWait, RENDER_WAIT_MS));
+    if (waitMs > 0) {
+      await new Promise((resolveWait) => setTimeout(resolveWait, waitMs));
+    }
   };
   const measurePricingNotice = () =>
     window.webContents.executeJavaScript(`(() => {
@@ -478,6 +484,10 @@ const runElectron = async () => {
     await saveScreenshot(`${label}-activity`);
   };
   try {
+    if (checkMotion) {
+      await checkRendererMotion(window, directory, pressKey);
+      return;
+    }
     for (const fixture of CASES) {
       window.setContentSize(fixture.width, fixture.height);
       await window.loadFile(join(directory, 'index.html'), { query: fixture });
@@ -598,8 +608,9 @@ const main = async () => {
     if (screenshots) {
       await mkdir(screenshots, { recursive: true });
     }
+    const fixtureName = checkMotion ? 'rendererMotionFixture.tsx' : 'compressedLayoutFixture.tsx';
     await require('esbuild').build({
-      entryPoints: [join(WORKSPACE, 'tests/nodeHelpers/compressedLayoutFixture.tsx')],
+      entryPoints: [join(WORKSPACE, 'tests/nodeHelpers', fixtureName)],
       tsconfig: join(WORKSPACE, 'tsconfig.web.json'),
       outfile: join(directory, 'fixture.js'),
       bundle: true,
@@ -613,14 +624,21 @@ const main = async () => {
         readFile(join(WORKSPACE, `src/renderer/styles/${name}.css`), 'utf8')
       )
     );
+    const staticStyles = checkMotion
+      ? ''
+      : '*,*::before,*::after {animation:none !important;transition:none !important;}';
     await writeFile(
       join(directory, 'index.html'),
-      `<!doctype html><html><head><meta charset="UTF-8"><style>${styles.join('\n')}\n*,*::before,*::after {animation:none !important;transition:none !important;}</style></head><body><div id="root"></div><script>window.addEventListener('error', (event) => console.error(event.message));</script><script src="fixture.js"></script></body></html>`
+      `<!doctype html><html><head><meta charset="UTF-8"><style>${styles.join('\n')}\n${staticStyles}</style></head><body><div id="root"></div><script>window.addEventListener('error', (event) => console.error(event.message));</script><script src="fixture.js"></script></body></html>`
     );
     const env = { ...process.env };
     delete env.ELECTRON_RUN_AS_NODE;
     await new Promise((resolveExit, rejectExit) => {
-      const child = spawn(require('electron'), [__filename, '--electron', directory, screenshots], {
+      const args = [__filename, '--electron', directory, screenshots];
+      if (checkMotion) {
+        args.push('--motion');
+      }
+      const child = spawn(require('electron'), args, {
         env,
         cwd: WORKSPACE,
         windowsHide: true,

@@ -335,8 +335,8 @@ const ThresholdForm: React.FC<BudgetDrawerProps> = ({ thresholds, actions, onClo
 };
 
 const BudgetDrawer: React.FC<BudgetDrawerProps> = (props) => {
-  const { state, requestExit, handleAnimationEnd } = useExitTransition(props.onClose);
-  const drawerRef = useOverlayFocus<HTMLElement>(requestExit);
+  const { state, requestExit, setExitSurface } = useExitTransition(props.onClose, 'drawer-exit');
+  const drawerRef = useOverlayFocus(requestExit, setExitSurface);
   const content =
     props.model.kind === 'policy' ? (
       <PolicyForm {...props} onClose={requestExit} />
@@ -352,7 +352,6 @@ const BudgetDrawer: React.FC<BudgetDrawerProps> = (props) => {
       role="dialog"
       aria-modal="true"
       aria-labelledby="budget-drawer-title"
-      onAnimationEnd={handleAnimationEnd}
     >
       {content}
     </aside>

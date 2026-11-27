@@ -137,8 +137,8 @@ const CostOptimizationSettingsDrawer: React.FC<CostOptimizationSettingsDrawerPro
   const [issues, setIssues] = useState<CostOptimizationValidationIssue[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const { state, requestExit, handleAnimationEnd } = useExitTransition(onClose);
-  const dialogRef = useOverlayFocus<HTMLElement>(requestExit);
+  const { state, requestExit, setExitSurface } = useExitTransition(onClose, 'drawer-exit');
+  const dialogRef = useOverlayFocus(requestExit, setExitSurface);
   const availableCandidateIdSet = new Set(availableCandidateModelIds);
   const displayedModelIds = [
     ...availableCandidateModelIds,
@@ -194,7 +194,6 @@ const CostOptimizationSettingsDrawer: React.FC<CostOptimizationSettingsDrawerPro
       role="dialog"
       aria-modal="true"
       aria-labelledby="cost-optimization-settings-title"
-      onAnimationEnd={handleAnimationEnd}
     >
       <form className="drawer-form" onSubmit={handleSubmit}>
         <div className="drawer-heading">

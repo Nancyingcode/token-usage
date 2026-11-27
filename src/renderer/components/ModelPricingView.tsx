@@ -83,8 +83,12 @@ const PricingEditor: React.FC<{
   );
   const [issues, setIssues] = useState<ValidationIssue[]>([]);
   const [saving, setSaving] = useState(false);
-  const { state: exitState, requestExit, handleAnimationEnd } = useExitTransition(onClose);
-  const drawerRef = useOverlayFocus<HTMLElement>(requestExit);
+  const {
+    state: exitState,
+    requestExit,
+    setExitSurface,
+  } = useExitTransition(onClose, 'drawer-exit');
+  const drawerRef = useOverlayFocus(requestExit, setExitSurface);
   const modelIdLocked = Boolean(model.entry);
   const catalogConditions = model.entry?.conditions ?? model.entry?.availableConditions;
   const rulePreview =
@@ -133,7 +137,6 @@ const PricingEditor: React.FC<{
       role="dialog"
       aria-modal="true"
       aria-labelledby="pricing-editor-title"
-      onAnimationEnd={handleAnimationEnd}
     >
       <form className="drawer-form" onSubmit={handleSubmit}>
         <div className="drawer-heading">
@@ -304,8 +307,12 @@ const UnknownPricingEditor: React.FC<{
   );
   const [issues, setIssues] = useState<ValidationIssue[]>([]);
   const [saving, setSaving] = useState(false);
-  const { state: exitState, requestExit, handleAnimationEnd } = useExitTransition(onClose);
-  const drawerRef = useOverlayFocus<HTMLElement>(requestExit);
+  const {
+    state: exitState,
+    requestExit,
+    setExitSurface,
+  } = useExitTransition(onClose, 'drawer-exit');
+  const drawerRef = useOverlayFocus(requestExit, setExitSurface);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
@@ -344,7 +351,6 @@ const UnknownPricingEditor: React.FC<{
       role="dialog"
       aria-modal="true"
       aria-labelledby="unknown-pricing-editor-title"
-      onAnimationEnd={handleAnimationEnd}
     >
       <form className="drawer-form" onSubmit={handleSubmit}>
         <div className="drawer-heading">

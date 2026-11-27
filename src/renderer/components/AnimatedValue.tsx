@@ -8,13 +8,25 @@ interface AnimatedValueProps {
   value: string;
   className?: string;
   testId?: string;
+  animateOnMount?: boolean;
 }
 
-const AnimatedValue: React.FC<AnimatedValueProps> = ({ value, className, testId }) => {
-  const classes = className ? `animated-value ${className}` : 'animated-value';
+const AnimatedValue: React.FC<AnimatedValueProps> = ({
+  value,
+  className,
+  testId,
+  animateOnMount = true,
+}) => {
+  const [motion, setMotion] = React.useState({ value, shouldAnimate: animateOnMount });
+  if (motion.value !== value) {
+    setMotion({ value, shouldAnimate: true });
+  }
+  const classes = [motion.shouldAnimate ? 'animated-value' : undefined, className]
+    .filter(Boolean)
+    .join(' ');
 
   return (
-    <strong key={value} className={classes} data-testid={testId}>
+    <strong key={value} className={classes || undefined} data-testid={testId}>
       {value}
     </strong>
   );

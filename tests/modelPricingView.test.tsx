@@ -9,6 +9,7 @@ import { astraPricing } from './helpers/conditionalPricingFixture';
 import ModelPricingView from '../src/renderer/components/ModelPricingView';
 import type { BudgetActions } from '../src/renderer/hooks/useBudgetSnapshot';
 import type { BudgetSnapshot, ModelPricingEntry } from '../src/shared/budgetTypes';
+import { fireAnimationEvent } from './helpers/fireAnimationEvent';
 import { createTestI18n, renderWithI18n } from './helpers/renderWithI18n';
 
 const PRICING: ModelPricingEntry[] = [
@@ -91,7 +92,7 @@ describe('ModelPricingView', () => {
     );
     const dialog = screen.getByRole('dialog');
     fireEvent.keyDown(dialog, { key: 'Escape' });
-    fireEvent.animationEnd(dialog);
+    fireAnimationEvent(dialog, 'animationend', 'drawer-exit');
     expect(document.activeElement).toBe(trigger);
   });
   it.each(['en', 'zh-CN'] as const)(
@@ -261,7 +262,7 @@ describe('ModelPricingView', () => {
 
     fireEvent.keyDown(dialog, { key: 'Escape' });
     expect(dialog.getAttribute('data-state')).toBe('exiting');
-    fireEvent.animationEnd(dialog);
+    fireAnimationEvent(dialog, 'animationend', 'drawer-exit');
 
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(document.activeElement).toBe(trigger);

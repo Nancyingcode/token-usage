@@ -67,9 +67,13 @@ code {
   animation: view-enter var(--duration-standard) var(--ease-motion-enter) both;
 }
 
+.view-transition > .page-stack--overview {
+  --view-enter-opacity: 0.9;
+}
+
 @keyframes view-enter {
   from {
-    opacity: 0;
+    opacity: var(--view-enter-opacity, 0);
     transform: translateY(var(--motion-distance-small));
   }
 }
@@ -1564,8 +1568,23 @@ code {
   -webkit-app-region: no-drag;
 }
 
+.date-range-dialog[open] {
+  animation: date-range-dialog-enter var(--duration-standard) var(--ease-motion-enter) both;
+}
+
 .date-range-dialog::backdrop {
   background: var(--color-shadow-dialog);
+}
+
+.date-range-dialog[open]::backdrop {
+  animation: dialog-backdrop-enter var(--duration-standard) var(--ease-motion-enter) both;
+}
+
+@keyframes date-range-dialog-enter {
+  from {
+    opacity: 0.9;
+    transform: translateY(var(--motion-distance-small));
+  }
 }
 
 .date-range-dialog form,
@@ -3899,6 +3918,10 @@ code {
   outline-offset: -2px;
 }
 
+.usage-row-details > summary svg {
+  transition: transform var(--duration-fast) var(--ease-motion-enter);
+}
+
 .usage-row-details[open] > summary svg {
   transform: rotate(180deg);
 }
@@ -5779,8 +5802,6 @@ code {
   stroke-width: 2.2;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-dasharray: 1;
-  stroke-dashoffset: 0;
 }
 
 .trend-chart .trend-guide {
@@ -6134,58 +6155,15 @@ code {
   flex: 0 0 var(--activity-cell-size);
 }
 
-[data-motion='overview-story'] .metric-card {
-  animation: overview-card-in 420ms ease both;
+.trend-range-enter {
+  opacity: 1;
+  transition: opacity var(--duration-fast) var(--ease-motion-enter);
 }
 
-[data-motion='overview-story'] .metric-card:nth-child(2) {
-  animation-delay: 80ms;
-}
-
-[data-motion='overview-story'] .metric-card:nth-child(3) {
-  animation-delay: 160ms;
-}
-
-[data-motion='overview-story'] .metric-card:nth-child(4) {
-  animation-delay: 240ms;
-}
-
-[data-motion='overview-story'] .trend-line {
-  stroke-dashoffset: 1;
-  animation: overview-line-draw 750ms 420ms ease forwards;
-}
-
-[data-motion='overview-story'] .trend-point {
-  animation: overview-point-in 360ms 620ms ease both;
-}
-
-[data-motion='overview-story'] .activity-grid {
-  animation: overview-activity-in 420ms 700ms ease both;
-}
-
-@keyframes overview-card-in {
-  from {
-    opacity: 0;
-    transform: translateY(0.5rem);
-  }
-}
-
-@keyframes overview-line-draw {
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes overview-point-in {
-  from {
-    opacity: 0;
-  }
-}
-
-@keyframes overview-activity-in {
-  from {
-    opacity: 0;
-    transform: translateY(0.25rem);
+/* Only newly attached graphics fade in, including after a rapid range change. */
+@starting-style {
+  .trend-range-enter {
+    opacity: 0.45;
   }
 }
 
@@ -6555,20 +6533,22 @@ code {
 @media (prefers-reduced-motion: reduce) {
   .view-transition > *,
   .dialog-backdrop,
-  .confirm-dialog {
+  .dialog-backdrop[data-state='exiting'],
+  .confirm-dialog,
+  .confirm-dialog[data-state='exiting'],
+  .date-range-dialog[open] {
     animation: none;
     transform: none;
   }
 
-  [data-motion='overview-story'] .metric-card,
-  [data-motion='overview-story'] .trend-line,
-  [data-motion='overview-story'] .trend-point,
-  [data-motion='overview-story'] .activity-grid {
+  .date-range-dialog[open]::backdrop {
     animation: none;
   }
 
-  [data-motion='overview-story'] .trend-line {
-    stroke-dashoffset: 0;
+  .trend-range-enter,
+  .trend-point,
+  .usage-row-details > summary svg {
+    transition: none;
   }
 
   .project-donut-segment-visible {

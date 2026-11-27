@@ -1074,7 +1074,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   .drawer-shell,
+  .drawer-shell[data-state='exiting'],
   .toast-notice,
+  .toast-notice[data-state='exiting'],
   .loading-skeleton-heading,
   .loading-skeleton-metrics i,
   .loading-skeleton-panels i,

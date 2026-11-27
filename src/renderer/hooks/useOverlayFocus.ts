@@ -13,7 +13,8 @@ const FOCUSABLE_SELECTOR = [
 ].join(',');
 
 export const useOverlayFocus = <T extends HTMLElement>(
-  onClose: () => void
+  onClose: () => void,
+  setSurface?: React.RefCallback<T>
 ): React.RefCallback<T> => {
   const onCloseRef = React.useRef(onClose);
   const cleanupRef = React.useRef<(() => void) | null>(null);
@@ -22,55 +23,59 @@ export const useOverlayFocus = <T extends HTMLElement>(
     onCloseRef.current = onClose;
   }, [onClose]);
 
-  const overlayRef = React.useCallback((overlay: T | null): void => {
-    cleanupRef.current?.();
-    cleanupRef.current = null;
+  const overlayRef = React.useCallback(
+    (overlay: T | null): void => {
+      setSurface?.(overlay);
+      cleanupRef.current?.();
+      cleanupRef.current = null;
 
-    if (!overlay) {
-      return;
-    }
-
-    const previouslyFocused =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    overlay.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)?.focus();
-
-    const handleKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onCloseRef.current();
+      if (!overlay) {
         return;
       }
 
-      if (event.key !== 'Tab') {
-        return;
-      }
+      const previouslyFocused =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      overlay.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)?.focus();
 
-      const focusableElements = [...overlay.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)];
-      const firstElement = focusableElements[0];
-      const lastElement = focusableElements.at(-1);
+      const handleKeyDown = (event: KeyboardEvent): void => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          onCloseRef.current();
+          return;
+        }
 
-      if (!firstElement || !lastElement) {
-        return;
-      }
+        if (event.key !== 'Tab') {
+          return;
+        }
 
-      const focusIsOutside = !overlay.contains(document.activeElement);
-      const shouldWrapBackward =
-        event.shiftKey && (document.activeElement === firstElement || focusIsOutside);
-      const shouldWrapForward =
-        !event.shiftKey && (document.activeElement === lastElement || focusIsOutside);
+        const focusableElements = [...overlay.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)];
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements.at(-1);
 
-      if (shouldWrapBackward || shouldWrapForward) {
-        event.preventDefault();
-        (shouldWrapBackward ? lastElement : firstElement).focus();
-      }
-    };
+        if (!firstElement || !lastElement) {
+          return;
+        }
 
-    overlay.addEventListener('keydown', handleKeyDown);
-    cleanupRef.current = () => {
-      overlay.removeEventListener('keydown', handleKeyDown);
-      previouslyFocused?.focus();
-    };
-  }, []);
+        const focusIsOutside = !overlay.contains(document.activeElement);
+        const shouldWrapBackward =
+          event.shiftKey && (document.activeElement === firstElement || focusIsOutside);
+        const shouldWrapForward =
+          !event.shiftKey && (document.activeElement === lastElement || focusIsOutside);
+
+        if (shouldWrapBackward || shouldWrapForward) {
+          event.preventDefault();
+          (shouldWrapBackward ? lastElement : firstElement).focus();
+        }
+      };
+
+      overlay.addEventListener('keydown', handleKeyDown);
+      cleanupRef.current = () => {
+        overlay.removeEventListener('keydown', handleKeyDown);
+        previouslyFocused?.focus();
+      };
+    },
+    [setSurface]
+  );
 
   React.useEffect(
     () => () => {

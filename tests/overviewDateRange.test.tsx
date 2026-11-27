@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import React from 'react';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../src/renderer/App';
@@ -94,12 +94,14 @@ const mountApp = (result = makeResult()) => {
   const getInitialUsage = vi.fn(async () => result);
   const scan = vi.fn(async () => result);
   const unsubscribe = () => vi.fn();
+  const onUsageUpdated =
+    vi.fn<(listener: (next: UsageScanResult) => void) => () => void>(unsubscribe);
   Object.defineProperty(window, 'codexUsage', {
     configurable: true,
     value: {
       getInitialUsage,
       scan,
-      onUsageUpdated: unsubscribe,
+      onUsageUpdated,
       budgets: { onNavigate: unsubscribe },
       window: { getState: async () => ({ isMaximized: false }), onStateChanged: unsubscribe },
       compressedData: {
@@ -118,7 +120,7 @@ const mountApp = (result = makeResult()) => {
       <App />
     </I18nextProvider>
   );
-  return { ...renderer, getInitialUsage, scan };
+  return { ...renderer, getInitialUsage, scan, onUsageUpdated };
 };
 
 const periodButton = (name: string) =>
@@ -185,7 +187,7 @@ describe('custom date range in the overview', () => {
 
   it('keeps the override across navigation and rescans, and restores only the preset on relaunch', async () => {
     saveUsagePeriodPreference('total', window.localStorage);
-    const { scan, unmount } = mountApp();
+    const { container, onUsageUpdated, scan, unmount } = mountApp();
     await screen.findByRole('heading', { name: 'Overview' });
     const { start, end, apply } = openDialog();
     expect([start.value, end.value]).toEqual(['2026-11-02', '2026-11-26']);
@@ -202,9 +204,20 @@ describe('custom date range in the overview', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
     expect(periodButton('Custom').getAttribute('aria-pressed')).toBe('true');
 
-    scan.mockResolvedValueOnce(makeResult([...HISTORY, makeSession('updated', 10, 200)]));
+    const chart = container.querySelector('.chart-panel');
+    const updatedResult = makeResult([...HISTORY, makeSession('updated', 10, 200)]);
+    scan.mockResolvedValueOnce(updatedResult);
     fireEvent.click(screen.getByRole('button', { name: 'Refresh real-time data' }));
     await waitFor(() => expect(totalTokens()).toBe('300'));
+    expect(container.querySelector('.chart-panel')).toBe(chart);
+
+    const finalValue = container.querySelector('.metric-card strong');
+    const [pushUpdate] = onUsageUpdated.mock.calls[0];
+    act(() => pushUpdate({ ...updatedResult, scannedAt: '2026-11-26T13:00:00.000Z' }));
+    expect(totalTokens()).toBe('300');
+    expect(container.querySelector('.chart-panel')).toBe(chart);
+    expect(container.querySelector('.metric-card strong')).toBe(finalValue);
+
     scan.mockRejectedValueOnce(new Error('Disk unavailable'));
     fireEvent.click(screen.getByRole('button', { name: 'Refresh real-time data' }));
     expect(await screen.findByText(/Disk unavailable/)).toBeTruthy();
@@ -217,9 +230,61 @@ describe('custom date range in the overview', () => {
     expect(periodButton('Custom').getAttribute('aria-pressed')).toBe('false');
   });
 
+  it('replays only the plot graphics on each actual range change in a ready overview', async () => {
+    saveUsagePeriodPreference('week', window.localStorage);
+    const { container, onUsageUpdated } = mountApp();
+    await screen.findByRole('heading', { name: 'Overview' });
+    const graphics = () => container.querySelector('.trend-line')?.parentElement;
+    const metricMotion = () => container.querySelector('.metric-card .animated-value');
+    const initialPoint = container.querySelector('.trend-hit-target');
+    const initialGraphics = graphics();
+    expect(initialGraphics?.classList.contains('trend-range-enter')).toBe(false);
+    expect(metricMotion()).toBeNull();
+
+    fireEvent.click(periodButton('Month'));
+    const monthGraphics = graphics();
+    expect(monthGraphics?.classList.contains('trend-range-enter')).toBe(true);
+    expect(totalTokens()).toBe('500');
+    expect(metricMotion()).toBeNull();
+
+    fireEvent.click(periodButton('Week'));
+    const weekGraphics = graphics();
+    expect(weekGraphics?.classList.contains('trend-range-enter')).toBe(true);
+    expect(weekGraphics).not.toBe(monthGraphics);
+    expect(weekGraphics).not.toBe(initialGraphics);
+    expect(container.querySelector('.trend-hit-target')).toBe(initialPoint);
+    expect(container.querySelector('.trend-peak-label')?.textContent).toBe('400');
+    expect(periodButton('Week').getAttribute('aria-pressed')).toBe('true');
+
+    fireEvent.click(periodButton('Week'));
+    fireEvent.click(screen.getByRole('button', { name: 'Show 53 weeks' }));
+    const [pushUpdate] = onUsageUpdated.mock.calls[0];
+    act(() => pushUpdate(makeResult([...HISTORY, makeSession('updated', 26, 100)])));
+    expect(graphics()).toBe(weekGraphics);
+    expect(totalTokens()).toBe('500');
+    expect(metricMotion()).toBeTruthy();
+
+    const { start, end, apply } = openDialog();
+    fillDate(start, '2026-11-26');
+    fillDate(end, '2026-11-26');
+    fireEvent.click(apply);
+    const customGraphics = graphics();
+    expect(customGraphics).not.toBe(weekGraphics);
+    expect(customGraphics?.classList.contains('trend-range-enter')).toBe(true);
+    expect(container.querySelectorAll('.trend-hit-target')).toHaveLength(1);
+    expect(metricMotion()).toBeNull();
+
+    fireEvent.click(openDialog().apply);
+    const cancelled = openDialog();
+    fillDate(cancelled.start, '2026-11-25');
+    fireEvent(cancelled.dialog, new Event('cancel', { cancelable: true }));
+    expect(graphics()).toBe(customGraphics);
+    expect(totalTokens()).toBe('500');
+  });
+
   it('shows the custom empty state with Total as the preset, and allows editing or returning to a preset', async () => {
     saveUsagePeriodPreference('total', window.localStorage);
-    mountApp();
+    const { container } = mountApp();
     await screen.findByRole('heading', { name: 'Overview' });
     const { start, end, apply } = openDialog();
     fillDate(start, '2026-10-01');
@@ -237,5 +302,6 @@ describe('custom date range in the overview', () => {
     expect(periodButton('Today').getAttribute('aria-pressed')).toBe('true');
     expect(periodButton('Custom').getAttribute('aria-pressed')).toBe('false');
     expect(screen.getByRole('heading', { name: 'Overview' })).toBeTruthy();
+    expect(container.querySelector('.trend-range-enter')).toBeNull();
   });
 });

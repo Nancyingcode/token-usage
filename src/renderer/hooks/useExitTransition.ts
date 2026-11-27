@@ -1,6 +1,6 @@
 /**
  * @file Exit transition lifecycle
- * @description Defers overlay completion callbacks until the animated surface finishes exiting.
+ * @description Completes overlay actions once when the matching exit ends or is interrupted.
  */
 import React from 'react';
 
@@ -12,36 +12,51 @@ interface ExitTransition {
   state: ExitTransitionState;
   requestExit: () => void;
   requestExitWith: (onExited: () => void) => void;
-  handleAnimationEnd: (event: React.AnimationEvent<HTMLElement>) => void;
+  setExitSurface: React.RefCallback<HTMLElement>;
 }
 
-const prefersReducedMotion = (): boolean =>
-  typeof window.matchMedia === 'function' && window.matchMedia(REDUCED_MOTION_QUERY).matches;
+const getMotionPreference = (): MediaQueryList | undefined =>
+  typeof window.matchMedia === 'function' ? window.matchMedia(REDUCED_MOTION_QUERY) : undefined;
 
-export const useExitTransition = (onExited: () => void): ExitTransition => {
+export const useExitTransition = (onExited: () => void, animationName: string): ExitTransition => {
   const [state, setState] = React.useState<ExitTransitionState>('idle');
   const onExitedRef = React.useRef(onExited);
   const pendingCompletionRef = React.useRef<(() => void) | null>(null);
-  const exitingRef = React.useRef(false);
+  const exitSurfaceRef = React.useRef<HTMLElement | null>(null);
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     onExitedRef.current = onExited;
   }, [onExited]);
 
-  const startExit = React.useCallback((completion: () => void): void => {
-    if (exitingRef.current) {
-      return;
-    }
-
-    if (prefersReducedMotion()) {
-      completion();
-      return;
-    }
-
-    exitingRef.current = true;
-    pendingCompletionRef.current = completion;
-    setState('exiting');
+  const setExitSurface = React.useCallback<React.RefCallback<HTMLElement>>((surface) => {
+    exitSurfaceRef.current = surface;
   }, []);
+
+  const completeExit = React.useCallback((): void => {
+    const completion = pendingCompletionRef.current;
+    if (!completion) {
+      return;
+    }
+    pendingCompletionRef.current = null;
+    setState('idle');
+    completion();
+  }, []);
+
+  const startExit = React.useCallback(
+    (completion: () => void): void => {
+      if (pendingCompletionRef.current) {
+        return;
+      }
+
+      pendingCompletionRef.current = completion;
+      if (getMotionPreference()?.matches) {
+        completeExit();
+        return;
+      }
+      setState('exiting');
+    },
+    [completeExit]
+  );
 
   const requestExit = React.useCallback((): void => {
     startExit(onExitedRef.current);
@@ -54,17 +69,40 @@ export const useExitTransition = (onExited: () => void): ExitTransition => {
     [startExit]
   );
 
-  const handleAnimationEnd = React.useCallback((event: React.AnimationEvent<HTMLElement>): void => {
-    if (event.target !== event.currentTarget || !exitingRef.current) {
+  React.useLayoutEffect(() => {
+    const surface = exitSurfaceRef.current;
+    if (state !== 'exiting' || !surface) {
       return;
     }
 
-    const completion = pendingCompletionRef.current;
-    exitingRef.current = false;
-    pendingCompletionRef.current = null;
-    setState('idle');
-    completion?.();
-  }, []);
+    const preference = getMotionPreference();
+    if (preference?.matches) {
+      completeExit();
+      return;
+    }
 
-  return { state, requestExit, requestExitWith, handleAnimationEnd };
+    // Starting a CSS exit can also cancel the entry on the same node.
+    const handleAnimationDone = (event: AnimationEvent): void => {
+      if (event.target === surface && event.animationName === animationName) {
+        completeExit();
+      }
+    };
+    const handlePreferenceChange = (event: MediaQueryListEvent): void => {
+      if (event.matches) {
+        completeExit();
+      }
+    };
+    surface.addEventListener('animationend', handleAnimationDone);
+    surface.addEventListener('animationcancel', handleAnimationDone);
+    preference?.addEventListener('change', handlePreferenceChange);
+
+    return () => {
+      pendingCompletionRef.current = null;
+      surface.removeEventListener('animationend', handleAnimationDone);
+      surface.removeEventListener('animationcancel', handleAnimationDone);
+      preference?.removeEventListener('change', handlePreferenceChange);
+    };
+  }, [animationName, completeExit, state]);
+
+  return { state, requestExit, requestExitWith, setExitSurface };
 };

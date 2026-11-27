@@ -15,7 +15,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ label, value, detail, icon: Ico
   <article className={`metric-card metric-card--${emphasis}`}>
     <div className="metric-copy">
       <p>{label}</p>
-      <AnimatedValue value={value} />
+      <AnimatedValue value={value} animateOnMount={false} />
       <span>{detail}</span>
     </div>
     <div className="metric-icon">

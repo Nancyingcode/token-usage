@@ -21,11 +21,14 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   onCancel,
 }) => {
   const { t } = useTranslation('common');
-  const { state, requestExit, requestExitWith, handleAnimationEnd } = useExitTransition(onCancel);
+  const { state, requestExit, requestExitWith, setExitSurface } = useExitTransition(
+    onCancel,
+    'dialog-backdrop-exit'
+  );
   const dialogRef = useOverlayFocus<HTMLElement>(requestExit);
 
   return (
-    <div className="dialog-backdrop" data-state={state} onAnimationEnd={handleAnimationEnd}>
+    <div className="dialog-backdrop" data-state={state} ref={setExitSurface}>
       <section
         ref={dialogRef}
         className="confirm-dialog"

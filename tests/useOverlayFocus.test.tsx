@@ -11,6 +11,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import ToastNotice from '../src/renderer/components/ToastNotice';
 import { useOverlayFocus } from '../src/renderer/hooks/useOverlayFocus';
 import { createRendererI18n } from '../src/renderer/i18n';
+import { fireAnimationEvent } from './helpers/fireAnimationEvent';
 
 const OverlayHarness: React.FC = () => {
   const [open, setOpen] = React.useState(false);
@@ -64,7 +65,7 @@ describe('useOverlayFocus', () => {
     vi.useFakeTimers();
     Object.defineProperty(window, 'matchMedia', {
       configurable: true,
-      value: vi.fn().mockReturnValue({ matches: false }),
+      value: () => Object.assign(new EventTarget(), { matches: false }),
     });
     const onDismiss = vi.fn();
     render(
@@ -77,7 +78,7 @@ describe('useOverlayFocus', () => {
     act(() => vi.advanceTimersByTime(1_000));
     expect(screen.getByRole('status').getAttribute('data-state')).toBe('exiting');
     expect(onDismiss).not.toHaveBeenCalled();
-    fireEvent.animationEnd(screen.getByRole('status'));
+    fireAnimationEvent(screen.getByRole('status'), 'animationend', 'toast-exit');
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 });

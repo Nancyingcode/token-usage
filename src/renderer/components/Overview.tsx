@@ -49,6 +49,7 @@ type TrendDay = UsageDay & { endDate?: string };
 interface TrendChartProps {
   days: TrendDay[];
   dailyCosts: Map<string, CostEstimate>;
+  filterKey: string;
 }
 
 interface ActivityGridProps {
@@ -95,14 +96,6 @@ export interface TrendPoint {
 
 const getOverviewFilterKey = (period: UsagePeriod, range?: UsageDateRange): string =>
   range ? `${range.startDate}:${range.endDate}` : period;
-
-export const buildOverviewMotionKey = (
-  summary: UsageSummary,
-  period: UsagePeriod,
-  range?: UsageDateRange
-): string => {
-  return `${getOverviewFilterKey(period, range)}:${summary.sessions.length}:${summary.totals.totalTokens}:${summary.byDay.at(-1)?.date ?? 'empty'}`;
-};
 
 const getTrendY = (tokens: number, max: number): number =>
   CHART_BASELINE - (tokens / max) * CHART_VERTICAL_RANGE;
@@ -181,11 +174,16 @@ const shouldShowAssumedPricing = (
   isDateRange: boolean
 ): boolean => assumedPricing && (isDateRange || !pricingIncomplete);
 
-const TrendChart: React.FC<TrendChartProps> = ({ days, dailyCosts }) => {
+const TrendChart: React.FC<TrendChartProps> = ({ days, dailyCosts, filterKey }) => {
   const { t: tBudgets } = useTranslation('budgets');
   const { t, i18n } = useTranslation('analytics');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const [activeDate, setActiveDate] = useState<string | null>(null);
+  const [rangeMotion, setRangeMotion] = useState({ filterKey, shouldAnimate: false });
+  if (rangeMotion.filterKey !== filterKey) {
+    setRangeMotion({ filterKey, shouldAnimate: true });
+  }
+  const rangeMotionClass = rangeMotion.shouldAnimate ? 'trend-range-enter' : undefined;
   const isDateRange = days[0]?.endDate !== undefined;
   const { peakTokens, ticks, points } = useMemo(() => {
     const peakTokens = Math.max(0, ...days.map(({ totalTokens }) => totalTokens));
@@ -201,6 +199,9 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, dailyCosts }) => {
     return { peakTokens, ticks, points };
   }, [dailyCosts, days, isDateRange, locale]);
   const activePoint = points.find(({ day }) => day.date === activeDate);
+  if (activeDate !== null && !activePoint) {
+    setActiveDate(null);
+  }
   const peakPoint =
     peakTokens > 0 ? points.find(({ day }) => day.totalTokens === peakTokens) : null;
   const alignPeakRight = peakPoint?.placement === 'right';
@@ -244,8 +245,10 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, dailyCosts }) => {
                 y2={y}
               />
             ))}
-            {area ? <path className="trend-area" d={area} /> : null}
-            {path ? <path className="trend-line" d={path} pathLength={1} /> : null}
+            <g key={filterKey} className={rangeMotionClass}>
+              {area ? <path className="trend-area" d={area} /> : null}
+              {path ? <path className="trend-line" d={path} /> : null}
+            </g>
             {activePoint ? (
               <line
                 className="trend-guide"
@@ -270,8 +273,21 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, dailyCosts }) => {
               </text>
             ))}
           </g>
+          <g key={filterKey} className={rangeMotionClass} aria-hidden="true">
+            {points.map(({ day, x, y }) => {
+              const active = day.date === activeDate;
+              return (
+                <circle
+                  key={day.date}
+                  className={active ? 'trend-point active' : 'trend-point'}
+                  cx={toChartPercentage(x, CHART_VIEWBOX_WIDTH)}
+                  cy={toChartPercentage(y, CHART_VIEWBOX_HEIGHT)}
+                  r={active ? ACTIVE_POINT_RADIUS : INACTIVE_POINT_RADIUS}
+                />
+              );
+            })}
+          </g>
           {points.map((point) => {
-            const active = point.day.date === activeDate;
             const x = toChartPercentage(point.x, CHART_VIEWBOX_WIDTH);
             const y = toChartPercentage(point.y, CHART_VIEWBOX_HEIGHT);
             const showAssumed = shouldShowAssumedPricing(
@@ -296,27 +312,20 @@ const TrendChart: React.FC<TrendChartProps> = ({ days, dailyCosts }) => {
             });
 
             return (
-              <g key={point.day.date}>
-                <circle
-                  className={active ? 'trend-point active' : 'trend-point'}
-                  cx={x}
-                  cy={y}
-                  r={active ? ACTIVE_POINT_RADIUS : INACTIVE_POINT_RADIUS}
-                />
-                <circle
-                  className="trend-hit-target"
-                  cx={x}
-                  cy={y}
-                  r={TREND_HIT_RADIUS}
-                  tabIndex={0}
-                  role="img"
-                  aria-label={ariaLabel}
-                  onMouseEnter={() => setActiveDate(point.day.date)}
-                  onMouseLeave={() => setActiveDate(null)}
-                  onFocus={() => setActiveDate(point.day.date)}
-                  onBlur={() => setActiveDate(null)}
-                />
-              </g>
+              <circle
+                key={point.day.date}
+                className="trend-hit-target"
+                cx={x}
+                cy={y}
+                r={TREND_HIT_RADIUS}
+                tabIndex={0}
+                role="img"
+                aria-label={ariaLabel}
+                onMouseEnter={() => setActiveDate(point.day.date)}
+                onMouseLeave={() => setActiveDate(null)}
+                onFocus={() => setActiveDate(point.day.date)}
+                onBlur={() => setActiveDate(null)}
+              />
             );
           })}
           {peakPoint ? (
@@ -402,7 +411,6 @@ const ActivityGrid: React.FC<ActivityGridProps> = ({ days, period, anchorDate, s
   const scrollRef = useRef<HTMLDivElement>(null);
   const gridId = useId();
   const range = typeof period === 'string' ? undefined : period;
-  const windowEndDate = range?.endDate ?? anchorDate;
   const shouldAnchorEnd = range !== undefined || showFullWindow;
   // 日历使用 UTC 保留日期键的自然日语义；格式化器随组件卸载释放，语言变化时重建。
   const dateFormatters = useMemo(
@@ -431,7 +439,9 @@ const ActivityGrid: React.FC<ActivityGridProps> = ({ days, period, anchorDate, s
       ),
     [cells, dateFormatters]
   );
-  const weekCount = (cells.at(-1)?.weekIndex ?? -1) + 1;
+  const lastCell = cells.at(-1);
+  const weekCount = (lastCell?.weekIndex ?? -1) + 1;
+  const visibleEndDate = lastCell?.date;
   const showWindowToggle = showFullWindow || weekCount < ACTIVITY_WEEK_COUNT;
   const activeCell = cells.find(({ date }) => date === activeDate);
   const clippedRange = range ? getClippedActivityRange(range) : undefined;
@@ -441,7 +451,7 @@ const ActivityGrid: React.FC<ActivityGridProps> = ({ days, period, anchorDate, s
       // 窄窗口优先呈现用户所选的结束周，较早的自然周仍可横向浏览。
       scroll.scrollLeft = scroll.scrollWidth;
     }
-  }, [shouldAnchorEnd, weekCount, windowEndDate]);
+  }, [shouldAnchorEnd, weekCount, visibleEndDate]);
 
   return (
     <article className="panel activity-panel">
@@ -567,6 +577,7 @@ const Overview: React.FC<OverviewProps> = ({
   const { t: tCommon } = useTranslation('common');
   const locale = resolveRendererLocale(i18n.resolvedLanguage);
   const dateRange = overviewDateFilter?.range;
+  const filterKey = getOverviewFilterKey(period, dateRange);
   const trend = useMemo(
     () => (dateRange ? buildOverviewTrendBuckets(summary.byDay, dateRange) : null),
     [dateRange, summary.byDay]
@@ -612,7 +623,6 @@ const Overview: React.FC<OverviewProps> = ({
     summary.totals.inputTokens,
     summary.totals.cachedInputTokens
   );
-  const motionKey = buildOverviewMotionKey(summary, period, dateRange);
   const anchorDate = overviewDateFilter?.today ?? scannedAt.slice(0, ISO_DATE_LENGTH);
   const description = dateRange
     ? t('overview.dateRangeSummary', { range: createCalendarDateRangeFormatter(locale)(dateRange) })
@@ -624,13 +634,13 @@ const Overview: React.FC<OverviewProps> = ({
       : t('overview.trendGranularity.grouped', { days: formatNumber(daysPerPoint, locale) });
 
   return (
-    <section className="page-stack">
+    <section className="page-stack page-stack--overview">
       <div className="overview-heading">
         <PageHeader title={tCommon('navigation.overview')} description={description} />
         <PricingQualityNotice quality={totalCost} layout="banner" />
       </div>
-      <div className="overview-grid" data-motion="overview-story">
-        <div key={`metrics:${motionKey}`} className="metric-grid">
+      <div className="overview-grid">
+        <div key={`${filterKey}:${locale}`} className="metric-grid">
           <MetricCard
             label={t('overview.totalCost')}
             value={formatUsd(totalCost.pricedCostUsd, locale)}
@@ -665,14 +675,14 @@ const Overview: React.FC<OverviewProps> = ({
           />
         </div>
 
-        <article key={`trend:${motionKey}`} className="panel chart-panel">
+        <article className="panel chart-panel">
           <div className="panel-heading compact">
             <div>
               <h3>{t('overview.tokenUsageTrend')}</h3>
               <p>{granularity}</p>
             </div>
           </div>
-          <TrendChart days={days} dailyCosts={dailyCosts} />
+          <TrendChart days={days} dailyCosts={dailyCosts} filterKey={filterKey} />
           <div className="chart-legend">
             <span>
               <i aria-hidden="true" /> {t('overview.totalTokens')}
@@ -681,7 +691,7 @@ const Overview: React.FC<OverviewProps> = ({
         </article>
 
         <ActivityGrid
-          key={`activity:${getOverviewFilterKey(period, dateRange)}`}
+          key={`activity:${filterKey}`}
           days={summary.byDay}
           period={dateRange ?? period}
           anchorDate={anchorDate}

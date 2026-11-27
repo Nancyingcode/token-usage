@@ -217,6 +217,35 @@ describe('UI style policy', () => {
     expect(css).toContain('button:not(:disabled):active');
   });
 
+  it('uses the existing motion tokens for range, date dialog, and row detail feedback', () => {
+    const views = readRendererStyle('styles/views.css');
+    const reducedMotion = views.slice(views.indexOf('@media (prefers-reduced-motion: reduce)'));
+
+    expect(views).toContain(
+      '.trend-range-enter {\n' +
+        '  opacity: 1;\n' +
+        '  transition: opacity var(--duration-fast) var(--ease-motion-enter);'
+    );
+    expect(views).toContain('@starting-style {\n  .trend-range-enter {\n    opacity: 0.45;');
+    expect(views).not.toContain('overview-line-draw');
+    expect(views).toContain(
+      '.date-range-dialog[open] {\n' +
+        '  animation: date-range-dialog-enter var(--duration-standard) var(--ease-motion-enter)'
+    );
+    expect(views).toContain(
+      '.date-range-dialog[open]::backdrop {\n' +
+        '  animation: dialog-backdrop-enter var(--duration-standard) var(--ease-motion-enter)'
+    );
+    expect(views).toContain(
+      '.usage-row-details > summary svg {\n' +
+        '  transition: transform var(--duration-fast) var(--ease-motion-enter);'
+    );
+    expect(reducedMotion).toContain('.date-range-dialog[open]::backdrop {\n    animation: none;');
+    expect(reducedMotion).toContain('.trend-range-enter,');
+    expect(reducedMotion).toContain('.trend-point,');
+    expect(reducedMotion).toContain('.usage-row-details > summary svg {\n    transition: none;');
+  });
+
   it('uses the brand accent for the featured overview metric value', () => {
     const components = readRendererStyle('styles/components.css');
     const featuredValueRule =
