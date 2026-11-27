@@ -20,6 +20,30 @@ import { buildUsageSummary } from '../src/shared/usageMath';
 import type { UsageDateRange, UsageDay, UsageSession } from '../src/shared/usageTypes';
 import { createTestI18n, renderWithI18n } from './helpers/renderWithI18n';
 
+it.each([
+  { locale: 'zh-CN', title: '部分用量未计价', count: '110 Token' },
+  { locale: 'en', title: 'Partially priced', count: '110 tokens' },
+] as const)(
+  'shows unpriced usage in the collapsed overview notice in $locale',
+  ({ locale, title, count }) => {
+    const { container } = render(
+      <I18nextProvider i18n={createTestI18n(locale)}>
+        <Overview
+          summary={buildUsageSummary([UNKNOWN_SESSION])}
+          pricing={PRICING}
+          period="total"
+          scannedAt="2026-07-20T12:00:00.000Z"
+        />
+      </I18nextProvider>
+    );
+
+    const notice = container.querySelector<HTMLDetailsElement>('.pricing-quality-notice');
+    expect(notice?.open).toBe(false);
+    expect(notice?.querySelector('summary')?.textContent).toContain(title);
+    expect(notice?.querySelector('summary')?.textContent).toContain(count);
+  }
+);
+
 describe('custom overview trend', () => {
   it('generates zero days and keeps a full month at daily granularity', () => {
     const range = { startDate: '2026-01-01', endDate: '2026-01-31' };

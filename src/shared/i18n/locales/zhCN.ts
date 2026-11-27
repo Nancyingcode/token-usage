@@ -629,6 +629,8 @@ export const zhCN = {
         '输入和输出正常计价；由于官方未提供独立缓存单价，出现缓存用量时该部分保持未计价。',
       cacheOverrideRequired: '保存手动覆盖前，请填写明确的缓存输入单价。',
       partialTitle: '部分用量未计价',
+      tokenCount: '{{tokens}} Token',
+      partialEstimateScope: '本地估算费用仅包含已计价的用量。',
       partialDescription: '{{tokens}} Token 未计价。当前金额仅包含已计价用量，不是完整费用。',
       qualityTitle: '包含条件计价假设',
       qualityDescription:

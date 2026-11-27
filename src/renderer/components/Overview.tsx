@@ -625,8 +625,10 @@ const Overview: React.FC<OverviewProps> = ({
 
   return (
     <section className="page-stack">
-      <PageHeader title={tCommon('navigation.overview')} description={description} />
-      <PricingQualityNotice quality={totalCost} />
+      <div className="overview-heading">
+        <PageHeader title={tCommon('navigation.overview')} description={description} />
+        <PricingQualityNotice quality={totalCost} layout="banner" />
+      </div>
       <div className="overview-grid" data-motion="overview-story">
         <div key={`metrics:${motionKey}`} className="metric-grid">
           <MetricCard

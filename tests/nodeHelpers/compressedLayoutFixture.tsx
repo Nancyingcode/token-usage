@@ -13,20 +13,24 @@ import { createTestI18n } from '../helpers/renderWithI18n';
 const params = new URLSearchParams(window.location.search);
 const locale = params.get('locale') === 'en' ? 'en' : 'zh-CN';
 const scenario = params.get('scenario');
+const partialPricing = params.get('pricing') === 'partial';
 const shortRange =
   params.get('range') === 'short'
     ? { range: { startDate: '2026-10-31', endDate: '2026-11-12' }, today: '2026-11-13' }
     : undefined;
-const SYNTHETIC_PRICING: ModelPricingEntry[] = [
+const modelId = partialPricing
+  ? `layout-fixture-${'extendedmodelid'.repeat(16)}`
+  : 'layout-fixture';
+const syntheticPricing: ModelPricingEntry[] = [
   {
-    modelId: 'layout-fixture',
+    modelId,
     aliases: [],
     inputUsdPerMillion: 5,
-    cachedInputUsdPerMillion: 0.5,
+    cachedInputUsdPerMillion: partialPricing ? null : 0.5,
     outputUsdPerMillion: 30,
     effectiveAt: '2026-10-01',
     sourceKind: 'built-in',
-    rulesStatus: 'unavailable',
+    ...(partialPricing ? {} : { rulesStatus: 'unavailable' }),
   },
 ];
 const samples = shortRange
@@ -68,7 +72,7 @@ const sessions: UsageSession[] = samples.map(({ date, input }, index) => {
     eventCount: 1,
     turnOutcomes: [],
     warnings: [],
-    usageSlices: [{ ...usage, occurredAt: timestamp, modelId: 'layout-fixture' }],
+    usageSlices: [{ ...usage, occurredAt: timestamp, modelId }],
   };
 });
 const status: CompressedDataStatus = {
@@ -121,7 +125,7 @@ createRoot(container).render(
         <div className="view-transition">
           <Overview
             summary={buildUsageSummary(sessions)}
-            pricing={SYNTHETIC_PRICING}
+            pricing={syntheticPricing}
             period="total"
             scannedAt={shortRange ? '2026-11-13T00:24:00Z' : '2026-10-24T00:24:00Z'}
             overviewDateFilter={shortRange}

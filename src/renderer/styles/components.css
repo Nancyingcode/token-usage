@@ -1176,3 +1176,73 @@
 .pricing-rule-details ul {
   padding-inline-start: 20px;
 }
+
+.pricing-quality-banner {
+  --notice-text: var(--color-info-text);
+  --notice-border: var(--color-info-border);
+  --notice-surface: var(--color-info-surface);
+  min-width: 0;
+  background: var(--notice-surface);
+  border: 1px solid var(--notice-border);
+  border-radius: var(--radius-control);
+}
+
+.pricing-quality-banner[data-tone='warning'] {
+  --notice-text: var(--color-warning-text);
+  --notice-border: var(--color-warning-border);
+  --notice-surface: var(--color-warning-surface);
+}
+
+.pricing-quality-banner > summary {
+  min-height: var(--control-height-compact);
+  padding: var(--space-1) var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--notice-text);
+  border-radius: inherit;
+  list-style: none;
+}
+
+.pricing-quality-banner > summary:focus-visible {
+  outline: 2px solid var(--notice-text);
+  outline-offset: -2px;
+}
+
+.pricing-quality-banner > summary svg {
+  flex-shrink: 0;
+}
+
+.pricing-quality-count {
+  padding-inline-start: var(--space-2);
+  border-inline-start: 1px solid var(--notice-border);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.pricing-quality-chevron {
+  margin-inline-start: auto;
+}
+
+.pricing-quality-banner[open] .pricing-quality-chevron {
+  transform: rotate(180deg);
+}
+
+.pricing-quality-banner .pricing-quality-body {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border-top: 1px solid var(--notice-border);
+  border-radius: 0 0 var(--radius-control) var(--radius-control);
+}
+
+.pricing-quality-banner .pricing-quality-body > * {
+  max-width: 80ch;
+  margin: 0;
+}
+
+.pricing-quality-banner ul {
+  padding-inline-start: var(--space-4);
+}

@@ -12,13 +12,41 @@ const WORKSPACE = resolve(__dirname, '..');
 const TEMP_PREFIX = 'token-usage-layout-';
 const MIN_PLOT_HEIGHT = 190;
 const COMPACT_PANEL_MAX_HEIGHT = 92;
+const MAX_PRICING_NOTICE_GAP = 24;
 const GEOMETRY_TOLERANCE = 1;
 const SCALE_TOLERANCE = 0.01;
 const MIN_TEXT_CONTRAST = 4.5;
 const LOCAL_COST_TITLES = { en: 'Local Cost Estimate', 'zh-CN': '本地估算费用' };
+const PARTIAL_PRICING_COPY = {
+  en: {
+    title: 'Partially priced',
+    tokenUnit: 'tokens',
+    scope: 'The local cost estimate includes only priced usage.',
+    reason: 'Cached input has no published price.',
+  },
+  'zh-CN': {
+    title: '部分用量未计价',
+    tokenUnit: 'Token',
+    scope: '本地估算费用仅包含已计价的用量。',
+    reason: '官方未提供缓存输入价格。',
+  },
+};
+const EXPECTED_UNPRICED_TOKENS = { default: 1_920_000, short: 30_337_600 };
+const PRICING_PREVIEW_PADDING = 12;
+const TAB_KEY = { key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 };
+const ENTER_KEY = { key: 'Enter', code: 'Enter', text: '\r', windowsVirtualKeyCode: 13 };
+const SPACE_KEY = { key: ' ', code: 'Space', text: ' ', windowsVirtualKeyCode: 32 };
 const RENDER_WAIT_MS = 100;
 const RENDER_ATTEMPTS = 50;
 const CASES = [
+  {
+    width: 1264,
+    height: 755,
+    locale: 'zh-CN',
+    theme: 'mint-light',
+    scenario: 'none',
+    pricing: 'partial',
+  },
   { width: 1264, height: 755, locale: 'zh-CN', theme: 'mint-light', scenario: 'pending' },
   { width: 1280, height: 720, locale: 'en', theme: 'mint-light', scenario: 'pending' },
   { width: 1440, height: 900, locale: 'zh-CN', theme: 'emerald-dark', scenario: 'pending' },
@@ -35,8 +63,17 @@ const CASES = [
     theme: 'mint-light',
     scenario: 'none',
     range: 'short',
+    pricing: 'partial',
   },
-  { width: 1024, height: 680, locale: 'en', theme: 'ocean-dark', scenario: 'none', range: 'short' },
+  {
+    width: 1024,
+    height: 680,
+    locale: 'en',
+    theme: 'ocean-dark',
+    scenario: 'none',
+    range: 'short',
+    pricing: 'partial',
+  },
   {
     width: 1360,
     height: 900,
@@ -126,7 +163,7 @@ const runElectron = async () => {
       process.stderr.write(`${details.message}\n`);
     }
   });
-  const saveScreenshot = async (label) => {
+  const saveScreenshot = async (label, clip) => {
     if (!screenshots) {
       return;
     }
@@ -135,6 +172,7 @@ const runElectron = async () => {
     );
     const { data } = await window.webContents.debugger.sendCommand('Page.captureScreenshot', {
       format: 'png',
+      ...(clip ? { clip } : {}),
     });
     await writeFile(join(screenshots, `${label}.png`), Buffer.from(data, 'base64'));
   };
@@ -306,6 +344,88 @@ const runElectron = async () => {
     await debuggerSession.sendCommand('Input.dispatchKeyEvent', { ...description, type: 'keyUp' });
     await new Promise((resolveWait) => setTimeout(resolveWait, RENDER_WAIT_MS));
   };
+  const measurePricingNotice = () =>
+    window.webContents.executeJavaScript(`(() => {
+      const notice = document.querySelector('.pricing-quality-notice');
+      if (!notice) return null;
+      const heading = document.querySelector('.page-header');
+      const subtitle = heading.querySelector('.page-header-copy > p');
+      const summary = notice.querySelector('summary');
+      const { x, y, width, height } = summary.getBoundingClientRect();
+      return {
+        heading: heading.getBoundingClientRect().toJSON(),
+        subtitle: subtitle.getBoundingClientRect().toJSON(),
+        box: notice.getBoundingClientRect().toJSON(),
+        summary: summary.textContent,
+        open: notice.open,
+        focused: document.activeElement === summary,
+        hitTarget: document.elementFromPoint(x + width / 2, y + height / 2)?.closest('summary') === summary,
+        details: Array.from(notice.querySelectorAll('p, li'), (element) => element.textContent),
+        scrollWidth: notice.scrollWidth,
+        clientWidth: notice.clientWidth,
+      };
+    })()`);
+  const savePricingScreenshot = async (label, notice) => {
+    const x = Math.floor(notice.box.left) - PRICING_PREVIEW_PADDING;
+    const y = Math.floor(notice.heading.top) - PRICING_PREVIEW_PADDING;
+    await saveScreenshot(`${label}-pricing-area`, {
+      x,
+      y,
+      width: Math.ceil(notice.box.right) + PRICING_PREVIEW_PADDING - x,
+      height: Math.ceil(notice.box.bottom) + PRICING_PREVIEW_PADDING - y,
+      scale: 1,
+    });
+  };
+  const checkPricingNotice = async (fixture, label) => {
+    const copy = PARTIAL_PRICING_COPY[fixture.locale];
+    const closed = await measurePricingNotice();
+    assert.ok(closed?.summary.includes(copy.title), `${label}: partial pricing notice is missing`);
+    const gap = closed.box.top - closed.subtitle.bottom;
+    assert.ok(
+      gap >= 0 && gap <= MAX_PRICING_NOTICE_GAP,
+      `${label}: overview subtitle-to-pricing notice gap is ${gap}px`
+    );
+    const unpricedTokens = EXPECTED_UNPRICED_TOKENS[fixture.range ?? 'default'];
+    const count = new Intl.NumberFormat(fixture.locale).format(unpricedTokens);
+    assert.ok(
+      closed.summary.includes(`${count} ${copy.tokenUnit}`),
+      `${label}: expected ${count} unpriced tokens`
+    );
+    assert.equal(closed.open, false, `${label}: pricing details start expanded`);
+    assert.ok(closed.hitTarget, `${label}: pricing toggle is covered`);
+    await savePricingScreenshot(label, closed);
+
+    await window.webContents.executeJavaScript(
+      "Array.from(document.querySelectorAll('.nav-list button')).at(-1).focus()"
+    );
+    await pressKey(TAB_KEY);
+    assert.ok((await measurePricingNotice()).focused, `${label}: Tab skips the pricing toggle`);
+    await pressKey(ENTER_KEY);
+    const opened = await measurePricingNotice();
+    assert.ok(opened.open, `${label}: Enter did not expand the pricing details`);
+    assert.ok(opened.focused, `${label}: expanding the pricing details moved focus`);
+    assert.ok(opened.box.height > closed.box.height, `${label}: pricing details stay hidden`);
+    assert.ok(opened.details.includes(copy.scope), `${label}: cost estimate scope is missing`);
+    assert.ok(opened.details.includes(copy.reason), `${label}: missing-price reason is missing`);
+    assert.ok(
+      opened.scrollWidth <= opened.clientWidth + GEOMETRY_TOLERANCE,
+      `${label}: expanded pricing details overflow horizontally`
+    );
+    check(await measure(), `${label}-pricing-expanded`, fixture.range === 'short' ? 3 : 53);
+    await saveScreenshot(`${label}-expanded`);
+    await savePricingScreenshot(`${label}-expanded`, opened);
+
+    await pressKey(SPACE_KEY);
+    const collapsed = await measurePricingNotice();
+    assert.equal(collapsed.open, false, `${label}: Space did not close the pricing details`);
+    assert.ok(collapsed.focused, `${label}: collapsing the pricing details moved focus`);
+    assert.ok(
+      Math.abs(collapsed.box.height - closed.box.height) <= GEOMETRY_TOLERANCE,
+      `${label}: collapsing changed the pricing notice height`
+    );
+    await window.webContents.executeJavaScript('document.activeElement.blur()');
+    return gap;
+  };
   const checkShortCalendar = async (closed, label) => {
     assert.equal(
       closed.activity.scrollWidth,
@@ -326,7 +446,7 @@ const runElectron = async () => {
       return document.elementFromPoint(x + width / 2, y + height / 2)?.closest('button') === toggle;
     })()`);
     assert.ok(hitTarget, `${label}: calendar toggle is covered`);
-    await pressKey({ key: 'Enter', code: 'Enter', text: '\r', windowsVirtualKeyCode: 13 });
+    await pressKey(ENTER_KEY);
     const expanded = await measure();
     check(expanded, `${label}-53-weeks`);
     assert.equal(
@@ -351,7 +471,7 @@ const runElectron = async () => {
     await window.webContents.executeJavaScript(
       "document.querySelector('.activity-window-toggle').focus({ preventScroll: true })"
     );
-    await pressKey({ key: ' ', code: 'Space', text: ' ', windowsVirtualKeyCode: 32 });
+    await pressKey(SPACE_KEY);
     check(await measure(), `${label}-selected-weeks`, 3);
     assert.deepEqual(await toggleState(), { focused: true, expanded: 'false' });
     await window.webContents.executeJavaScript('document.activeElement.blur()');
@@ -381,12 +501,15 @@ const runElectron = async () => {
         `document.documentElement.dataset.theme = ${JSON.stringify(fixture.theme)}`
       );
       await new Promise((resolveWait) => setTimeout(resolveWait, RENDER_WAIT_MS));
+      const pricingSuffix = fixture.pricing ? `-pricing-${fixture.pricing}` : '';
       const rangeSuffix = fixture.range ? `-${fixture.range}` : '';
       const weeks = fixture.range === 'short' ? 3 : 53;
-      const label = `${fixture.width}x${fixture.height}-${fixture.locale}-${fixture.theme}-${fixture.scenario}${rangeSuffix}`;
+      const label = `${fixture.width}x${fixture.height}-${fixture.locale}-${fixture.theme}-${fixture.scenario}${rangeSuffix}${pricingSuffix}`;
       const closed = await measure();
       checkMetricCards(closed.metricCards, fixture.locale, label);
       await saveScreenshot(label);
+      const hasPartialPricing = fixture.pricing === 'partial';
+      const pricingGap = hasPartialPricing ? await checkPricingNotice(fixture, label) : undefined;
       check(closed, label, weeks);
       const chartKeyboardAccess = await window.webContents.executeJavaScript(`(async () => {
         const point = document.querySelector('.trend-chart [tabindex="0"]');
@@ -441,12 +564,15 @@ const runElectron = async () => {
           `${label}: details did not collapse`
         );
       }
-      await window.webContents.executeJavaScript(
-        `document.querySelector('.pricing-quality-notice').setAttribute('open', '')`
-      );
-      check(await measure(), `${label}-pricing-details`, weeks);
+      if (!hasPartialPricing) {
+        await window.webContents.executeJavaScript(
+          `document.querySelector('.pricing-quality-notice').setAttribute('open', '')`
+        );
+        check(await measure(), `${label}-pricing-details`, weeks);
+      }
+      const pricingResult = pricingGap === undefined ? '' : ` pricing gap ${pricingGap}px;`;
       process.stdout.write(
-        `${label}: plot ${closed.plot.height}px; panel ${closed.panel?.height ?? 0}px; passed\n`
+        `${label}: plot ${closed.plot.height}px; panel ${closed.panel?.height ?? 0}px;${pricingResult} passed\n`
       );
     }
   } finally {

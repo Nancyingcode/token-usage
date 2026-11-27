@@ -639,6 +639,8 @@ export const en = {
         'Input and output are priced. Cached input remains unpriced when used because no separate rate is published.',
       cacheOverrideRequired: 'Enter an explicit cached input rate to save a manual override.',
       partialTitle: 'Partially priced',
+      tokenCount: '{{tokens}} tokens',
+      partialEstimateScope: 'The local cost estimate includes only priced usage.',
       partialDescription:
         '{{tokens}} tokens are unpriced. The amount includes only priced usage and is not the full cost.',
       qualityTitle: 'Includes conditional pricing assumptions',
