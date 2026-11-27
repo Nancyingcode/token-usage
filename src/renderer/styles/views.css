@@ -684,7 +684,6 @@ code {
 }
 
 .session-filter-empty {
-  min-width: 760px;
   padding: 36px 16px;
   text-align: center;
 }
@@ -3680,7 +3679,8 @@ code {
 .project-table .table-cell--numeric {
   text-align: right;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .project-name-cell {
@@ -3765,13 +3765,33 @@ code {
 
 .session-table .table-row {
   grid-template-columns:
-    minmax(9.375rem, 1.1fr) minmax(7.5rem, 0.9fr) 6.25rem 5.625rem 5.625rem 5.625rem
-    6.25rem 5rem;
+    minmax(9.375rem, 1.1fr) minmax(7.5rem, 0.9fr) 6.25rem
+    repeat(3, minmax(5.625rem, 0.75fr)) minmax(6.25rem, 0.8fr) 5rem;
+  padding-inline: var(--space-1);
+}
+
+.session-table .table-row > .table-cell--numeric,
+.session-table .table-row > .warning-cell {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.session-table .warning-cell > svg {
+  flex-shrink: 0;
+}
+
+.session-table .warning-cell {
+  color: var(--color-warning-text);
+}
+
+.session-table .ok-cell {
+  color: var(--color-success-text);
 }
 
 .session-primary-cell {
   display: grid;
   gap: var(--space-1);
+  overflow: visible;
   white-space: normal;
 }
 
@@ -3827,9 +3847,143 @@ code {
 }
 
 .session-filter-empty {
-  min-width: 47.5rem;
   padding: var(--space-8) var(--space-4);
   text-align: center;
+}
+
+.usage-table-container {
+  container: usage-table / inline-size;
+}
+
+.usage-row-details {
+  display: none;
+}
+
+/* 缩放时保留正在操作的详情控件，离开后回到宽版表格。 */
+.usage-row-details:focus-within {
+  display: block;
+}
+
+.usage-row-details > summary {
+  width: fit-content;
+  max-width: 100%;
+  min-height: var(--control-height-compact);
+  padding: 0 var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  font-size: var(--font-size-body-small);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.usage-row-details > summary:hover {
+  background: var(--color-brand-surface);
+}
+
+.usage-row-details > summary:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: -2px;
+}
+
+.usage-row-details[open] > summary svg {
+  transform: rotate(180deg);
+}
+
+.usage-row-details-fields {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr));
+  gap: var(--space-3);
+  background: var(--color-surface-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  font-size: var(--font-size-body-small);
+  overflow-wrap: anywhere;
+}
+
+.usage-row-detail-full-width {
+  grid-column: 1 / -1;
+}
+
+.usage-row-details-fields dt {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.usage-row-details-fields dd {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+/* 完整项目表需要至少 68rem，会话与项目列表共用该切换点。 */
+@container usage-table (width < 68rem) {
+  .usage-table-container .usage-table-secondary-column {
+    display: none;
+  }
+
+  .usage-row-details {
+    display: block;
+  }
+
+  .usage-table-total {
+    color: var(--color-text);
+    font-weight: 700;
+  }
+
+  .session-table .table-row {
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr) minmax(8rem, 25%) minmax(5rem, 18%);
+  }
+
+  .session-table .table-row:not(.table-head) {
+    align-items: start;
+  }
+
+  .project-table {
+    min-width: 0;
+    table-layout: fixed;
+  }
+
+  .project-table thead th {
+    white-space: normal;
+  }
+
+  .project-table thead .usage-table-total {
+    width: 27%;
+  }
+
+  .project-table thead th:last-child {
+    width: 25%;
+  }
+
+  .project-table tbody th,
+  .project-table tbody td {
+    vertical-align: top;
+  }
+
+  .project-name-cell {
+    width: auto;
+  }
+
+  .project-session-action {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .session-table .session-primary-cell > span,
+  .project-name-cell strong {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
 }
 
 .session-filter-empty h4 {

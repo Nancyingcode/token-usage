@@ -326,7 +326,7 @@ export const en = {
       input: 'Input',
       cached: 'Cached',
       output: 'Output',
-      total: 'Total',
+      total: 'Total tokens',
       status: 'Status',
     },
     projects: {
@@ -387,6 +387,10 @@ export const en = {
         title: 'All projects',
         filteredCount: 'Showing {{visible}} of {{total}} projects',
       },
+    },
+    usageRowDetails: {
+      action: 'Details',
+      label: 'Details for {{name}}',
     },
     performance: {
       title: 'Performance',

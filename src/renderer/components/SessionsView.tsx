@@ -31,6 +31,7 @@ import {
 } from '../utils/sessionPageSizePreference';
 import PageHeader from './PageHeader';
 import SelectMenu, { type SelectMenuOption } from './SelectMenu';
+import UsageRowDetails from './UsageRowDetails';
 
 interface SessionsViewProps {
   sessions: UsageSession[];
@@ -324,36 +325,105 @@ const SessionsView: React.FC<SessionsViewProps> = ({
       </div>
 
       <div className="panel table-panel session-list-panel">
-        <div className="data-table session-table">
-          <div className="table-row table-head">
-            <span>{t('sessions.session')}</span>
-            <span>{t('sessions.project')}</span>
-            <span>{t('sessions.date')}</span>
-            <span className="table-cell--numeric">{t('sessions.input')}</span>
-            <span className="table-cell--numeric">{t('sessions.cached')}</span>
-            <span className="table-cell--numeric">{t('sessions.output')}</span>
-            <span className="table-cell--numeric">{t('sessions.total')}</span>
-            <span>{t('sessions.status')}</span>
+        {showFilteredEmpty ? (
+          <div className="session-filter-empty">
+            <h4>
+              {showProjectEmpty
+                ? t('sessions.filteredEmptyTitle')
+                : t('sessions.filters.emptyTitle')}
+            </h4>
+            <p>
+              {showProjectEmpty
+                ? t('sessions.filteredEmptyDescription')
+                : t('sessions.filters.emptyDescription')}
+            </p>
+            <button type="button" onClick={handleClearFilters}>
+              {showProjectEmpty ? t('sessions.showAll') : t('sessions.filters.clear')}
+            </button>
           </div>
-          {showFilteredEmpty ? (
-            <div className="session-filter-empty">
-              <h4>
-                {showProjectEmpty
-                  ? t('sessions.filteredEmptyTitle')
-                  : t('sessions.filters.emptyTitle')}
-              </h4>
-              <p>
-                {showProjectEmpty
-                  ? t('sessions.filteredEmptyDescription')
-                  : t('sessions.filters.emptyDescription')}
-              </p>
-              <button type="button" onClick={handleClearFilters}>
-                {showProjectEmpty ? t('sessions.showAll') : t('sessions.filters.clear')}
-              </button>
+        ) : (
+          <div
+            className="data-table session-table usage-table-container"
+            role="table"
+            aria-label={t('sessions.title')}
+          >
+            <div className="table-row table-head" role="row">
+              <span role="columnheader">{t('sessions.session')}</span>
+              <span role="columnheader" className="usage-table-secondary-column">
+                {t('sessions.project')}
+              </span>
+              <span role="columnheader" className="usage-table-secondary-column">
+                {t('sessions.date')}
+              </span>
+              <span
+                role="columnheader"
+                className="table-cell--numeric usage-table-secondary-column"
+              >
+                {t('sessions.input')}
+              </span>
+              <span
+                role="columnheader"
+                className="table-cell--numeric usage-table-secondary-column"
+              >
+                {t('sessions.cached')}
+              </span>
+              <span
+                role="columnheader"
+                className="table-cell--numeric usage-table-secondary-column"
+              >
+                {t('sessions.output')}
+              </span>
+              <span role="columnheader" className="table-cell--numeric usage-table-total">
+                {t('sessions.total')}
+              </span>
+              <span role="columnheader">{t('sessions.status')}</span>
             </div>
-          ) : (
-            <div key={motionKey} data-motion-key={motionKey}>
+            <div key={motionKey} data-motion-key={motionKey} role="rowgroup">
               {pagination.items.map((session, index) => {
+                const name = session.threadName || shortId(session.sessionId);
+                const secondaryColumns = [
+                  {
+                    label: t('sessions.project'),
+                    value: session.projectName,
+                    title: session.projectPath,
+                    fullWidth: true,
+                  },
+                  {
+                    label: t('sessions.date'),
+                    value: formatShortDateTime(
+                      session.startedAt,
+                      locale,
+                      tCommon('value.unknownDate')
+                    ),
+                  },
+                  {
+                    label: t('sessions.input'),
+                    value: formatNumber(session.inputTokens, locale),
+                    numeric: true,
+                  },
+                  {
+                    label: t('sessions.cached'),
+                    value: formatNumber(session.cachedInputTokens, locale),
+                    numeric: true,
+                  },
+                  {
+                    label: t('sessions.output'),
+                    value: formatNumber(session.outputTokens, locale),
+                    numeric: true,
+                  },
+                ];
+                const [projectDetails, dateDetails, ...tokenDetails] = secondaryColumns;
+                const details = [...tokenDetails, dateDetails, projectDetails];
+                const detailFields = session.projectPath
+                  ? [
+                      ...details,
+                      {
+                        label: t('projects.path'),
+                        value: session.projectPath,
+                        fullWidth: true,
+                      },
+                    ]
+                  : details;
                 const diagnosis = diagnosisBySource.get(session.sourceFile);
                 const finding = diagnosis?.primaryFinding;
                 const diagnosisAction =
@@ -370,10 +440,16 @@ const SessionsView: React.FC<SessionsViewProps> = ({
                   <div
                     className="table-row motion-list-item"
                     key={session.sourceFile}
+                    role="row"
                     style={getStaggeredMotionStyle(index)}
                   >
-                    <span className="primary-cell session-primary-cell" title={session.sessionId}>
-                      <span>{session.threadName || shortId(session.sessionId)}</span>
+                    <div
+                      className="primary-cell session-primary-cell"
+                      role="rowheader"
+                      aria-label={name}
+                      title={session.sessionId}
+                    >
+                      <span title={session.threadName}>{name}</span>
                       {diagnosisAction ? (
                         <button
                           type="button"
@@ -387,24 +463,25 @@ const SessionsView: React.FC<SessionsViewProps> = ({
                           <span>{diagnosisAction.cause}</span>
                         </button>
                       ) : null}
-                    </span>
-                    <span title={session.projectPath}>{session.projectName}</span>
-                    <span>
-                      {formatShortDateTime(session.startedAt, locale, tCommon('value.unknownDate'))}
-                    </span>
-                    <span className="table-cell--numeric">
-                      {formatNumber(session.inputTokens, locale)}
-                    </span>
-                    <span className="table-cell--numeric">
-                      {formatNumber(session.cachedInputTokens, locale)}
-                    </span>
-                    <span className="table-cell--numeric">
-                      {formatNumber(session.outputTokens, locale)}
-                    </span>
-                    <span className="table-cell--numeric">
+                      <UsageRowDetails name={name} fields={detailFields} />
+                    </div>
+                    {secondaryColumns.map(({ label, value, numeric, title }) => (
+                      <span
+                        key={label}
+                        role="cell"
+                        className={`usage-table-secondary-column${numeric ? ' table-cell--numeric' : ''}`}
+                        title={title}
+                      >
+                        {value}
+                      </span>
+                    ))}
+                    <span role="cell" className="table-cell--numeric usage-table-total">
                       {formatNumber(session.totalTokens, locale)}
                     </span>
-                    <span className={session.warnings.length ? 'warning-cell' : 'ok-cell'}>
+                    <span
+                      role="cell"
+                      className={session.warnings.length ? 'warning-cell' : 'ok-cell'}
+                    >
                       {session.warnings.length ? (
                         <AlertTriangle size={ICON_SIZE_SMALL} aria-hidden="true" />
                       ) : null}
@@ -416,8 +493,8 @@ const SessionsView: React.FC<SessionsViewProps> = ({
                 );
               })}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         <footer className="session-pagination">
           <label>

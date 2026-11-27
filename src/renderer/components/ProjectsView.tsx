@@ -18,6 +18,7 @@ import {
 } from '../utils/projectViewModel';
 import PageHeader from './PageHeader';
 import SelectMenu, { type SelectMenuOption } from './SelectMenu';
+import UsageRowDetails from './UsageRowDetails';
 
 interface ProjectsViewProps {
   projects: UsageProject[];
@@ -494,27 +495,29 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onProjectSelect }
         </div>
 
         {visibleProjects.length > 0 ? (
-          <div className="project-table-scroll">
+          <div className="project-table-scroll usage-table-container">
             <table className="project-table" aria-label={t('projects.list.label')}>
               <thead>
                 <tr>
                   <th scope="col">{t('projects.project')}</th>
-                  <th scope="col" className="table-cell--numeric">
-                    {t('projects.tokens')}
+                  <th scope="col" className="table-cell--numeric usage-table-total">
+                    {t('projects.totalTokens')}
                   </th>
-                  <th scope="col" className="table-cell--numeric">
+                  <th scope="col" className="table-cell--numeric usage-table-secondary-column">
                     {t('projects.share')}
                   </th>
-                  <th scope="col" className="table-cell--numeric">
+                  <th scope="col" className="table-cell--numeric usage-table-secondary-column">
                     {t('projects.sessions')}
                   </th>
-                  <th scope="col" className="table-cell--numeric">
+                  <th scope="col" className="table-cell--numeric usage-table-secondary-column">
                     {t('projects.averageTokens')}
                   </th>
-                  <th scope="col" className="table-cell--numeric">
+                  <th scope="col" className="table-cell--numeric usage-table-secondary-column">
                     {t('projects.cacheRatio')}
                   </th>
-                  <th scope="col">{t('projects.lastActive')}</th>
+                  <th scope="col" className="usage-table-secondary-column">
+                    {t('projects.lastActive')}
+                  </th>
                   <th scope="col">{t('projects.action')}</th>
                 </tr>
               </thead>
@@ -522,6 +525,43 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onProjectSelect }
                 {visibleProjects.map((project, index) => {
                   const row = buildProjectRow(project);
                   const projectName = getDisplayName(project);
+                  const projectPath = getDisplayPath(project);
+                  const secondaryColumns = [
+                    {
+                      label: t('projects.share'),
+                      value: formatPercent(
+                        totalTokens > 0 ? (project.totalTokens / totalTokens) * PERCENT_SCALE : 0,
+                        locale,
+                        PROJECT_SHARE_FRACTION_DIGITS
+                      ),
+                      numeric: true,
+                    },
+                    {
+                      label: t('projects.sessions'),
+                      value: formatNumber(project.sessionCount, locale),
+                      numeric: true,
+                    },
+                    {
+                      label: t('projects.averageTokens'),
+                      value: formatNumber(Math.round(row.averageTokensPerSession), locale),
+                      numeric: true,
+                    },
+                    {
+                      label: t('projects.cacheRatio'),
+                      value: formatPercent(row.cacheInputRatio * PERCENT_SCALE, locale),
+                      numeric: true,
+                    },
+                    {
+                      label: t('projects.lastActive'),
+                      value: formatShortDateTime(project.lastActivityAt, locale, unknownDateLabel),
+                    },
+                  ];
+                  const detailFields = projectPath
+                    ? [
+                        { label: t('projects.path'), value: projectPath, fullWidth: true },
+                        ...secondaryColumns,
+                      ]
+                    : secondaryColumns;
 
                   return (
                     <tr
@@ -529,32 +569,24 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onProjectSelect }
                       className="motion-list-item"
                       style={getStaggeredMotionStyle(index)}
                     >
-                      <th scope="row" className="project-name-cell">
-                        <strong>{projectName}</strong>
-                        <small title={getDisplayPath(project)}>{getDisplayPath(project)}</small>
+                      <th scope="row" className="project-name-cell" aria-label={projectName}>
+                        <strong title={projectName}>{projectName}</strong>
+                        <small className="usage-table-secondary-column" title={projectPath}>
+                          {projectPath}
+                        </small>
+                        <UsageRowDetails name={projectName} fields={detailFields} />
                       </th>
-                      <td className="table-cell--numeric">
+                      <td className="table-cell--numeric usage-table-total">
                         {formatNumber(project.totalTokens, locale)}
                       </td>
-                      <td className="table-cell--numeric">
-                        {formatPercent(
-                          totalTokens > 0 ? (project.totalTokens / totalTokens) * PERCENT_SCALE : 0,
-                          locale,
-                          PROJECT_SHARE_FRACTION_DIGITS
-                        )}
-                      </td>
-                      <td className="table-cell--numeric">
-                        {formatNumber(project.sessionCount, locale)}
-                      </td>
-                      <td className="table-cell--numeric">
-                        {formatNumber(Math.round(row.averageTokensPerSession), locale)}
-                      </td>
-                      <td className="table-cell--numeric">
-                        {formatPercent(row.cacheInputRatio * PERCENT_SCALE, locale)}
-                      </td>
-                      <td>
-                        {formatShortDateTime(project.lastActivityAt, locale, unknownDateLabel)}
-                      </td>
+                      {secondaryColumns.map(({ label, value, numeric }) => (
+                        <td
+                          key={label}
+                          className={`usage-table-secondary-column${numeric ? ' table-cell--numeric' : ''}`}
+                        >
+                          {value}
+                        </td>
+                      ))}
                       <td>
                         <button
                           type="button"

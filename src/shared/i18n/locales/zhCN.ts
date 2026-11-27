@@ -320,7 +320,7 @@ export const zhCN = {
       input: '输入',
       cached: '缓存',
       output: '输出',
-      total: '总计',
+      total: '总 Token',
       status: '状态',
     },
     projects: {
@@ -379,6 +379,10 @@ export const zhCN = {
         title: '全部项目',
         filteredCount: '显示 {{visible}} / {{total}} 个项目',
       },
+    },
+    usageRowDetails: {
+      action: '详情',
+      label: '查看 {{name}} 的详情',
     },
     performance: {
       title: '性能',

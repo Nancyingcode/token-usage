@@ -155,6 +155,36 @@ describe('analytics tables', () => {
     expect(onSelect).toHaveBeenCalledWith('C:\\repo');
   });
 
+  it('opens project row metrics independently of the session action and resets on sorting', () => {
+    const onSelect = vi.fn();
+    render(
+      <I18nextProvider i18n={createTestI18n('en')}>
+        <ProjectsView projects={[PROJECT, OTHER_PROJECT]} onProjectSelect={onSelect} />
+      </I18nextProvider>
+    );
+
+    const toggle = screen.getByLabelText('Details for repo');
+    const details = toggle.closest('details') as HTMLDetailsElement;
+    expect(details.open).toBe(false);
+    fireEvent.click(toggle);
+    expect(details.open).toBe(true);
+    expect(details.textContent).toContain('PathC:\\repo');
+    expect(details.textContent).toContain('Share50.0%');
+    expect(details.textContent).toContain('Sessions1');
+    expect(details.textContent).toContain('Avg. tokens/session1,300');
+    expect(details.textContent).toContain('Cache share20%');
+    expect(details.textContent).toContain('Last Active');
+    expect(onSelect).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'View sessions for repo' }));
+    expect(onSelect).toHaveBeenCalledExactlyOnceWith('C:\\repo');
+    expect(details.open).toBe(true);
+
+    chooseSelectOption('Sort projects', 'Project name');
+    expect(screen.getByLabelText('Details for other').closest('details')?.open).toBe(false);
+    expect(screen.getByLabelText('Details for repo').closest('details')?.open).toBe(false);
+  });
+
   it('searches by project path and clears a no-results state', () => {
     const i18n = createTestI18n('en');
     render(
@@ -447,6 +477,45 @@ describe('analytics tables', () => {
     expect(screen.getByTitle('session-123456789')).toBeTruthy();
   });
 
+  it('opens session token and project details independently of diagnosis', () => {
+    const onDiagnosisOpen = vi.fn();
+    const diagnosis = makeDiagnosisSummary(HIGH_TOKEN_SESSION.sessionId, {
+      sourceFile: HIGH_TOKEN_SESSION.sourceFile,
+      primaryFinding: makeFindingSummary('input-growth', 'critical', 'high'),
+    });
+    render(
+      <I18nextProvider i18n={createTestI18n('en')}>
+        <SessionsView
+          sessions={[HIGH_TOKEN_SESSION]}
+          selectedProjectPath={null}
+          onClearProjectFilter={vi.fn()}
+          globalDiagnostics={[diagnosis]}
+          onDiagnosisOpen={onDiagnosisOpen}
+        />
+      </I18nextProvider>
+    );
+
+    const toggle = screen.getByLabelText('Details for High token session');
+    const details = toggle.closest('details') as HTMLDetailsElement;
+    expect(details.open).toBe(false);
+    fireEvent.click(toggle);
+    expect(details.open).toBe(true);
+    expect(details.textContent).toContain('Input1,000');
+    expect(details.textContent).toContain('Cached200');
+    expect(details.textContent).toContain('Output300');
+    expect(details.textContent).toContain('Projectrepo');
+    expect(details.textContent).toContain('PathC:\\repo');
+    expect(details.textContent).toContain('Date');
+    expect(onDiagnosisOpen).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /Open diagnosis/i }));
+    expect(onDiagnosisOpen).toHaveBeenCalledExactlyOnceWith(diagnosis);
+    expect(details.open).toBe(true);
+
+    fireEvent.click(toggle);
+    expect(details.open).toBe(false);
+  });
+
   it('paginates sessions and remembers the selected page size', () => {
     window.localStorage.clear();
     const sessions = Array.from({ length: 12 }, (_, index) => ({
@@ -468,12 +537,16 @@ describe('analytics tables', () => {
 
     expect(screen.getByText('Session 10')).toBeTruthy();
     expect(screen.queryByText('Session 11')).toBeNull();
+    const firstDetailsToggle = screen.getByLabelText('Details for Session 1');
+    fireEvent.click(firstDetailsToggle);
+    expect(firstDetailsToggle.closest('details')?.open).toBe(true);
     expect(
       (screen.getByRole('button', { name: 'Previous page' }) as HTMLButtonElement).disabled
     ).toBe(true);
 
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
     expect(screen.getByText('Session 11')).toBeTruthy();
+    expect(screen.getByLabelText('Details for Session 11').closest('details')?.open).toBe(false);
     expect((screen.getByRole('button', { name: 'Next page' }) as HTMLButtonElement).disabled).toBe(
       true
     );
@@ -481,6 +554,7 @@ describe('analytics tables', () => {
     chooseSelectOption('Sessions per page', '20');
     expect(screen.getByText('Session 1')).toBeTruthy();
     expect(screen.getByText('Session 12')).toBeTruthy();
+    expect(screen.getByLabelText('Details for Session 1').closest('details')?.open).toBe(false);
     expect(window.localStorage.getItem('codex-token-usage.sessions-page-size')).toBe('20');
   });
 });
