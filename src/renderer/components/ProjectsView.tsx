@@ -6,9 +6,10 @@ import React, { useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { UNKNOWN_PROJECT_KEY } from '../../shared/usageMath';
 import type { UsageProject } from '../../shared/usageTypes';
+import { useResultEntrance } from '../hooks/useResultEntrance';
+import { useUsageTableFocus } from '../hooks/useUsageTableFocus';
 import { resolveRendererLocale } from '../i18n';
 import { formatNumber, formatPercent, formatShortDateTime } from '../utils/formatters';
-import { getStaggeredMotionStyle } from '../utils/motion';
 import {
   buildProjectChartEntries,
   buildProjectRow,
@@ -133,14 +134,11 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onProjectSelect }
     () => filterAndSortProjects(projects, query, sortKey),
     [projects, query, sortKey]
   );
-  const listMotionKey = useMemo(
-    () =>
-      [
-        sortKey,
-        query.trim().toLocaleLowerCase(),
-        ...visibleProjects.map(({ projectPath }) => projectPath),
-      ].join(':'),
-    [query, sortKey, visibleProjects]
+  const { searchRef, onRowFocus, onRowBlur } = useUsageTableFocus(visibleProjects);
+  const hasVisibleProjects = visibleProjects.length > 0;
+  const { resultsRef, cancel: cancelEntrance } = useResultEntrance<HTMLTableSectionElement>(
+    sortKey,
+    hasVisibleProjects ? 'ready' : 'skipped'
   );
   const totalTokens = projects.reduce((total, project) => total + project.totalTokens, 0);
   const totalSessions = projects.reduce((total, project) => total + project.sessionCount, 0);
@@ -182,6 +180,11 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onProjectSelect }
 
     event.preventDefault();
     activateProject(project);
+  };
+
+  const searchProjects = (nextQuery: string): void => {
+    cancelEntrance();
+    setQuery(nextQuery);
   };
 
   return (
@@ -473,11 +476,12 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onProjectSelect }
             <label>
               <span>{t('projects.search.label')}</span>
               <input
+                ref={searchRef}
                 type="search"
                 value={query}
                 placeholder={t('projects.search.placeholder')}
                 aria-label={t('projects.search.label')}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => searchProjects(event.target.value)}
               />
             </label>
             <label>
@@ -494,7 +498,7 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onProjectSelect }
           </div>
         </div>
 
-        {visibleProjects.length > 0 ? (
+        {hasVisibleProjects ? (
           <div className="project-table-scroll usage-table-container">
             <table className="project-table" aria-label={t('projects.list.label')}>
               <thead>
@@ -521,8 +525,8 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onProjectSelect }
                   <th scope="col">{t('projects.action')}</th>
                 </tr>
               </thead>
-              <tbody key={listMotionKey} data-motion-key={listMotionKey}>
-                {visibleProjects.map((project, index) => {
+              <tbody key={sortKey} ref={resultsRef} onFocus={onRowFocus} onBlur={onRowBlur}>
+                {visibleProjects.map((project) => {
                   const row = buildProjectRow(project);
                   const projectName = getDisplayName(project);
                   const projectPath = getDisplayPath(project);
@@ -564,11 +568,7 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onProjectSelect }
                     : secondaryColumns;
 
                   return (
-                    <tr
-                      key={project.projectPath}
-                      className="motion-list-item"
-                      style={getStaggeredMotionStyle(index)}
-                    >
+                    <tr key={project.projectPath}>
                       <th scope="row" className="project-name-cell" aria-label={projectName}>
                         <strong title={projectName}>{projectName}</strong>
                         <small className="usage-table-secondary-column" title={projectPath}>
@@ -607,7 +607,7 @@ const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onProjectSelect }
           <div className="project-search-empty">
             <strong>{t('projects.search.emptyTitle')}</strong>
             <p>{t('projects.search.emptyDescription')}</p>
-            <button type="button" className="secondary-button" onClick={() => setQuery('')}>
+            <button type="button" className="secondary-button" onClick={() => searchProjects('')}>
               {t('projects.search.clear')}
             </button>
           </div>

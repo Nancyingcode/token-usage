@@ -217,6 +217,19 @@ describe('UI style policy', () => {
     expect(css).toContain('button:not(:disabled):active');
   });
 
+  it('fades result surfaces with the fast token and disables the fade for reduced motion', () => {
+    const components = readRendererStyle('styles/components.css');
+    const reducedMotion = components.slice(
+      components.indexOf('@media (prefers-reduced-motion: reduce)')
+    );
+
+    expect(components).toContain(
+      '.results-enter {\n  animation: results-enter var(--duration-fast) var(--ease-motion-enter) both;'
+    );
+    expect(components).toContain('@keyframes results-enter {\n  from {\n    opacity: 0.9;\n  }\n}');
+    expect(reducedMotion).toContain('.results-enter {\n    animation: none;');
+  });
+
   it('uses the existing motion tokens for range, date dialog, and row detail feedback', () => {
     const views = readRendererStyle('styles/views.css');
     const reducedMotion = views.slice(views.indexOf('@media (prefers-reduced-motion: reduce)'));

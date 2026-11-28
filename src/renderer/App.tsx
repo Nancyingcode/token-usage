@@ -61,7 +61,6 @@ export const INITIAL_APP_NAVIGATION_STATE: AppNavigationState = {
 interface ViewTransitionStates {
   usage: string;
   budget: string;
-  costOptimization: string;
 }
 
 export const getViewTransitionKey = (activeView: ViewKey, states: ViewTransitionStates): string => {
@@ -69,7 +68,7 @@ export const getViewTransitionKey = (activeView: ViewKey, states: ViewTransition
     case 'budgets':
       return `${activeView}:${states.budget}`;
     case 'costOptimization':
-      return `${activeView}:${states.costOptimization}`;
+      return activeView;
     default:
       return `${activeView}:${states.usage}`;
   }
@@ -330,7 +329,6 @@ const App: React.FC = () => {
   const viewTransitionKey = getViewTransitionKey(activeView, {
     usage: contentModel.kind,
     budget: budgetModel.kind,
-    costOptimization: costOptimizationModel.kind,
   });
 
   return (

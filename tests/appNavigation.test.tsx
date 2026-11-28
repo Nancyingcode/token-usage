@@ -158,13 +158,18 @@ describe('getViewTransitionKey', () => {
   const states = {
     usage: 'ready',
     budget: 'loading',
-    costOptimization: 'error',
   };
 
   it('uses the data state owned by the active page', () => {
     expect(getViewTransitionKey('overview', states)).toBe('overview:ready');
     expect(getViewTransitionKey('budgets', states)).toBe('budgets:loading');
-    expect(getViewTransitionKey('costOptimization', states)).toBe('costOptimization:error');
+  });
+
+  it('keeps the cost optimization page mounted while query state changes', () => {
+    expect(getViewTransitionKey('costOptimization', states)).toBe('costOptimization');
+    expect(getViewTransitionKey('costOptimization', { usage: 'empty', budget: 'ready' })).toBe(
+      'costOptimization'
+    );
   });
 });
 

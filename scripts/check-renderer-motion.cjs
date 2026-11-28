@@ -17,6 +17,9 @@ const COMMAND_TIMEOUT_MS = 10_000;
 const ENTER = { key: 'Enter', code: 'Enter', text: '\r', windowsVirtualKeyCode: 13 };
 const SPACE = { key: ' ', code: 'Space', text: ' ', windowsVirtualKeyCode: 32 };
 const ESCAPE = { key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 };
+const BACKSPACE = { key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8 };
+const DOWN = { key: 'ArrowDown', code: 'ArrowDown', windowsVirtualKeyCode: 40 };
+const HOME = { key: 'Home', code: 'Home', windowsVirtualKeyCode: 36 };
 const END = { key: 'End', code: 'End', windowsVirtualKeyCode: 35 };
 const WEEK = '.period-toggle--overview button:nth-child(2)';
 const MONTH = '.period-toggle--overview button:nth-child(3)';
@@ -24,6 +27,18 @@ const CUSTOM = '.period-toggle--overview [aria-haspopup="dialog"]';
 const DATE_MENU = '.overview-period-menu .select-menu-trigger';
 const DATE_DIALOG = '.date-range-dialog[open]';
 const ROW_DETAILS = '.usage-row-details > summary';
+const SESSION_RESULTS = '.session-table [role="rowgroup"]';
+const SESSION_SEARCH = '.session-filter-search input';
+const SESSION_NEXT = '.session-pagination-navigation button:last-child';
+const SESSION_PREVIOUS = '.session-pagination-navigation button:first-child';
+const SESSION_CAUSE = '.session-filter-controls label:nth-child(3) .select-menu-trigger';
+const PROJECT_RESULTS = '.project-table tbody';
+const PROJECT_SEARCH = '.project-list-controls input';
+const PROJECT_SORT = '.project-list-controls .select-menu-trigger';
+const COST_RESULTS = '.cost-optimization-results';
+const COST_PROJECT = '.cost-optimization-toolbar .select-menu-trigger';
+const COST_MONTH = '.title-bar-toolbar .period-toggle button:nth-child(3)';
+const MENU_OPTIONS = '.select-menu-popover [role="option"]';
 
 const withinTimeout = async (operation, description) => {
   const timeout = new AbortController();
@@ -59,15 +74,17 @@ const checkRendererMotion = async (browserWindow, directory, pressKey) => {
     command('Emulation.setEmulatedMedia', {
       features: [{ name: 'prefers-reduced-motion', value }],
     });
-  const waitFor = async (selector) => {
+  const waitForCondition = async (description, predicate, ...args) => {
     for (let attempt = 0; attempt < RENDER_ATTEMPTS; attempt += 1) {
-      if (await evaluate((target) => Boolean(document.querySelector(target)), selector)) {
+      if (await evaluate(predicate, ...args)) {
         return;
       }
       await wait(RENDER_POLL_MS);
     }
-    assert.fail(`Timed out waiting for ${selector}`);
+    assert.fail(`Timed out waiting for ${description}`);
   };
+  const waitFor = (selector) =>
+    waitForCondition(selector, (target) => Boolean(document.querySelector(target)), selector);
   const focus = (selector) =>
     evaluate((target) => document.querySelector(target).focus(), selector);
   const click = (selector) =>
@@ -89,6 +106,15 @@ const checkRendererMotion = async (browserWindow, directory, pressKey) => {
       (expected) => window.motionFixture.motionStarts.filter((event) => event.name === expected),
       name
     );
+  const waitForStarts = (name, count) =>
+    waitForCondition(
+      `${count} ${name} starts`,
+      (expected, minimum) =>
+        window.motionFixture.motionStarts.filter((event) => event.name === expected).length >=
+        minimum,
+      name,
+      count
+    );
   const assertFocused = async (selector) =>
     assert.equal(
       await evaluate(
@@ -103,11 +129,11 @@ const checkRendererMotion = async (browserWindow, directory, pressKey) => {
   webContents.debugger.attach();
   await command('Emulation.setFocusEmulationEnabled', { enabled: true });
 
-  const openOverview = async (size, locale, theme, preference) => {
+  const openOverview = async (size, locale, theme, preference, scenario = 'overview') => {
     resize(size);
     await setMotion(preference);
     await withinTimeout(
-      browserWindow.loadFile(join(directory, 'index.html'), { query: { locale, theme } }),
+      browserWindow.loadFile(join(directory, 'index.html'), { query: { locale, theme, scenario } }),
       'loading the motion fixture'
     );
     await waitFor('.page-stack--overview .trend-hit-target');
@@ -178,9 +204,9 @@ const checkRendererMotion = async (browserWindow, directory, pressKey) => {
   assert.equal((await starts('data-value-enter')).length, 0);
 
   await click(MONTH);
-  await paint();
+  await waitForStarts('trend-range-enter', 2);
   await click(WEEK);
-  await paint();
+  await waitForStarts('trend-range-enter', 4);
   const rangeStarts = await starts('trend-range-enter');
   assert.equal(rangeStarts.length, 4, 'Each changed range should animate two graphic layers');
   assert.ok(rangeStarts.every(({ duration, delay }) => duration === '0.14s' && delay === '0s'));
@@ -425,6 +451,411 @@ const checkRendererMotion = async (browserWindow, directory, pressKey) => {
   process.stdout.write(
     'zh-CN / ocean-dark: changing preference during a real exit restored focus and confirmed once\n'
   );
+
+  const insertText = (text) => command('Input.insertText', { text });
+  const clearSearch = async (selector) => {
+    await evaluate((target) => document.querySelector(target).select(), selector);
+    await key(BACKSPACE);
+  };
+  const selectLastOption = async (selector) => {
+    await focus(selector);
+    await key(ENTER);
+    await waitFor(MENU_OPTIONS);
+    await key(END);
+    await key(ENTER);
+  };
+  const holdResultFade = async (selector) => {
+    const fade = await evaluate(
+      async (target, maxAttempts) => {
+        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+          await new Promise(requestAnimationFrame);
+          const surface = document.querySelector(target);
+          const animation = surface
+            ?.getAnimations()
+            .find((item) => item.animationName === 'results-enter');
+          if (!animation) {
+            continue;
+          }
+          animation.pause();
+          animation.currentTime = 1;
+          await animation.ready;
+          const style = getComputedStyle(surface);
+          return {
+            duration: style.animationDuration,
+            delay: style.animationDelay,
+            opacity: animation.effect.getKeyframes().map((frame) => frame.opacity),
+            transform: style.transform,
+          };
+        }
+        return null;
+      },
+      selector,
+      RENDER_ATTEMPTS
+    );
+    assert.deepEqual(
+      fade,
+      {
+        duration: '0.14s',
+        delay: '0s',
+        opacity: ['0.9', '1'],
+        transform: 'none',
+      },
+      selector
+    );
+  };
+  const finishResultFade = async (selector) => {
+    await evaluate((target) => {
+      document
+        .querySelector(target)
+        .getAnimations()
+        .find((animation) => animation.animationName === 'results-enter')
+        ?.finish();
+    }, selector);
+    await waitForCondition(
+      'result fade cleanup',
+      (target) => !document.querySelector(target).classList.contains('results-enter'),
+      selector
+    );
+  };
+  const resultStarts = () => starts('results-enter');
+
+  await openOverview(WIDE_WINDOW, 'en', 'mint-light', 'no-preference', 'results');
+  await navigate('sessions');
+  await waitFor(SESSION_RESULTS);
+  await paint();
+  await evaluate((target) => {
+    const results = document.querySelector(target);
+    window.resultProbe = { sessionRow: results.firstElementChild };
+  }, SESSION_RESULTS);
+  await focus(SESSION_SEARCH);
+  await insertText('Fixture session 0');
+  await paint();
+  const readSessions = () =>
+    evaluate((target) => {
+      const rows = document.querySelector(target);
+      return {
+        count: rows.children.length,
+        last: rows.lastElementChild.textContent,
+        sameFirstRow: rows.firstElementChild === window.resultProbe?.sessionRow,
+        page: document.querySelector('.session-pagination-navigation [role="status"]').textContent,
+      };
+    }, SESSION_RESULTS);
+  const searched = await readSessions();
+  assert.equal(searched.count, 9);
+  assert.equal(searched.sameFirstRow, true);
+  await key(BACKSPACE);
+  assert.equal((await readSessions()).count, 10);
+  await clearSearch(SESSION_SEARCH);
+  await paint();
+  assert.equal((await readSessions()).sameFirstRow, true);
+  await assertFocused(SESSION_SEARCH);
+  assert.equal((await resultStarts()).length, 0);
+  assert.equal((await starts('motion-list-item-enter')).length, 0);
+
+  await focus(SESSION_NEXT);
+  await key(ENTER);
+  await holdResultFade(SESSION_RESULTS);
+  assert.equal((await readSessions()).page, 'Page 2 of 3');
+  await waitForStarts('results-enter', 1);
+  assert.equal((await resultStarts()).length, 1);
+  await key(ENTER);
+  await holdResultFade(SESSION_RESULTS);
+  await waitForStarts('results-enter', 2);
+  const lastPage = await readSessions();
+  assert.equal(lastPage.page, 'Page 3 of 3');
+  assert.equal(lastPage.count, 10);
+  assert.match(lastPage.last, /Fixture session 30/);
+  assert.equal(
+    await evaluate((target) => document.querySelector(target).disabled, SESSION_NEXT),
+    true
+  );
+  assert.equal((await resultStarts()).length, 2);
+  // Keep the animation active to exercise the preference change even on a slow machine.
+  await setMotion('reduce');
+  await paint();
+  assert.equal(
+    await evaluate(
+      (target) => getComputedStyle(document.querySelector(target)).opacity,
+      SESSION_RESULTS
+    ),
+    '1'
+  );
+  await setMotion('no-preference');
+  await paint();
+  assert.equal(
+    (await resultStarts()).length,
+    2,
+    'Re-enabling motion must not replay a completed page change'
+  );
+  await selectLastOption(SESSION_CAUSE);
+  await holdResultFade(SESSION_RESULTS);
+  await paint();
+  assert.equal((await readSessions()).page, 'Page 1 of 3');
+  assert.equal(
+    await evaluate((target) => document.querySelector(target).disabled, SESSION_PREVIOUS),
+    true
+  );
+  assert.equal((await resultStarts()).length, 3);
+  await assertFocused(SESSION_CAUSE);
+  process.stdout.write(
+    'en / mint-light / 1440: continuous search, rapid pagination, filters and mid-fade preference passed\n'
+  );
+
+  resize(COMPACT_WINDOW);
+  await navigate('projects');
+  await waitFor(PROJECT_RESULTS);
+  await paint();
+  const projectSummary = PROJECT_RESULTS + ' tr:first-child ' + ROW_DETAILS;
+  const resultsBeforeProjects = (await resultStarts()).length;
+  await focus(projectSummary);
+  await key(ENTER);
+  assert.equal(
+    await evaluate(
+      (target) => document.querySelector(target).closest('details').open,
+      projectSummary
+    ),
+    true
+  );
+  assert.equal(
+    await evaluate(() => {
+      const container = document.querySelector('.project-table-scroll');
+      const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+      return container.clientWidth < 68 * rem;
+    }),
+    true
+  );
+  await evaluate((target) => {
+    window.resultProbe = {
+      project: document.querySelector(target),
+      chart: document.querySelector('.project-donut-chart'),
+      header: document.querySelector('.project-table thead'),
+    };
+  }, projectSummary);
+  await focus(PROJECT_SEARCH);
+  await insertText('Fixture project A');
+  await paint();
+  assert.equal(
+    await evaluate((target) => document.querySelector(target).children.length, PROJECT_RESULTS),
+    1
+  );
+  await key(BACKSPACE);
+  await clearSearch(PROJECT_SEARCH);
+  await assertFocused(PROJECT_SEARCH);
+  await evaluate(() => window.resultProbe.project.focus());
+  const readProjectFocus = () =>
+    evaluate(() => {
+      const { project, chart, header } = window.resultProbe;
+      const main = document.querySelector('main');
+      const viewport = main.getBoundingClientRect();
+      const bounds = project.getBoundingClientRect();
+      return {
+        focused: document.activeElement === project,
+        rank: Array.from(project.closest('tbody').rows).indexOf(project.closest('tr')),
+        open: project.closest('details').open,
+        visible: bounds.top >= viewport.top - 1 && bounds.bottom <= viewport.bottom + 1,
+        scrollTop: main.scrollTop,
+        sameChrome:
+          chart === document.querySelector('.project-donut-chart') &&
+          header === document.querySelector('.project-table thead'),
+      };
+    });
+  const beforeProjectUpdate = await readProjectFocus();
+  assert.ok(beforeProjectUpdate.open && beforeProjectUpdate.focused && beforeProjectUpdate.visible);
+  await evaluate(() => window.motionFixture.publishProjectChange('add'));
+  await paint();
+  assert.deepEqual(await readProjectFocus(), beforeProjectUpdate);
+  await evaluate(() => window.motionFixture.publishProjectChange('reorder'));
+  await paint();
+  const moved = await readProjectFocus();
+  assert.ok(moved.focused && moved.open && moved.visible && moved.sameChrome);
+  assert.equal(moved.rank, 8);
+  assert.ok(moved.scrollTop > 0);
+  resize(WIDE_WINDOW);
+  await paint();
+  resize(COMPACT_WINDOW);
+  await paint();
+  assert.ok((await readProjectFocus()).open && (await readProjectFocus()).focused);
+  await evaluate(() => window.motionFixture.publishProjectChange('remove'));
+  await paint();
+  await assertFocused(PROJECT_SEARCH);
+  assert.equal((await resultStarts()).length, resultsBeforeProjects);
+  assert.equal((await starts('motion-list-item-enter')).length, 0);
+
+  await selectLastOption(PROJECT_SORT);
+  await holdResultFade(PROJECT_RESULTS);
+  await paint();
+  assert.equal((await resultStarts()).length, resultsBeforeProjects + 1);
+  assert.equal(
+    await evaluate(() => {
+      const { header, chart } = window.resultProbe;
+      return (
+        header === document.querySelector('.project-table thead') &&
+        chart === document.querySelector('.project-donut-chart')
+      );
+    }),
+    true
+  );
+  await assertFocused(PROJECT_SORT);
+  process.stdout.write(
+    'en / mint-light / 900 and 1440: project search, narrow-row reordering, scroll, focus and sorting passed\n'
+  );
+
+  const chooseCostProject = async (name) => {
+    await focus(COST_PROJECT);
+    await key(ENTER);
+    await waitFor(MENU_OPTIONS);
+    await key(HOME);
+    const index = await evaluate(
+      (target, project) =>
+        [...document.querySelectorAll(target)].findIndex((item) =>
+          item.textContent.endsWith(project)
+        ),
+      MENU_OPTIONS,
+      name
+    );
+    assert.ok(index >= 0, name);
+    for (let move = 0; move < index; move += 1) {
+      await key(DOWN);
+    }
+    await key(ENTER);
+    await assertFocused(COST_PROJECT);
+  };
+  const costRequest = (name, period) =>
+    waitForCondition(
+      'pending cost request',
+      (project, range) => window.motionFixture.hasCostRequest(project, range),
+      name,
+      period
+    );
+  const settleCost = (name, period, result) =>
+    evaluate(
+      (project, range, outcome) => window.motionFixture.settleCostRequest(project, range, outcome),
+      name,
+      period,
+      result
+    );
+  const waitForCost = (amount) =>
+    waitForCondition(
+      'visible current cost',
+      (value) => {
+        const readout = document.querySelector(
+          '.cost-optimization-metric-grid .metric-card--featured strong'
+        );
+        const currency = new Intl.NumberFormat(document.documentElement.lang, {
+          style: 'currency',
+          currency: 'USD',
+        });
+        return readout?.textContent === currency.format(value);
+      },
+      amount
+    );
+
+  for (const [size, locale, theme, preference] of [
+    [WIDE_WINDOW, 'en', 'mint-light', 'no-preference'],
+    [COMPACT_WINDOW, 'zh-CN', 'ocean-dark', 'reduce'],
+  ]) {
+    const reduced = preference === 'reduce';
+    await openOverview(size, locale, theme, preference, 'results');
+    if (reduced) {
+      await navigate('sessions');
+      await waitFor(SESSION_NEXT);
+      await focus(SESSION_NEXT);
+      await key(ENTER);
+      await paint();
+      assert.equal((await readSessions()).count, 10);
+      assert.equal(
+        await evaluate(
+          (target) => getComputedStyle(document.querySelector(target)).opacity,
+          SESSION_RESULTS
+        ),
+        '1'
+      );
+      assert.equal((await resultStarts()).length, 0);
+    }
+    await navigate('costOptimization');
+    await waitForCost(48.2);
+    await paint();
+    assert.equal((await resultStarts()).length, 0);
+    const [projectB, projectC] = await evaluate(() => {
+      const trigger = document.querySelector('.cost-optimization-toolbar .select-menu-trigger');
+      const heading = document.querySelector('.cost-optimization-workspace h1');
+      window.resultProbe = { trigger, heading };
+      return window.motionFixture.resultProjectNames.slice(1, 3);
+    });
+    const pageStarts = (await starts('view-enter')).length;
+    await chooseCostProject(projectB);
+    await costRequest(projectB, 'week');
+    await waitFor('.cost-optimization-workspace [aria-busy="true"]');
+    assert.equal(
+      await evaluate((target) => document.querySelector(target) === null, COST_RESULTS),
+      true
+    );
+    await chooseCostProject(projectC);
+    await costRequest(projectC, 'week');
+    await key(ENTER);
+    await waitFor(MENU_OPTIONS);
+    await settleCost(projectC, 'week', 37);
+    if (!reduced) {
+      await holdResultFade(COST_RESULTS);
+    }
+    await waitForCost(37);
+    await settleCost(projectB, 'week', reduced ? 'superseded fixture request' : 62);
+    await paint();
+    await waitForCost(37);
+    assert.equal(
+      await evaluate(() => {
+        const { trigger, heading } = window.resultProbe;
+        return (
+          trigger === document.activeElement &&
+          trigger.getAttribute('aria-expanded') === 'true' &&
+          heading === document.querySelector('.cost-optimization-workspace h1') &&
+          document.querySelector('.cost-optimization-workspace [role="alert"]') === null
+        );
+      }),
+      true
+    );
+    assert.equal((await starts('view-enter')).length, pageStarts);
+    assert.equal((await resultStarts()).length, reduced ? 0 : 1);
+    if (!reduced) {
+      await finishResultFade(COST_RESULTS);
+    }
+    await key(ESCAPE);
+    await evaluate((name) => window.motionFixture.publishCost(name, 'week', 43), projectC);
+    await waitForCost(43);
+    await assertFocused(COST_PROJECT);
+    assert.equal((await resultStarts()).length, reduced ? 0 : 1);
+
+    await chooseCostProject(projectB);
+    await costRequest(projectB, 'week');
+    await settleCost(projectB, 'week', 'current fixture request failed');
+    await waitFor('.cost-optimization-workspace [role="alert"]');
+    await assertFocused(COST_PROJECT);
+    await focus(COST_MONTH);
+    await key(ENTER);
+    await costRequest(projectB, 'month');
+    await settleCost(projectB, 'month', 54);
+    if (!reduced) {
+      await holdResultFade(COST_RESULTS);
+    }
+    await waitForCost(54);
+    await paint();
+    await assertFocused(COST_MONTH);
+    if (reduced) {
+      assert.equal(
+        await evaluate(
+          (target) => getComputedStyle(document.querySelector(target)).opacity,
+          COST_RESULTS
+        ),
+        '1'
+      );
+      await setMotion('no-preference');
+      await paint();
+    }
+    assert.equal((await resultStarts()).length, reduced ? 0 : 2);
+    process.stdout.write(
+      `${locale} / ${theme} / ${size[0]} / ${preference}: cost selection, out-of-order results, error recovery and focus passed\n`
+    );
+  }
 };
 
 module.exports = { checkRendererMotion };

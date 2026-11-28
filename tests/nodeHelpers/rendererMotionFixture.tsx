@@ -10,14 +10,19 @@ import { saveUsagePeriodPreference } from '../../src/renderer/utils/usagePeriodP
 import { evaluateBudgets } from '../../src/shared/budgetEvaluation';
 import type { BudgetPolicy, ModelPricingEntry } from '../../src/shared/budgetTypes';
 import { formatLocalDateKey } from '../../src/shared/calendarDate';
+import type {
+  CostOptimizationQuery,
+  CostOptimizationSnapshot,
+} from '../../src/shared/costOptimizationTypes';
 import { resolveRendererLocale } from '../../src/renderer/i18n';
 import { isThemeId } from '../../src/shared/theme';
 import { buildUsageSummary } from '../../src/shared/usageMath';
-import type { UsageScanResult, UsageSession } from '../../src/shared/usageTypes';
+import type { UsagePeriod, UsageScanResult, UsageSession } from '../../src/shared/usageTypes';
 import { createTestI18n } from '../helpers/renderWithI18n';
 import { SNAPSHOT as COST_SNAPSHOT } from '../helpers/costOptimizationFixtures';
 
 const params = new URLSearchParams(window.location.search);
+const resultsScenario = params.get('scenario') === 'results';
 const locale = resolveRendererLocale(params.get('locale') ?? undefined);
 const requestedTheme = params.get('theme');
 const theme = isThemeId(requestedTheme) ? requestedTheme : 'mint-light';
@@ -36,7 +41,18 @@ const dateBefore = (days: number): Date => {
 };
 const modelId = 'motion-test';
 const sessionsDir = 'C:\\synthetic-motion-fixture';
-const makeSession = (id: string, daysAgo: number, tokens: number): UsageSession => {
+const defaultProjectName = 'Synthetic project';
+const resultProjectNames = Array.from(
+  { length: 8 },
+  (_, index) => `Fixture project ${String.fromCharCode('A'.charCodeAt(0) + index)}`
+);
+const projectPath = (name: string): string => `${sessionsDir}\\${name}`;
+const makeSession = (
+  id: string,
+  daysAgo: number,
+  tokens: number,
+  projectName = defaultProjectName
+): UsageSession => {
   const startedAt = dateBefore(daysAgo).toISOString();
   const usage = {
     inputTokens: tokens,
@@ -48,10 +64,11 @@ const makeSession = (id: string, daysAgo: number, tokens: number): UsageSession 
   return {
     ...usage,
     sessionId: id,
+    threadName: id,
     startedAt,
     endedAt: startedAt,
-    projectPath: sessionsDir,
-    projectName: 'Synthetic project',
+    projectPath: projectName === defaultProjectName ? sessionsDir : projectPath(projectName),
+    projectName,
     usageSlices: [{ ...usage, occurredAt: startedAt, modelId }],
     turnOutcomes: [],
     sourceFile: `${id}.jsonl`,
@@ -65,11 +82,22 @@ const makeResult = (sessions: UsageSession[]): UsageScanResult => ({
   summary: buildUsageSummary(sessions),
   warnings: [],
 });
-const sessions = [
+const standardSessions = [
   makeSession('recent', 0, 800),
   makeSession('week', 3, 240),
   makeSession('month', 12, 1_800),
 ];
+const resultSessions = Array.from({ length: 30 }, (_, index) => {
+  const projectIndex = index % resultProjectNames.length;
+  const label = String(index + 1).padStart(2, '0');
+  return makeSession(
+    `Fixture session ${label}`,
+    0,
+    (resultProjectNames.length - projectIndex) * 100,
+    resultProjectNames[projectIndex]
+  );
+});
+const sessions = resultsScenario ? resultSessions : standardSessions;
 const policy: BudgetPolicy = {
   id: 'synthetic-policy',
   scope: 'global',
@@ -102,8 +130,19 @@ const budgetSnapshot = (policies: BudgetPolicy[]) =>
 
 let result = makeResult(sessions);
 let usageListener: ((next: UsageScanResult) => void) | undefined;
+let costListener: ((next: CostOptimizationSnapshot) => void) | undefined;
 let deletedPolicies = 0;
 const subscribeToNothing = () => () => undefined;
+const requests: Array<{
+  query: CostOptimizationQuery;
+  resolve: (snapshot: CostOptimizationSnapshot) => void;
+  reject: (error: Error) => void;
+}> = [];
+const findCostRequest = (name: string, period: UsagePeriod) =>
+  requests.findIndex(
+    ({ query }) => query.projectPath === projectPath(name) && query.period === period
+  );
+
 Object.defineProperty(window, 'codexUsage', {
   value: {
     getInitialUsage: async () => result,
@@ -138,8 +177,18 @@ Object.defineProperty(window, 'codexUsage', {
       },
     },
     costOptimization: {
-      getSnapshot: async () => COST_SNAPSHOT,
-      onUpdated: subscribeToNothing,
+      getSnapshot: (query: CostOptimizationQuery): Promise<CostOptimizationSnapshot> => {
+        if (!resultsScenario || !query.projectPath) {
+          return Promise.resolve({ ...COST_SNAPSHOT, query });
+        }
+        return new Promise((resolve, reject) => requests.push({ query, resolve, reject }));
+      },
+      onUpdated: (listener: typeof costListener) => {
+        costListener = listener;
+        return () => {
+          costListener = undefined;
+        };
+      },
     },
   },
 });
@@ -194,11 +243,47 @@ Object.defineProperty(window, 'motionFixture', {
       sessions: i18n.t('navigation.sessions'),
       projects: i18n.t('navigation.tools'),
       budgets: i18n.t('navigation.budgets'),
+      costOptimization: i18n.t('navigation.costOptimization'),
     },
     getDeletedPolicies: () => deletedPolicies,
     publishUsage: () => {
       result = makeResult([...sessions, makeSession('pushed', 0, 2_400)]);
       usageListener?.(result);
+    },
+    resultProjectNames,
+    publishProjectChange: (change: 'add' | 'reorder' | 'remove') => {
+      const firstProject = resultProjectNames[0];
+      const existing = result.summary.sessions;
+      const next =
+        change === 'add'
+          ? [...existing, makeSession('Fixture added session', 0, 20, 'Fixture project I')]
+          : existing.flatMap((session) => {
+              if (session.projectName !== firstProject) {
+                return [session];
+              }
+              return change === 'reorder'
+                ? [makeSession(session.sessionId, 0, 1, firstProject)]
+                : [];
+            });
+      result = makeResult(next);
+      usageListener?.(result);
+    },
+    hasCostRequest: (name: string, period: UsagePeriod) => findCostRequest(name, period) >= 0,
+    settleCostRequest: (name: string, period: UsagePeriod, outcome: number | string) => {
+      const index = findCostRequest(name, period);
+      if (index < 0) {
+        throw new Error('No matching synthetic cost request.');
+      }
+      const [request] = requests.splice(index, 1);
+      if (typeof outcome === 'string') {
+        request.reject(new Error(outcome));
+      } else {
+        request.resolve({ ...COST_SNAPSHOT, query: request.query, currentCostUsd: outcome });
+      }
+    },
+    publishCost: (name: string, period: UsagePeriod, currentCostUsd: number) => {
+      const query = { period, projectPath: projectPath(name) };
+      costListener?.({ ...COST_SNAPSHOT, query, currentCostUsd });
     },
   },
 });

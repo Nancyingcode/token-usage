@@ -12,7 +12,9 @@ import type {
   SessionDiagnosisSummary,
 } from '../../shared/costOptimizationTypes';
 import { getLatestModelSeriesIds } from '../../shared/latestModelSeries';
+import type { UsagePeriod } from '../../shared/usageTypes';
 import { ICON_SIZE_LARGE, ICON_SIZE_SMALL } from '../constants/ui';
+import { useResultEntrance } from '../hooks/useResultEntrance';
 import type { SessionDiagnosisDetailModel } from '../utils/sessionDiagnosisDetailState';
 import AccessibleTabs, { getTabId, getTabPanelId } from './AccessibleTabs';
 import CostAnomalies from './CostAnomalies';
@@ -35,6 +37,7 @@ export type CostOptimizationContentModel =
 
 interface CostOptimizationViewProps {
   model: CostOptimizationContentModel;
+  period: UsagePeriod;
   projectOptions: string[];
   projectOptionsLoading?: boolean;
   projectPath: string | null | undefined;
@@ -46,6 +49,11 @@ interface CostOptimizationViewProps {
   onDiagnosisClose: () => void;
   onProjectPathChange: (projectPath: string | undefined) => void;
   onUpdateSettings: (settings: CostOptimizationSettings) => Promise<unknown>;
+}
+
+interface SettingsEditor {
+  queryScope: string;
+  snapshot: CostOptimizationSnapshot;
 }
 
 const COST_OPTIMIZATION_TABS = [
@@ -105,8 +113,43 @@ const renderCostOptimizationTab = (
   }
 };
 
+const CostOptimizationWarnings: React.FC<{ snapshot: CostOptimizationSnapshot }> = ({
+  snapshot,
+}) => {
+  const { t } = useTranslation('costOptimization');
+  const [dismissedWarnings, setDismissedWarnings] = useState<string[]>([]);
+  const visibleWarnings = snapshot.warnings.filter(
+    (warning) => !dismissedWarnings.includes(warning)
+  );
+
+  return (
+    <>
+      {snapshot.dataState === 'stale' ? (
+        <StatusBanner
+          tone="warning"
+          title={t('page.staleDefault')}
+          description={t('page.stale', {
+            reason: snapshot.staleReason ?? t('page.staleDefault'),
+          })}
+        />
+      ) : null}
+      {visibleWarnings.map((warning) => (
+        <StatusBanner
+          key={warning}
+          tone="warning"
+          title={t('page.analysisWarning')}
+          description={warning}
+          actionLabel={t('page.dismissWarning')}
+          onAction={() => setDismissedWarnings((current) => [...current, warning])}
+        />
+      ))}
+    </>
+  );
+};
+
 const CostOptimizationView: React.FC<CostOptimizationViewProps> = ({
   model,
+  period,
   projectOptions,
   projectOptionsLoading = false,
   projectPath,
@@ -121,18 +164,20 @@ const CostOptimizationView: React.FC<CostOptimizationViewProps> = ({
 }) => {
   const { t } = useTranslation('costOptimization');
   const { t: tCommon } = useTranslation('common');
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [dismissedWarnings, setDismissedWarnings] = useState<string[]>([]);
+  const [settingsEditor, setSettingsEditor] = useState<SettingsEditor | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const availableCandidateModelIds =
-    model.kind === 'ready' ? getLatestModelSeriesIds(model.snapshot.pricing) : [];
-  const visibleWarnings = useMemo(
-    () =>
-      model.kind === 'ready'
-        ? model.snapshot.warnings.filter((warning) => !dismissedWarnings.includes(warning))
-        : [],
-    [dismissedWarnings, model]
+  const queryScope = JSON.stringify([period, projectPath ?? null]);
+  const { resultsRef } = useResultEntrance<HTMLDivElement>(
+    queryScope,
+    model.kind === 'error' ? 'skipped' : model.kind
   );
+  const readySnapshot = model.kind === 'ready' ? model.snapshot : null;
+  if (settingsEditor && settingsEditor.queryScope !== queryScope) {
+    setSettingsEditor(null);
+  }
+  // Saving can refetch the current query before the editor has finished closing.
+  const settingsSnapshot =
+    settingsEditor?.queryScope === queryScope ? (readySnapshot ?? settingsEditor.snapshot) : null;
   const tabs = COST_OPTIMIZATION_TABS.map((tab) => ({
     value: tab.key,
     label: t(tab.labelKey),
@@ -150,7 +195,12 @@ const CostOptimizationView: React.FC<CostOptimizationViewProps> = ({
           ],
     [projectOptions, projectOptionsLoading, t]
   );
-  const closeSettings = React.useCallback((): void => setSettingsOpen(false), []);
+  const openSettings = (): void => {
+    if (readySnapshot) {
+      setSettingsEditor({ queryScope, snapshot: readySnapshot });
+    }
+  };
+  const closeSettings = React.useCallback((): void => setSettingsEditor(null), []);
   const dismissToast = React.useCallback((): void => setToastMessage(null), []);
   const handleSettingsSaved = React.useCallback(
     (): void => setToastMessage(t('toast.settingsSaved')),
@@ -174,8 +224,8 @@ const CostOptimizationView: React.FC<CostOptimizationViewProps> = ({
       <button
         type="button"
         className="secondary-button"
-        onClick={() => setSettingsOpen(true)}
-        disabled={model.kind !== 'ready'}
+        onClick={openSettings}
+        disabled={!readySnapshot}
       >
         <Settings2 size={ICON_SIZE_SMALL} />
         {t('page.analysisSettings')}
@@ -195,8 +245,8 @@ const CostOptimizationView: React.FC<CostOptimizationViewProps> = ({
       {model.kind === 'loading' ? <LoadingSkeleton label={t('state.loadingTitle')} /> : null}
 
       {model.kind === 'error' ? (
-        <section className="state-panel">
-          <AlertCircle size={ICON_SIZE_LARGE} />
+        <section className="state-panel" role="alert">
+          <AlertCircle size={ICON_SIZE_LARGE} aria-hidden="true" />
           <div>
             <h2>{t('state.unavailable')}</h2>
             <p>{model.message}</p>
@@ -204,27 +254,9 @@ const CostOptimizationView: React.FC<CostOptimizationViewProps> = ({
         </section>
       ) : null}
 
-      {model.kind === 'ready' ? (
-        <>
-          {model.snapshot.dataState === 'stale' ? (
-            <StatusBanner
-              tone="warning"
-              title={t('page.staleDefault')}
-              description={t('page.stale', {
-                reason: model.snapshot.staleReason ?? t('page.staleDefault'),
-              })}
-            />
-          ) : null}
-          {visibleWarnings.map((warning) => (
-            <StatusBanner
-              key={warning}
-              tone="warning"
-              title={t('page.analysisWarning')}
-              description={warning}
-              actionLabel={t('page.dismissWarning')}
-              onAction={() => setDismissedWarnings((current) => [...current, warning])}
-            />
-          ))}
+      {readySnapshot ? (
+        <div key={queryScope} ref={resultsRef} className="cost-optimization-results">
+          <CostOptimizationWarnings snapshot={readySnapshot} />
           <AccessibleTabs
             groupId="cost-optimization"
             label={t('tabs.label')}
@@ -239,23 +271,23 @@ const CostOptimizationView: React.FC<CostOptimizationViewProps> = ({
           >
             {renderCostOptimizationTab(
               activeTab,
-              model.snapshot,
+              readySnapshot,
               diagnosisId,
               diagnosisDetailModel,
               onDiagnosisOpen,
               onDiagnosisClose
             )}
           </div>
-          {settingsOpen ? (
-            <CostOptimizationSettingsDrawer
-              settings={model.snapshot.settings}
-              availableCandidateModelIds={availableCandidateModelIds}
-              onClose={closeSettings}
-              onSave={onUpdateSettings}
-              onSaved={handleSettingsSaved}
-            />
-          ) : null}
-        </>
+        </div>
+      ) : null}
+      {settingsSnapshot ? (
+        <CostOptimizationSettingsDrawer
+          settings={settingsSnapshot.settings}
+          availableCandidateModelIds={getLatestModelSeriesIds(settingsSnapshot.pricing)}
+          onClose={closeSettings}
+          onSave={onUpdateSettings}
+          onSaved={handleSettingsSaved}
+        />
       ) : null}
       {toastMessage ? <ToastNotice message={toastMessage} onDismiss={dismissToast} /> : null}
     </section>

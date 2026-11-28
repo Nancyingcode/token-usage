@@ -8,6 +8,7 @@ describe('CostOptimizationView', () => {
   it('renders overview metrics, coverage and settings entry', () => {
     const markup = renderWithI18n(
       <CostOptimizationView
+        period="month"
         model={{ kind: 'ready', snapshot: SNAPSHOT }}
         projectOptions={['C:\\repo']}
         projectPath={null}
@@ -34,6 +35,7 @@ describe('CostOptimizationView', () => {
   it('renders loading and error states independently of usage content', () => {
     const loadingMarkup = renderWithI18n(
       <CostOptimizationView
+        period="month"
         model={{ kind: 'loading' }}
         projectOptions={[]}
         projectPath={null}
@@ -49,6 +51,7 @@ describe('CostOptimizationView', () => {
     );
     const errorMarkup = renderWithI18n(
       <CostOptimizationView
+        period="month"
         model={{ kind: 'error', message: 'analysis unavailable' }}
         projectOptions={[]}
         projectPath={null}
@@ -71,6 +74,7 @@ describe('CostOptimizationView', () => {
   it('renders all six tabs with accessible selection state', () => {
     const markup = renderWithI18n(
       <CostOptimizationView
+        period="month"
         model={{ kind: 'ready', snapshot: SNAPSHOT }}
         projectOptions={['C:\\repo']}
         projectPath={null}
@@ -101,6 +105,7 @@ describe('CostOptimizationView', () => {
   it('renders the controlled diagnostics tab and workspace', () => {
     const markup = renderWithI18n(
       <CostOptimizationView
+        period="month"
         model={{ kind: 'ready', snapshot: SNAPSHOT }}
         projectOptions={['C:\\repo']}
         projectPath={undefined}

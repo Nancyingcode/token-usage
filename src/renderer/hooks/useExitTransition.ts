@@ -3,8 +3,7 @@
  * @description Completes overlay actions once when the matching exit ends or is interrupted.
  */
 import React from 'react';
-
-const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
+import { getReducedMotionPreference } from '../utils/motion';
 
 export type ExitTransitionState = 'idle' | 'exiting';
 
@@ -14,9 +13,6 @@ interface ExitTransition {
   requestExitWith: (onExited: () => void) => void;
   setExitSurface: React.RefCallback<HTMLElement>;
 }
-
-const getMotionPreference = (): MediaQueryList | undefined =>
-  typeof window.matchMedia === 'function' ? window.matchMedia(REDUCED_MOTION_QUERY) : undefined;
 
 export const useExitTransition = (onExited: () => void, animationName: string): ExitTransition => {
   const [state, setState] = React.useState<ExitTransitionState>('idle');
@@ -49,7 +45,7 @@ export const useExitTransition = (onExited: () => void, animationName: string): 
       }
 
       pendingCompletionRef.current = completion;
-      if (getMotionPreference()?.matches) {
+      if (getReducedMotionPreference()?.matches) {
         completeExit();
         return;
       }
@@ -75,7 +71,7 @@ export const useExitTransition = (onExited: () => void, animationName: string): 
       return;
     }
 
-    const preference = getMotionPreference();
+    const preference = getReducedMotionPreference();
     if (preference?.matches) {
       completeExit();
       return;

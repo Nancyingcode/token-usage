@@ -2,7 +2,15 @@
  * @file 成本优化快照 Hook
  * @description 协调按周期和项目查询、设置更新及主进程推送，并忽略过期异步响应。
  */
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
 import type {
   CostOptimizationQuery,
   CostOptimizationSettings,
@@ -58,11 +66,16 @@ export const useCostOptimizationSnapshot = (
     [period]
   );
   const requestsSeparateGlobalSnapshot = shouldRequestSeparateGlobalSnapshot(query);
+  const activeSelectionRef = useRef(query);
+
+  useLayoutEffect(() => {
+    activeSelectionRef.current = query;
+  }, [query]);
 
   const requestSnapshot = useCallback(async (): Promise<CostOptimizationSnapshot> => {
     nextRequestIdRef.current += 1;
     const requestId = nextRequestIdRef.current;
-    dispatch({ type: 'request-started', requestId });
+    dispatch({ type: 'request-started', requestId, query });
 
     try {
       const snapshot = await window.codexUsage.costOptimization.getSnapshot(query);
@@ -81,7 +94,7 @@ export const useCostOptimizationSnapshot = (
   const requestGlobalSnapshot = useCallback(async (): Promise<CostOptimizationSnapshot> => {
     nextGlobalRequestIdRef.current += 1;
     const requestId = nextGlobalRequestIdRef.current;
-    dispatchGlobal({ type: 'request-started', requestId });
+    dispatchGlobal({ type: 'request-started', requestId, query: globalQuery });
 
     try {
       const snapshot = await window.codexUsage.costOptimization.getSnapshot(globalQuery);
@@ -134,6 +147,11 @@ export const useCostOptimizationSnapshot = (
   const updateSettings = useCallback(
     async (settings: CostOptimizationSettings): Promise<CostOptimizationSnapshot> => {
       const snapshot = await window.codexUsage.costOptimization.updateSettings(settings);
+      // The runtime publishes the refreshed snapshots. An old editor must not start a new
+      // request for its prior selection, since that would supersede the current request.
+      if (activeSelectionRef.current !== query) {
+        return snapshot;
+      }
       const refreshes: Promise<CostOptimizationSnapshot>[] = [];
 
       if (shouldApplyCostOptimizationPush(query, snapshot.query)) {
@@ -167,6 +185,9 @@ export const useCostOptimizationSnapshot = (
       ? state.snapshot
       : null
     : null;
+  // The selection commits before its request effect starts. Only its own status is visible.
+  const requestMatchesQuery =
+    state.activeQuery !== null && shouldApplyCostOptimizationPush(query, state.activeQuery);
 
   return {
     snapshot: matchingCurrentSnapshot,
@@ -174,8 +195,8 @@ export const useCostOptimizationSnapshot = (
       ? matchingGlobalSnapshot
       : matchingCurrentSnapshot,
     query,
-    loading: state.loading,
-    error: state.error,
+    loading: state.loading || (enabled && !requestMatchesQuery),
+    error: requestMatchesQuery ? state.error : null,
     projectPath,
     setProjectPath,
     updateSettings,

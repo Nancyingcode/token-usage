@@ -207,6 +207,7 @@ const AppContent: React.FC<AppContentProps> = ({
       <LazyPageBoundary fallback={pageFallback}>
         <CostOptimizationView
           model={costOptimizationModel ?? { kind: 'loading' }}
+          period={period}
           projectOptions={costProjectOptions}
           projectOptionsLoading={costProjectOptionsLoading}
           projectPath={costProjectPath}

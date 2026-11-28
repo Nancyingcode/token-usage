@@ -23,10 +23,12 @@ describe('cost optimization snapshot state', () => {
     const firstRequest = reduceCostOptimizationSnapshotState(initial, {
       type: 'request-started',
       requestId: 1,
+      query: WEEK_SNAPSHOT.query,
     });
     const secondRequest = reduceCostOptimizationSnapshotState(firstRequest, {
       type: 'request-started',
       requestId: 2,
+      query: MONTH_SNAPSHOT.query,
     });
     const staleResponse = reduceCostOptimizationSnapshotState(secondRequest, {
       type: 'request-succeeded',
@@ -49,10 +51,12 @@ describe('cost optimization snapshot state', () => {
     const firstRequest = reduceCostOptimizationSnapshotState(initial, {
       type: 'request-started',
       requestId: 1,
+      query: WEEK_SNAPSHOT.query,
     });
     const secondRequest = reduceCostOptimizationSnapshotState(firstRequest, {
       type: 'request-started',
       requestId: 2,
+      query: MONTH_SNAPSHOT.query,
     });
     const currentResponse = reduceCostOptimizationSnapshotState(secondRequest, {
       type: 'request-succeeded',

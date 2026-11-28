@@ -12,10 +12,11 @@ export interface CostOptimizationSnapshotState {
   loading: boolean;
   error: string | null;
   activeRequestId: number;
+  activeQuery: CostOptimizationQuery | null;
 }
 
 export type CostOptimizationSnapshotAction =
-  | { type: 'request-started'; requestId: number }
+  | { type: 'request-started'; requestId: number; query: CostOptimizationQuery }
   | { type: 'request-succeeded'; requestId: number; snapshot: CostOptimizationSnapshot }
   | { type: 'request-failed'; requestId: number; message: string }
   | { type: 'snapshot-pushed'; snapshot: CostOptimizationSnapshot };
@@ -25,6 +26,7 @@ export const createCostOptimizationSnapshotState = (): CostOptimizationSnapshotS
   loading: true,
   error: null,
   activeRequestId: 0,
+  activeQuery: null,
 });
 
 export const reduceCostOptimizationSnapshotState = (
@@ -38,6 +40,7 @@ export const reduceCostOptimizationSnapshotState = (
         loading: true,
         error: null,
         activeRequestId: action.requestId,
+        activeQuery: action.query,
       };
     case 'request-succeeded':
       return action.requestId === state.activeRequestId

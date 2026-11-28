@@ -13,9 +13,10 @@ import type {
 import { getProjectName, UNKNOWN_PROJECT_KEY } from '../../shared/usageMath';
 import type { UsageSession } from '../../shared/usageTypes';
 import { ICON_SIZE_SMALL } from '../constants/ui';
+import { useResultEntrance } from '../hooks/useResultEntrance';
+import { useUsageTableFocus } from '../hooks/useUsageTableFocus';
 import { resolveRendererLocale } from '../i18n';
 import { formatNumber, formatShortDateTime } from '../utils/formatters';
-import { getStaggeredMotionStyle } from '../utils/motion';
 import {
   filterSessionList,
   getSessionProjectOptions,
@@ -119,6 +120,7 @@ const SessionsView: React.FC<SessionsViewProps> = ({
   const [severity, setSeverity] = React.useState<SessionDiagnosisSeverity | 'all'>('all');
   const [pageSize, setPageSize] = React.useState<SessionPageSize>(loadInitialPageSize);
   const [currentPage, setCurrentPage] = React.useState(1);
+  const [resultGroup, advanceResultGroup] = React.useReducer((group: number) => group + 1, 0);
   const diagnosisBySource = React.useMemo(
     () => new Map(globalDiagnostics.map((summary) => [summary.sourceFile, summary])),
     [globalDiagnostics]
@@ -182,17 +184,19 @@ const SessionsView: React.FC<SessionsViewProps> = ({
     () => paginateSessionList(filteredSessions, currentPage, pageSize),
     [currentPage, filteredSessions, pageSize]
   );
+  const { searchRef, onRowFocus, onRowBlur } = useUsageTableFocus(pagination.items);
   const hasProjectFilter = selectedProjectPath !== null;
-  const hasLocalFilters = query.trim() !== '' || cause !== 'all' || severity !== 'all';
+  const hasDiagnosisFilter = cause !== 'all' || severity !== 'all';
+  const hasLocalFilters = query.trim() !== '' || hasDiagnosisFilter;
   const hasAnyFilter = hasProjectFilter || hasLocalFilters;
   const projectName = hasProjectFilter ? getProjectName(selectedProjectPath) : '';
   const showFilteredEmpty = filteredSessions.length === 0;
   const showProjectEmpty = hasProjectFilter && !hasLocalFilters;
-  const baseMotionKey = selectedProjectPath ?? 'all-sessions';
-  const motionKey =
-    hasLocalFilters || pagination.currentPage > 1 || pageSize !== DEFAULT_SESSION_PAGE_SIZE
-      ? [baseMotionKey, query, cause, severity, pagination.currentPage, pageSize].join(':')
-      : baseMotionKey;
+  const resultGroupKey = `${resultGroup}:${selectedProjectPath ?? ''}`;
+  const { resultsRef, cancel: cancelEntrance } = useResultEntrance<HTMLDivElement>(
+    resultGroupKey,
+    showFilteredEmpty ? 'skipped' : 'ready'
+  );
 
   React.useEffect(() => {
     if (pagination.currentPage !== currentPage) {
@@ -217,16 +221,25 @@ const SessionsView: React.FC<SessionsViewProps> = ({
   };
 
   const handleCauseChange = (nextCause: SessionDiagnosisCauseFilter): void => {
+    if (nextCause !== cause) {
+      advanceResultGroup();
+    }
     setCause(nextCause);
     setCurrentPage(1);
   };
 
   const handleSeverityChange = (nextSeverity: SessionDiagnosisSeverity | 'all'): void => {
+    if (nextSeverity !== severity) {
+      advanceResultGroup();
+    }
     setSeverity(nextSeverity);
     setCurrentPage(1);
   };
 
   const handlePageSizeChange = (nextPageSize: SessionPageSize): void => {
+    if (nextPageSize !== pageSize) {
+      advanceResultGroup();
+    }
     setPageSize(nextPageSize);
     setCurrentPage(1);
 
@@ -236,11 +249,21 @@ const SessionsView: React.FC<SessionsViewProps> = ({
   };
 
   const handleClearFilters = (): void => {
+    if (hasDiagnosisFilter) {
+      advanceResultGroup();
+    } else if (!hasProjectFilter) {
+      cancelEntrance();
+    }
     setQuery('');
     setCause('all');
     setSeverity('all');
     setCurrentPage(1);
     onClearProjectFilter();
+  };
+
+  const handlePageChange = (nextPage: number): void => {
+    advanceResultGroup();
+    setCurrentPage(nextPage);
   };
 
   return (
@@ -262,7 +285,7 @@ const SessionsView: React.FC<SessionsViewProps> = ({
                 projectPath={selectedProjectPath}
                 label={t('sessions.projectFilter', { project: projectName })}
                 clearLabel={t('sessions.clearProjectFilter', { project: projectName })}
-                onClear={onClearProjectFilter}
+                onClear={() => handleProjectChange('')}
               />
             ) : null}
           </>
@@ -274,10 +297,12 @@ const SessionsView: React.FC<SessionsViewProps> = ({
           <label className="session-filter-search">
             <span>{t('sessions.filters.searchLabel')}</span>
             <input
+              ref={searchRef}
               type="search"
               value={query}
               placeholder={t('sessions.filters.searchPlaceholder')}
               onChange={(event) => {
+                cancelEntrance();
                 setQuery(event.target.value);
                 setCurrentPage(1);
               }}
@@ -378,8 +403,14 @@ const SessionsView: React.FC<SessionsViewProps> = ({
               </span>
               <span role="columnheader">{t('sessions.status')}</span>
             </div>
-            <div key={motionKey} data-motion-key={motionKey} role="rowgroup">
-              {pagination.items.map((session, index) => {
+            <div
+              key={resultGroupKey}
+              ref={resultsRef}
+              role="rowgroup"
+              onFocus={onRowFocus}
+              onBlur={onRowBlur}
+            >
+              {pagination.items.map((session) => {
                 const name = session.threadName || shortId(session.sessionId);
                 const secondaryColumns = [
                   {
@@ -437,12 +468,7 @@ const SessionsView: React.FC<SessionsViewProps> = ({
                     : undefined;
 
                 return (
-                  <div
-                    className="table-row motion-list-item"
-                    key={session.sourceFile}
-                    role="row"
-                    style={getStaggeredMotionStyle(index)}
-                  >
+                  <div className="table-row" key={session.sourceFile} role="row">
                     <div
                       className="primary-cell session-primary-cell"
                       role="rowheader"
@@ -520,7 +546,7 @@ const SessionsView: React.FC<SessionsViewProps> = ({
               type="button"
               aria-label={t('sessions.pagination.previous')}
               disabled={pagination.currentPage === 1}
-              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+              onClick={() => handlePageChange(pagination.currentPage - 1)}
             >
               {t('sessions.pagination.previous')}
             </button>
@@ -534,7 +560,7 @@ const SessionsView: React.FC<SessionsViewProps> = ({
               type="button"
               aria-label={t('sessions.pagination.next')}
               disabled={pagination.currentPage === pagination.totalPages}
-              onClick={() => setCurrentPage((page) => Math.min(pagination.totalPages, page + 1))}
+              onClick={() => handlePageChange(pagination.currentPage + 1)}
             >
               {t('sessions.pagination.next')}
             </button>
