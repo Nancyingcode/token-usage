@@ -102,6 +102,114 @@ const COST_SNAPSHOT: CostOptimizationSnapshot = {
 };
 
 describe('application runtime', () => {
+  it('delivers usage and evaluates budgets while the renderer is loading, then starts costs once', async () => {
+    const harness = makeRuntimeHarness();
+    const runtime = createApplicationRuntime(harness.dependencies);
+    await runtime.initialize('after-initial-usage');
+    runtime.start();
+    expect(harness.usageRuntime.start).toHaveBeenCalledOnce();
+    await expect(runtime.refresh()).resolves.toBe(USAGE_RESULT);
+    await vi.waitFor(() => expect(harness.budgetRuntime.applyUsageResult).toHaveBeenCalledOnce());
+    expect(harness.costRuntime.initialize).not.toHaveBeenCalled();
+    expect(harness.costRuntime.applyUsageCycle).not.toHaveBeenCalled();
+
+    await expect(runtime.getInitialUsage()).resolves.toBe(USAGE_RESULT);
+    expect(harness.costRuntime.initialize).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(harness.costRuntime.initialize).toHaveBeenCalledOnce());
+    await runtime.drain();
+    expect(harness.costRuntime.initialize).toHaveBeenCalledOnce();
+    expect(harness.costRuntime.applyUsageCycle).toHaveBeenCalledExactlyOnceWith(USAGE_CYCLE);
+  });
+
+  it('preserves the initial usage error before starting background costs', async () => {
+    const harness = makeRuntimeHarness();
+    const failure = new Error('scan failed');
+    harness.usageRuntime.getInitialUsage = vi.fn().mockRejectedValue(failure);
+    const runtime = createApplicationRuntime(harness.dependencies);
+    await runtime.initialize('after-initial-usage');
+    await expect(runtime.getInitialUsage()).rejects.toBe(failure);
+    expect(harness.costRuntime.initialize).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(harness.costRuntime.initialize).toHaveBeenCalledOnce());
+  });
+
+  it('does not let a previous response release the next startup after a stop', async () => {
+    const harness = makeRuntimeHarness();
+    const runtime = createApplicationRuntime(harness.dependencies);
+    await runtime.initialize('after-initial-usage');
+    await runtime.getInitialUsage();
+    runtime.stop();
+    await runtime.initialize('after-initial-usage');
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(harness.costRuntime.initialize).not.toHaveBeenCalled();
+    await runtime.waitForCostOptimization();
+    expect(harness.costRuntime.initialize).toHaveBeenCalledOnce();
+  });
+
+  it.each(['success', 'error'] as const)(
+    'starts costs on a later scan %s if the renderer never requests initial usage',
+    async (outcome) => {
+      const harness = makeRuntimeHarness();
+      const runtime = createApplicationRuntime(harness.dependencies);
+      await runtime.initialize('after-initial-usage');
+      harness.emitUsageCycle(USAGE_CYCLE);
+      await vi.waitFor(() => expect(harness.budgetRuntime.applyUsageResult).toHaveBeenCalledOnce());
+      expect(harness.costRuntime.initialize).not.toHaveBeenCalled();
+      if (outcome === 'success') harness.emitUsageCycle(USAGE_CYCLE);
+      else harness.emitUsageError(new Error('scan failed'));
+      await vi.waitFor(() => expect(harness.costRuntime.initialize).toHaveBeenCalledOnce());
+      await runtime.drain();
+      expect(harness.costRuntime.applyUsageCycle).toHaveBeenCalledTimes(
+        outcome === 'success' ? 2 : 1
+      );
+    }
+  );
+
+  it('lets an explicit cost query bypass an in-flight initial usage request once', async () => {
+    const harness = makeRuntimeHarness();
+    const initialUsage = deferred<UsageScanResult>();
+    harness.usageRuntime.getInitialUsage = vi.fn(() => initialUsage.promise);
+    const runtime = createApplicationRuntime(harness.dependencies);
+    await runtime.initialize('after-initial-usage');
+    const pending = runtime.getInitialUsage();
+    harness.emitUsageCycle(USAGE_CYCLE);
+    harness.emitUsageCycle(USAGE_CYCLE);
+    await vi.waitFor(() => expect(harness.budgetRuntime.applyUsageResult).toHaveBeenCalledOnce());
+    expect(harness.costRuntime.initialize).not.toHaveBeenCalled();
+    await Promise.all([runtime.waitForCostOptimization(), runtime.waitForCostOptimization()]);
+    initialUsage.resolve(USAGE_RESULT);
+    await expect(pending).resolves.toBe(USAGE_RESULT);
+    await runtime.drain();
+    expect(harness.costRuntime.initialize).toHaveBeenCalledOnce();
+  });
+
+  it('drains pending startup work before the renderer load settles', async () => {
+    const harness = makeRuntimeHarness();
+    const runtime = createApplicationRuntime(harness.dependencies);
+    await runtime.initialize('after-initial-usage');
+    harness.emitUsageCycle(USAGE_CYCLE);
+    expect(harness.costRuntime.initialize).not.toHaveBeenCalled();
+    const restore = runtime.pause();
+    await runtime.drain();
+    expect(harness.costRuntime.initialize).toHaveBeenCalledOnce();
+    expect(harness.costRuntime.applyUsageCycle).toHaveBeenCalledOnce();
+    restore();
+  });
+
+  it('discards deferred initialization and queued cost work when stopped before the first window loads', async () => {
+    const harness = makeRuntimeHarness();
+    const runtime = createApplicationRuntime(harness.dependencies);
+    await runtime.initialize('after-initial-usage');
+    harness.emitBudgetSnapshot(BUDGET_SNAPSHOT);
+    harness.emitUsageCycle(USAGE_CYCLE);
+    await vi.waitFor(() => expect(harness.budgetRuntime.applyUsageResult).toHaveBeenCalledOnce());
+    runtime.stop();
+    await runtime.waitForCostOptimization();
+    await runtime.drain();
+    expect(harness.costRuntime.initialize).not.toHaveBeenCalled();
+    expect(harness.costRuntime.applyBudgetSnapshot).not.toHaveBeenCalled();
+    expect(harness.costRuntime.applyUsageCycle).not.toHaveBeenCalled();
+  });
+
   it('drains initialization, queued analysis and budget subscription work without dropping subscriptions', async () => {
     const analysisSaved = deferred<CostOptimizationSnapshot>();
     const budgetSaved = deferred<CostOptimizationSnapshot>();

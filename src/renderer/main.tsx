@@ -5,7 +5,6 @@ import { I18nextProvider } from 'react-i18next';
 import { DEFAULT_LOCALE } from '../shared/i18n/locale';
 import App from './App';
 import { createRendererI18n, resolveRendererLocale } from './i18n';
-import './styles.css';
 
 const syncDocumentLanguage = (instance: i18n): void => {
   const locale = resolveRendererLocale(instance.resolvedLanguage);

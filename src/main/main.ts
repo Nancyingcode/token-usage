@@ -132,6 +132,10 @@ const createWindow = (
     })
   );
   const unregisterWindowStateListeners = registerWindowStateEvents(window);
+  const startCostAnalysis = (): void => {
+    if (window.isDestroyed() && process.platform !== 'darwin') return;
+    void runtime.waitForCostOptimization().catch(() => undefined);
+  };
   window.on('close', (event) => {
     if (appUpdateService?.getSnapshot().phase === 'preparing') event.preventDefault();
   });
@@ -141,16 +145,18 @@ const createWindow = (
   });
   window.on('closed', () => {
     unregisterWindowStateListeners();
+    // macOS 关闭最后一个窗口后进程继续运行；其他平台在退出时取消尚未开始的分析。
+    if (process.platform === 'darwin') startCostAnalysis();
     if (mainWindow === window) {
       mainWindow = null;
     }
   });
 
-  if (process.env.ELECTRON_RENDERER_URL) {
-    void window.loadURL(process.env.ELECTRON_RENDERER_URL);
-  } else {
-    void window.loadFile(join(CURRENT_DIRECTORY, '../renderer/index.html'));
-  }
+  const rendererLoad = process.env.ELECTRON_RENDERER_URL
+    ? window.loadURL(process.env.ELECTRON_RENDERER_URL)
+    : window.loadFile(join(CURRENT_DIRECTORY, '../renderer/index.html'));
+  // 导航失败时 Renderer 无法请求首份用量，仍运行的应用需要继续后台分析。
+  void rendererLoad.catch(startCostAnalysis);
 
   mainWindow = window;
   return window;
@@ -255,7 +261,7 @@ const initializeApplication = async (): Promise<void> => {
   applicationRuntime = currentApplicationRuntime;
   applicationThemeService = themeService;
 
-  await currentApplicationRuntime.initialize();
+  await currentApplicationRuntime.initialize('after-initial-usage');
   const unregisterPricing = registerPricingIpc(pricingService, () => mainWindow, operationGate);
   const unsubscribePricingBudget = currentBudgetRuntime.subscribe((snapshot) => {
     void pricingService.check(snapshot.unpricedModels.length > 0);

@@ -52,6 +52,37 @@ describe('cost optimization cost analysis', () => {
     ]);
   });
 
+  it('keeps requests isolated by model and uses the latest bucket for repeated request keys', () => {
+    const first = {
+      ...makeBucket('gpt-source', 600_000, 0, 0),
+      pricingRequests: Object.freeze({
+        ['__proto__']: makeBucket('gpt-source', 500_000, 0, 0),
+        repeated: makeBucket('gpt-source', 100_000, 0, 0),
+      }),
+    };
+    const latest = {
+      ...makeBucket('gpt-source', 1_000_000, 0, 0),
+      date: '2026-07-25',
+      id: 'next-day',
+      pricingRequests: Object.freeze({ repeated: makeBucket('gpt-source', 1_000_000, 0, 0) }),
+    };
+    const otherModel = {
+      ...makeBucket('gpt-target', 2_000_000, 0, 0),
+      pricingRequests: Object.freeze({ repeated: makeBucket('gpt-target', 2_000_000, 0, 0) }),
+    };
+    const rows = evaluateModelCosts(
+      makeIndex([latest, first, otherModel]),
+      { period: 'total' },
+      PRICING,
+      FIXED_NOW
+    );
+
+    expect(rows.map(({ modelId, pricedCostUsd }) => [modelId, pricedCostUsd])).toEqual([
+      ['gpt-source', 3],
+      ['gpt-target', 2],
+    ]);
+  });
+
   it('filters rolling periods and project buckets before pricing coverage', () => {
     const recent = {
       ...makeBucket('gpt-source', 100, 0, 0),

@@ -90,8 +90,11 @@ afterEach(() => {
   Reflect.deleteProperty(HTMLDialogElement.prototype, 'close');
 });
 
-const mountApp = (result = makeResult()) => {
-  const getInitialUsage = vi.fn(async () => result);
+const mountApp = (
+  result = makeResult(),
+  options: { initialRequest?: () => Promise<UsageScanResult>; strictMode?: boolean } = {}
+) => {
+  const getInitialUsage = vi.fn(options.initialRequest ?? (async () => result));
   const scan = vi.fn(async () => result);
   const unsubscribe = () => vi.fn();
   const onUsageUpdated =
@@ -115,12 +118,14 @@ const mountApp = (result = makeResult()) => {
       },
     },
   });
-  const renderer = render(
-    <I18nextProvider i18n={createTestI18n('en')}>
-      <App />
-    </I18nextProvider>
-  );
-  return { ...renderer, getInitialUsage, scan, onUsageUpdated };
+  const renderApp = () =>
+    render(
+      <I18nextProvider i18n={createTestI18n('en')}>
+        <App />
+      </I18nextProvider>,
+      { reactStrictMode: options.strictMode }
+    );
+  return { ...renderApp(), renderApp, getInitialUsage, scan, onUsageUpdated };
 };
 
 const periodButton = (name: string) =>
@@ -143,6 +148,57 @@ const fillDate = (input: HTMLInputElement, value: string) =>
 const totalTokens = () =>
   screen.getByText('Tokens', { selector: '.metric-copy p' }).parentElement?.querySelector('strong')
     ?.textContent;
+
+describe('overview startup in StrictMode', () => {
+  it('requests usage once per mount and permits manual refresh after an initial error', async () => {
+    const initialRequest = vi
+      .fn<() => Promise<UsageScanResult>>()
+      .mockRejectedValueOnce(new Error('Initial scan failed'))
+      .mockResolvedValue(makeResult());
+    const { unmount, renderApp, getInitialUsage, scan } = mountApp(makeResult(), {
+      initialRequest,
+      strictMode: true,
+    });
+    await screen.findByText('Initial scan failed');
+    expect(getInitialUsage).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh real-time data' }));
+    await screen.findByRole('heading', { name: 'Overview' });
+    expect(totalTokens()).toBe('500');
+    expect(scan).toHaveBeenCalledOnce();
+    unmount();
+    renderApp();
+    await screen.findByRole('heading', { name: 'Overview' });
+    expect(getInitialUsage).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['success', 'failure'])(
+    'keeps a live update after a late initial %s',
+    async (outcome) => {
+      let finishInitial!: () => void;
+      const pending = new Promise<void>((resolve) => {
+        finishInitial = resolve;
+      });
+      const { getInitialUsage, onUsageUpdated } = mountApp(makeResult(), {
+        strictMode: true,
+        initialRequest: async () => {
+          await pending;
+          if (outcome === 'failure') throw new Error('Outdated failure');
+          return makeResult();
+        },
+      });
+      await waitFor(() => expect(getInitialUsage).toHaveBeenCalled());
+      const [discarded, current] = onUsageUpdated.mock.calls;
+      const newer = makeResult([makeSession('live', 26, 900)]);
+      act(() => current[0](newer));
+      act(() => discarded[0](makeResult()));
+      await act(async () => {
+        finishInitial();
+      });
+      expect(totalTokens()).toBe('900');
+      expect(screen.queryByText(/Outdated failure/)).toBeNull();
+    }
+  );
+});
 
 describe('custom date range in the overview', () => {
   it('prefills, validates and applies from the existing scan, then discards edits on cancel or Esc', async () => {

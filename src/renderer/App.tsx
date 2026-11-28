@@ -168,19 +168,23 @@ const App: React.FC = () => {
     costOptimizationState.snapshot ?? undefined
   );
 
-  const loadUsage = useCallback(async (request: () => Promise<UsageScanResult>) => {
-    setLoading(true);
-    setError(null);
+  const loadUsage = useCallback(
+    async (request: () => Promise<UsageScanResult>, isCurrent: () => boolean = () => true) => {
+      setLoading(true);
+      setError(null);
 
-    try {
-      const nextResult = await request();
-      setResult(nextResult);
-    } catch (scanError) {
-      setError(scanError instanceof Error ? scanError.message : String(scanError));
-    } finally {
+      try {
+        const nextResult = await request();
+        if (!isCurrent()) return;
+        setResult(nextResult);
+      } catch (scanError) {
+        if (!isCurrent()) return;
+        setError(scanError instanceof Error ? scanError.message : String(scanError));
+      }
       setLoading(false);
-    }
-  }, []);
+    },
+    []
+  );
   const refresh = useCallback(
     async (): Promise<void> => loadUsage(window.codexUsage.scan),
     [loadUsage]
@@ -246,7 +250,25 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    void loadUsage(window.codexUsage.getInitialUsage);
+    let active = true;
+    let receivedUpdate = false;
+    const needsInitialUsage = (): boolean => active && !receivedUpdate;
+    const unsubscribe = window.codexUsage.onUsageUpdated((nextResult) => {
+      if (!active) return;
+      receivedUpdate = true;
+      setResult(nextResult);
+      setError(null);
+      setLoading(false);
+    });
+
+    // 等挂载副作用重放结束再发起 IPC；期间收到的用量广播已包含完整快照。
+    queueMicrotask(() => {
+      if (needsInitialUsage()) void loadUsage(window.codexUsage.getInitialUsage, needsInitialUsage);
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [loadUsage]);
 
   useEffect(() => {
@@ -259,16 +281,6 @@ const App: React.FC = () => {
       .then(setDataPathSettings)
       .catch(() => undefined);
   }, [activeView, dataPathSettings]);
-
-  useEffect(
-    () =>
-      window.codexUsage.onUsageUpdated((nextResult) => {
-        setResult(nextResult);
-        setError(null);
-        setLoading(false);
-      }),
-    []
-  );
 
   useEffect(
     () =>

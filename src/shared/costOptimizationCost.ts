@@ -42,6 +42,7 @@ interface PricedBucket {
 }
 
 interface ModelUsageGroup extends PriceableUsage {
+  pricingRequests: Record<string, PriceableUsage>;
   modelId?: string;
   sessionIds: Set<string>;
   contributionIds: Set<string>;
@@ -202,15 +203,17 @@ const getModelUsageGroups = (buckets: IndexedUsageBucket[]): ModelUsageGroup[] =
     const key = getModelGroupKey(bucket.modelId);
     const group = groups.get(key) ?? {
       ...EMPTY_TOKEN_USAGE,
-      pricingRequests: {},
+      // 字典仅由当前模型分组持有，外部请求 ID（包括 __proto__）均按普通键处理。
+      pricingRequests: Object.create(null) as Record<string, PriceableUsage>,
       modelId: bucket.modelId,
       sessionIds: new Set<string>(),
       contributionIds: new Set<string>(),
     };
-    group.pricingRequests = {
-      ...group.pricingRequests,
-      ...(bucket.pricingRequests ?? { [bucket.id]: bucket }),
-    };
+    if (bucket.pricingRequests) {
+      Object.assign(group.pricingRequests, bucket.pricingRequests);
+    } else {
+      group.pricingRequests[bucket.id] = bucket;
+    }
     group.inputTokens += bucket.inputTokens;
     group.cachedInputTokens += bucket.cachedInputTokens;
     group.outputTokens += bucket.outputTokens;
