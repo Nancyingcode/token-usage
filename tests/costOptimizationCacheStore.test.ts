@@ -77,6 +77,24 @@ describe('cost optimization cache store', () => {
     await expect(readdir(testDirectory)).resolves.toEqual([CACHE_FILE_NAME]);
   });
 
+  it('discards version 3 with unchanged source fingerprints after usage parsing changes', async () => {
+    const index = applyUsageChangeSet(
+      createEmptyCostOptimizationIndex('fixtures', FIXED_NOW),
+      {
+        upserted: [makeSourceChange('usage.jsonl', 'same-file-fingerprint', 100)],
+        removedSourceFiles: [],
+        requiresFullRebuild: false,
+      },
+      FIXED_NOW
+    );
+    await writeFile(cachePath, JSON.stringify({ ...index, schemaVersion: 3 }), 'utf8');
+
+    await expect(createCostOptimizationCacheStore(cachePath).load()).resolves.toEqual({
+      index: undefined,
+      warning: REBUILD_WARNING,
+    });
+  });
+
   it('rejects schema 1 and malformed schema 2 metadata', async () => {
     const index = createEmptyCostOptimizationIndex('C:\\sessions', FIXED_NOW);
     await writeFile(cachePath, JSON.stringify({ ...index, schemaVersion: 1 }), 'utf8');

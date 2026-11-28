@@ -18,7 +18,8 @@ import type {
 } from './costOptimizationTypes';
 import type { TokenUsage } from './usageTypes';
 
-export const COST_OPTIMIZATION_INDEX_SCHEMA_VERSION = 3;
+// 原始文件指纹不会随解析口径变化，旧索引须重新计算对应的 Token 和费用。
+export const COST_OPTIMIZATION_INDEX_SCHEMA_VERSION = 4;
 const UNKNOWN_MODEL_KEY = 'unknown-model';
 const KEY_SEPARATOR = '\u001f';
 const DATE_PART_LENGTH = 2;

@@ -173,6 +173,7 @@ const parseSessionBatches = function* (
   let activeTurn: ActiveTurn | undefined;
   let anonymousTurnSequence = 0;
   let summedUsage = emptyTokenUsage();
+  let previousCumulativeTokens: number | undefined;
   let largestTotalUsage = emptyTokenUsage();
   let largestTotalSlice: UsageSlice | undefined;
   let largestTotalEffortMetrics: ReturnType<typeof getRecordedEffortMetrics> | undefined;
@@ -368,7 +369,14 @@ const parseSessionBatches = function* (
 
       eventCount += 1;
 
-      if (lastUsage) {
+      const reportedTotal = isRecord(totalTokenUsage) ? totalTokenUsage.total_tokens : undefined;
+      const cumulativeTokens = typeof reportedTotal === 'number' ? reportedTotal : undefined;
+      // 重发累计快照时可能携带之前的单次用量。须用原始字段判断，避免将缺失值补齐的零当成快照。
+      const repeatsCumulativeTotal =
+        cumulativeTokens !== undefined && cumulativeTokens === previousCumulativeTokens;
+      previousCumulativeTokens = cumulativeTokens ?? previousCumulativeTokens;
+
+      if (lastUsage && !repeatsCumulativeTotal) {
         hasIncrementalUsage = true;
         effortUsage.increment(turnId, getRecordedEffortMetrics(lastTokenUsage));
         summedUsage = addTokenUsage(summedUsage, lastUsage);

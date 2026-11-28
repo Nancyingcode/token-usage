@@ -91,11 +91,14 @@ describe('usage scan cache store', () => {
     await expect(createUsageScanCacheStore(cachePath).load()).resolves.toBeUndefined();
   });
 
-  it('discards version 2 even when the file fingerprint still matches', async () => {
-    const cache = makeCache();
-    await writeFile(cachePath, JSON.stringify({ ...cache, schemaVersion: 2 }));
-    await expect(createUsageScanCacheStore(cachePath).load()).resolves.toBeUndefined();
-  });
+  it.each([2, 3])(
+    'discards version %i even when the file fingerprint still matches',
+    async (schemaVersion) => {
+      const cache = makeCache();
+      await writeFile(cachePath, JSON.stringify({ ...cache, schemaVersion }));
+      await expect(createUsageScanCacheStore(cachePath).load()).resolves.toBeUndefined();
+    }
+  );
 
   it.each([
     { reasoningEfforts: undefined },

@@ -18,7 +18,8 @@ import type {
   UsageWarningCode,
 } from '../shared/usageTypes';
 
-export const USAGE_SCAN_CACHE_SCHEMA_VERSION = 3;
+// 普通会话和压缩会话都需要从原文重算相同累计值重复上报的用量。
+export const USAGE_SCAN_CACHE_SCHEMA_VERSION = 4;
 
 const JSON_INDENT_SPACES = 2;
 const TEMP_FILE_SUFFIX = '.tmp';

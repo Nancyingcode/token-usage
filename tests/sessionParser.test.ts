@@ -147,6 +147,77 @@ describe('sessionParser', () => {
     expect(session.eventCount).toBe(2);
   });
 
+  it('excludes repeated cumulative totals from session, request and effort usage', () => {
+    const first = usage(10, 2, 3, 1, 13);
+    const second = usage(7, 1, 5, 2, 12);
+    const firstAt = '2026-07-11T01:01:00.000Z';
+    const secondAt = '2026-07-11T02:03:00.000Z';
+    const content = [
+      JSON.stringify({
+        type: 'turn_context',
+        payload: { turn_id: 'first', model: 'model-a', effort: 'ultra' },
+      }),
+      tokenLine(firstAt, first, first),
+      tokenLine('2026-07-11T01:02:00.000Z', first, first),
+      JSON.stringify({
+        type: 'turn_context',
+        payload: { turn_id: 'second', model: 'model-b', effort: 'max' },
+      }),
+      tokenLine('2026-07-11T02:02:00.000Z', usage(2, 0, 3, 3, 5), first),
+      tokenLine(secondAt, second, usage(17, 3, 8, 3, 25)),
+    ].join('\n');
+
+    const session = parseSessionJsonl('repeated-totals.jsonl', content);
+
+    expect(session).toMatchObject({
+      inputTokens: 17,
+      cachedInputTokens: 3,
+      outputTokens: 8,
+      reasoningOutputTokens: 3,
+      totalTokens: 25,
+      eventCount: 4,
+    });
+    expect(session.usageSlices).toMatchObject([
+      { modelId: 'model-a', occurredAt: firstAt, totalTokens: 13 },
+      { modelId: 'model-b', occurredAt: secondAt, totalTokens: 12 },
+    ]);
+    expect(session.reasoningEfforts).toEqual([
+      { effort: 'ultra', turnCount: 1, totalTokens: 13, reasoningOutputTokens: 1 },
+      { effort: 'max', turnCount: 1, totalTokens: 12, reasoningOutputTokens: 2 },
+    ]);
+  });
+
+  it('preserves identical requests when the cumulative counter grows or is missing', () => {
+    const request = usage(5, 1, 2, 1, 7);
+    const content = [
+      tokenLine('2026-07-11T01:01:00.000Z', request, request),
+      tokenLine('2026-07-11T01:02:00.000Z', request, usage(10, 2, 4, 2, 14)),
+      tokenLine('2026-07-11T01:03:00.000Z', request, { input_tokens: 15 }),
+      tokenLine('2026-07-11T01:04:00.000Z', request, { output_tokens: 8 }),
+      tokenLine('2026-07-11T01:05:00.000Z', request),
+    ].join('\n');
+
+    const session = parseSessionJsonl('partial-counters.jsonl', content);
+
+    expect(session.totalTokens).toBe(35);
+    expect(session.usageSlices).toHaveLength(5);
+  });
+
+  it('recognizes a repeated total after a snapshot without request usage', () => {
+    const total = usage(10, 2, 3, 1, 13);
+    const content = [
+      tokenTotalLine(total),
+      tokenLine('2026-07-20T00:01:00.000Z', usage(2, 0, 3, 1, 5), total),
+    ].join('\n');
+
+    const session = parseSessionJsonl('cumulative-only.jsonl', content);
+
+    expect(session.totalTokens).toBe(13);
+    expect(session.usageSlices).toMatchObject([
+      { totalTokens: 13, pricingContext: { granularity: 'aggregate' } },
+    ]);
+  });
+
   it('falls back to largest total_token_usage when increments are missing', () => {
     const content = [
       JSON.stringify({
@@ -445,11 +516,18 @@ const eventLine = (timestamp: string, type: string, payload: Record<string, unkn
     payload: { type, ...payload },
   });
 
-const tokenLine = (timestamp: string, lastUsage: ReturnType<typeof usage>): string =>
+const tokenLine = (
+  timestamp: string,
+  lastUsage: ReturnType<typeof usage>,
+  totalUsage?: Partial<ReturnType<typeof usage>>
+): string =>
   JSON.stringify({
     timestamp,
     type: 'event_msg',
-    payload: { type: 'token_count', info: { last_token_usage: lastUsage } },
+    payload: {
+      type: 'token_count',
+      info: { last_token_usage: lastUsage, total_token_usage: totalUsage },
+    },
   });
 
 const tokenTotalLine = (totalUsage: ReturnType<typeof usage>): string =>
