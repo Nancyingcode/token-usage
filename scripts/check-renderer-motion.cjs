@@ -315,6 +315,39 @@ const checkRendererMotion = async (browserWindow, directory, pressKey) => {
     'en / mint-light / 900 and 1024: native date dialog, validation and focus passed\n'
   );
 
+  const verifySessionSettings = async () => {
+    const historyToggle = '.session-speed-history > summary';
+    const settingsVisible = () =>
+      evaluate(() => {
+        const details = document.querySelector('.session-execution-details');
+        if (!details?.checkVisibility()) return false;
+        const bounds = details.getBoundingClientRect();
+        const row = details.closest('[role="row"]').getBoundingClientRect();
+        return (
+          bounds.left >= row.left - 1 &&
+          bounds.right <= row.right + 1 &&
+          details.scrollWidth <= details.clientWidth + 1 &&
+          details.innerText.includes('ultra') &&
+          details.innerText.includes('Fast')
+        );
+      });
+    assert.ok(await settingsVisible(), 'Session execution details should fit the row');
+    await focus(historyToggle);
+    await key(ENTER);
+    await paint();
+    assert.deepEqual(
+      await evaluate(() =>
+        [...document.querySelectorAll('.session-speed-history li')].map(
+          (entry) => entry.checkVisibility() && Boolean(entry.querySelector('time'))
+        )
+      ),
+      [true, true]
+    );
+    await key(SPACE);
+    await assertFocused(historyToggle);
+    await focus(ROW_DETAILS);
+  };
+
   const verifyRow = async (view, reduced) => {
     resize(OVERVIEW_WINDOW);
     await navigate(view);
@@ -326,7 +359,7 @@ const checkRendererMotion = async (browserWindow, directory, pressKey) => {
         const summary = document.querySelector(selector);
         const details = summary.closest('details');
         const arrow = getComputedStyle(summary.querySelector('svg'));
-        const fields = details.querySelector('dl');
+        const fields = details.querySelector('.usage-row-details-fields');
         return {
           open: details.open,
           focused: document.activeElement === summary,
@@ -347,10 +380,26 @@ const checkRendererMotion = async (browserWindow, directory, pressKey) => {
     if (reduced) {
       assert.equal(opened.direction, 'matrix(-1, 0, 0, -1, 0, 0)');
     }
+    if (view === 'sessions') await verifySessionSettings();
     resize(WIDE_WINDOW);
     await paint();
     await assertFocused(ROW_DETAILS);
     assert.equal((await readDetails()).open, true);
+    if (view === 'sessions') {
+      await key(SPACE);
+      await evaluate((selector) => document.querySelector(selector).blur(), ROW_DETAILS);
+      assert.ok(
+        await evaluate(
+          (selector) => document.querySelector(selector).checkVisibility(),
+          ROW_DETAILS
+        ),
+        'Wide session rows must offer details before receiving focus'
+      );
+      await focus(ROW_DETAILS);
+      await key(ENTER);
+      await paint();
+      await verifySessionSettings();
+    }
     resize(OVERVIEW_WINDOW);
     await paint();
     await key(SPACE);
@@ -459,6 +508,8 @@ const checkRendererMotion = async (browserWindow, directory, pressKey) => {
   };
   const selectLastOption = async (selector) => {
     await focus(selector);
+    // 从分页移回筛选器会滚动列表，等待焦点引起的滚动完成，再按键打开菜单。
+    await paint();
     await key(ENTER);
     await waitFor(MENU_OPTIONS);
     await key(END);

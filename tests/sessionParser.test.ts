@@ -2,6 +2,27 @@ import { describe, expect, it } from 'vitest';
 import parseSessionJsonl, { parseSessionJsonlAsync } from '../src/main/sessionParser';
 
 describe('sessionParser', () => {
+  it('uses the owning rollout id when inherited session metadata has another id', () => {
+    const content = JSON.stringify({ type: 'session_meta', payload: { id: 'parent-session' } });
+    const rollout = 'fixtures/rollout-2026-11-28T09-00-00-child-session.jsonl';
+    expect(parseSessionJsonl(rollout, content).sessionId).toBe('child-session');
+    expect(parseSessionJsonl('renamed.jsonl', content).sessionId).toBe('parent-session');
+  });
+
+  it('keeps real session dates after a first settings snapshot with an invalid timestamp', () => {
+    const validDate = '2026-11-28T09:01:00Z';
+    const content = [
+      { type: 'event_msg', payload: { type: 'thread_settings_applied' }, timestamp: 'invalid' },
+      { timestamp: validDate },
+    ]
+      .map((record) => JSON.stringify(record))
+      .join('\n');
+    expect(parseSessionJsonl('dates.jsonl', content)).toMatchObject({
+      startedAt: validDate,
+      endedAt: validDate,
+    });
+  });
+
   it('keeps the original timestamp at each boundary when records arrive out of order', () => {
     const earliest = '2026-07-11T08:00:00+08:00';
     const latest = '2026-07-11T02:00:00Z';

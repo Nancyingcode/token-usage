@@ -90,6 +90,35 @@ describe('usage scan cache store', () => {
     await writeFile(cachePath, JSON.stringify(invalid), 'utf8');
     await expect(createUsageScanCacheStore(cachePath).load()).resolves.toBeUndefined();
   });
+
+  it('discards version 2 even when the file fingerprint still matches', async () => {
+    const cache = makeCache();
+    await writeFile(cachePath, JSON.stringify({ ...cache, schemaVersion: 2 }));
+    await expect(createUsageScanCacheStore(cachePath).load()).resolves.toBeUndefined();
+  });
+
+  it.each([
+    { reasoningEfforts: undefined },
+    { reasoningEfforts: [{ effort: {}, turnCount: 1, totalTokens: 12, reasoningOutputTokens: 2 }] },
+    {
+      reasoningEfforts: [
+        { effort: null, turnCount: -1, totalTokens: null, reasoningOutputTokens: 0 },
+      ],
+    },
+    {
+      reasoningEfforts: [
+        { effort: 'high', turnCount: 1, totalTokens: '12', reasoningOutputTokens: 0 },
+      ],
+    },
+    { speedHistory: undefined },
+    { speedHistory: [{ serviceTier: true, occurredAt: null }] },
+    { speedHistory: [{ serviceTier: 'priority', occurredAt: 'invalid' }] },
+  ])('rebuilds malformed effort or speed data instead of hydrating it', async (invalidFields) => {
+    const cache = makeCache();
+    Object.assign(Object.values(cache.entries)[0].session, invalidFields);
+    await writeFile(cachePath, JSON.stringify(cache));
+    await expect(createUsageScanCacheStore(cachePath).load()).resolves.toBeUndefined();
+  });
 });
 
 const makeSession = (): UsageSession => ({
@@ -110,6 +139,11 @@ const makeSession = (): UsageSession => ({
     },
   ],
   turnOutcomes: [{ occurredAt: '2026-08-12T00:00:01.000Z', status: 'completed' }],
+  reasoningEfforts: [
+    { effort: 'high', turnCount: 1, totalTokens: 12, reasoningOutputTokens: 0 },
+    { effort: null, turnCount: 1, totalTokens: null, reasoningOutputTokens: null },
+  ],
+  speedHistory: [{ serviceTier: 'priority', occurredAt: null }],
   inputTokens: 10,
   cachedInputTokens: 0,
   outputTokens: 2,

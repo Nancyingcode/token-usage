@@ -8,6 +8,8 @@ import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { isRecord } from '../shared/runtimeTypes';
 import type {
+  SessionEffortUsage,
+  ThreadSpeedChange,
   TokenUsage,
   UsageSession,
   UsageSlice,
@@ -16,7 +18,7 @@ import type {
   UsageWarningCode,
 } from '../shared/usageTypes';
 
-export const USAGE_SCAN_CACHE_SCHEMA_VERSION = 2;
+export const USAGE_SCAN_CACHE_SCHEMA_VERSION = 3;
 
 const JSON_INDENT_SPACES = 2;
 const TEMP_FILE_SUFFIX = '.tmp';
@@ -63,6 +65,23 @@ const hasTokenUsage = (value: Record<string, unknown>): boolean =>
 
 const isOptionalString = (value: unknown): value is string | undefined =>
   value === undefined || typeof value === 'string';
+
+const isRecordedLabel = (value: unknown): value is string | null =>
+  value === null || (typeof value === 'string' && value.trim().length > 0);
+
+const isEffortUsage = (value: unknown): value is SessionEffortUsage =>
+  isRecord(value) &&
+  isRecordedLabel(value.effort) &&
+  isFiniteNonNegativeNumber(value.turnCount) &&
+  Number.isInteger(value.turnCount) &&
+  (value.totalTokens === null || isFiniteNonNegativeNumber(value.totalTokens)) &&
+  (value.reasoningOutputTokens === null || isFiniteNonNegativeNumber(value.reasoningOutputTokens));
+
+const isSpeedChange = (value: unknown): value is ThreadSpeedChange =>
+  isRecord(value) &&
+  isRecordedLabel(value.serviceTier) &&
+  (value.occurredAt === null ||
+    (typeof value.occurredAt === 'string' && Number.isFinite(Date.parse(value.occurredAt))));
 
 const isWarning = (value: unknown): value is UsageWarning =>
   isRecord(value) &&
@@ -113,6 +132,10 @@ const isUsageSession = (value: unknown, sourceFile: string): value is UsageSessi
   value.usageSlices.every(isUsageSlice) &&
   Array.isArray(value.turnOutcomes) &&
   value.turnOutcomes.every(isTurnOutcome) &&
+  Array.isArray(value.reasoningEfforts) &&
+  value.reasoningEfforts.every(isEffortUsage) &&
+  Array.isArray(value.speedHistory) &&
+  value.speedHistory.every(isSpeedChange) &&
   Number.isInteger(value.eventCount) &&
   Number(value.eventCount) >= 0 &&
   value.sourceFile === sourceFile &&

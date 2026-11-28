@@ -13,6 +13,7 @@ import { createCostOptimizationRuntime } from '../src/main/costOptimizationRunti
 import { USAGE_SCAN_INTERVAL_MS } from '../src/main/usageMonitor';
 import { createUsageRuntime } from '../src/main/usageRuntime';
 import { createUsageScanner } from '../src/main/usageScanner';
+import { createUsageScanCacheStore } from '../src/main/usageScanCacheStore';
 import { decompressZstdFile } from '../src/main/zstdFrames';
 import { compressZstd, skippableZstdFrame } from './nodeHelpers/zstdFixtures';
 
@@ -128,6 +129,75 @@ describe('compressed usage integration', () => {
       },
     };
   };
+
+  it('rebuilds version 2 live and imported caches and reuses the reconstructed session details', async () => {
+    const threadId = 'a757cb27-c219-40d0-881e-8f6d84b5ff25';
+    const timestamp = '2026-11-27T00:00:00.000Z';
+    const content = [
+      { type: 'session_meta', payload: { id: threadId } },
+      { type: 'turn_context', payload: { turn_id: 'turn-1', effort: 'ultra' } },
+      {
+        type: 'event_msg',
+        payload: {
+          type: 'token_count',
+          info: {
+            last_token_usage: { total_tokens: 20, output_tokens: 5, reasoning_output_tokens: 3 },
+          },
+        },
+      },
+      {
+        type: 'event_msg',
+        payload: {
+          type: 'thread_settings_applied',
+          thread_id: threadId,
+          thread_settings: { service_tier: 'priority' },
+        },
+      },
+    ]
+      .map((line) => JSON.stringify({ ...line, timestamp }))
+      .join('\n');
+    const plain = join(sessionsDir, `rollout-2026-11-27T00-00-00-${threadId}.jsonl`);
+    const archive = `${plain}.zst`;
+    await writeFile(plain, content);
+    await writeFile(archive, compressZstd(content));
+    const liveCachePath = join(directory, 'usage-scan-cache.json');
+    const liveCache = createUsageScanCacheStore(liveCachePath);
+    await createUsageScanner({ cacheStore: liveCache }).scan({ sessionsDir });
+    await vi.waitFor(async () => expect(await liveCache.load()).toBeDefined());
+    await createCompressedSessionStore({ storageDir }).importFiles(sessionsDir, [archive]);
+    const [root] = await readdir(storageDir);
+    const importedCachePath = join(storageDir, root, 'parsed-cache.json');
+    for (const path of [liveCachePath, importedCachePath]) {
+      const cache = await createUsageScanCacheStore(path).load();
+      expect(cache).toBeDefined();
+      const version2 = JSON.stringify({ ...cache, schemaVersion: 2 }, (key, value: unknown) =>
+        key === 'reasoningEfforts' || key === 'speedHistory' ? undefined : value
+      );
+      await writeFile(path, version2);
+    }
+    await unlink(archive);
+
+    const expected = {
+      totalTokens: 20,
+      reasoningEfforts: [
+        { effort: 'ultra', turnCount: 1, totalTokens: 20, reasoningOutputTokens: 3 },
+      ],
+      speedHistory: [{ serviceTier: 'priority', occurredAt: timestamp }],
+    };
+    const scanner = createUsageScanner({ cacheStore: liveCache });
+    const store = createCompressedSessionStore({ storageDir });
+    expect((await scanner.scan({ sessionsDir })).summary.sessions[0]).toMatchObject(expected);
+    expect((await store.load(sessionsDir)).sources[0].session).toMatchObject(expected);
+    await vi.waitFor(async () => expect(await liveCache.load()).toBeDefined());
+    const cachedCycle = await createUsageScanner({ cacheStore: liveCache }).scanCycle({
+      sessionsDir,
+    });
+    expect(cachedCycle.changes.upserted).toEqual([]);
+    expect(cachedCycle.result.summary.sessions[0]).toMatchObject(expected);
+    expect(
+      (await createUsageScanCacheStore(importedCachePath).load())?.entries[archive].session
+    ).toMatchObject(expected);
+  });
 
   it('reuses the persisted live and imported cost index on restart and unchanged refresh', async () => {
     await writeFile(join(sessionsDir, 'live.jsonl'), sessionContent(20));

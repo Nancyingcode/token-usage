@@ -43,6 +43,18 @@ export interface UsageTurnOutcome {
   error?: UsageTurnError;
 }
 
+export interface SessionEffortUsage {
+  effort: string | null;
+  turnCount: number;
+  totalTokens: number | null;
+  reasoningOutputTokens: number | null;
+}
+
+export interface ThreadSpeedChange {
+  serviceTier: string | null;
+  occurredAt: string | null;
+}
+
 export interface UsageSession extends TokenUsage {
   sessionId: string;
   startedAt: string;
@@ -52,6 +64,8 @@ export interface UsageSession extends TokenUsage {
   threadName?: string;
   usageSlices: UsageSlice[];
   turnOutcomes: UsageTurnOutcome[];
+  reasoningEfforts?: SessionEffortUsage[];
+  speedHistory?: ThreadSpeedChange[];
   eventCount: number;
   sourceFile: string;
   warnings: UsageWarning[];

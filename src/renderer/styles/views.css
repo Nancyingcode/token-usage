@@ -3955,6 +3955,114 @@ code {
   font-weight: 400;
 }
 
+.session-table .table-row:not(.table-head) {
+  row-gap: var(--space-1);
+}
+
+/* 详情仍属于会话行表头，展开内容使用整行宽度。 */
+.session-row-header {
+  display: contents;
+}
+
+.session-table .session-primary-cell,
+.session-table .table-row > [role='cell'] {
+  grid-row: 1;
+}
+
+.session-table .session-primary-cell {
+  grid-column: 1;
+}
+
+.session-table .usage-row-details {
+  display: block;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  min-width: 0;
+}
+
+.session-execution-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
+  align-items: start;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-subtle);
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.session-execution-details dl,
+.session-execution-details dd {
+  margin: 0;
+}
+
+.session-execution-details dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-2) var(--space-3);
+}
+
+.session-execution-details dt,
+.session-effort-table caption {
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.session-effort-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.session-effort-table caption,
+.session-effort-table th:first-child {
+  text-align: start;
+}
+
+.session-effort-table caption {
+  margin-bottom: var(--space-2);
+}
+
+.session-effort-table th,
+.session-effort-table td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  text-align: end;
+}
+
+.session-effort-table thead {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-label);
+}
+
+.session-speed-history {
+  margin-top: var(--space-2);
+}
+
+.session-speed-history > summary {
+  width: fit-content;
+  padding: var(--space-1) 0;
+  color: var(--color-brand-700);
+  cursor: pointer;
+}
+
+.session-speed-history > summary:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.session-speed-history ol {
+  margin: var(--space-1) 0;
+  padding-inline-start: var(--space-6);
+}
+
+.session-speed-history li > :last-child {
+  margin-inline-start: var(--space-2);
+  color: var(--color-text-muted);
+}
+
 /* 完整项目表需要至少 68rem，会话与项目列表共用该切换点。 */
 @container usage-table (width < 68rem) {
   .usage-table-container .usage-table-secondary-column {

@@ -32,6 +32,7 @@ import {
 } from '../utils/sessionPageSizePreference';
 import PageHeader from './PageHeader';
 import SelectMenu, { type SelectMenuOption } from './SelectMenu';
+import SessionExecutionDetails from './SessionExecutionDetails';
 import UsageRowDetails from './UsageRowDetails';
 
 interface SessionsViewProps {
@@ -470,26 +471,34 @@ const SessionsView: React.FC<SessionsViewProps> = ({
                 return (
                   <div className="table-row" key={session.sourceFile} role="row">
                     <div
-                      className="primary-cell session-primary-cell"
+                      className="session-row-header"
                       role="rowheader"
                       aria-label={name}
                       title={session.sessionId}
                     >
-                      <span title={session.threadName}>{name}</span>
-                      {diagnosisAction ? (
-                        <button
-                          type="button"
-                          className={`session-diagnosis-badge ${diagnosisAction.finding.severity}`}
-                          aria-label={tCostOptimization('diagnostics.sessions.open', {
-                            cause: diagnosisAction.cause,
-                          })}
-                          onClick={() => onDiagnosisOpen(diagnosisAction.diagnosis)}
-                        >
-                          <diagnosisAction.Icon size={ICON_SIZE_SMALL} aria-hidden="true" />
-                          <span>{diagnosisAction.cause}</span>
-                        </button>
-                      ) : null}
-                      <UsageRowDetails name={name} fields={detailFields} />
+                      <div className="primary-cell session-primary-cell">
+                        <span title={session.threadName}>{name}</span>
+                        {diagnosisAction ? (
+                          <button
+                            type="button"
+                            className={`session-diagnosis-badge ${diagnosisAction.finding.severity}`}
+                            aria-label={tCostOptimization('diagnostics.sessions.open', {
+                              cause: diagnosisAction.cause,
+                            })}
+                            onClick={() => onDiagnosisOpen(diagnosisAction.diagnosis)}
+                          >
+                            <diagnosisAction.Icon size={ICON_SIZE_SMALL} aria-hidden="true" />
+                            <span>{diagnosisAction.cause}</span>
+                          </button>
+                        ) : null}
+                      </div>
+                      <UsageRowDetails name={name} fields={detailFields}>
+                        <SessionExecutionDetails
+                          reasoningEfforts={session.reasoningEfforts}
+                          speedHistory={session.speedHistory}
+                          locale={locale}
+                        />
+                      </UsageRowDetails>
                     </div>
                     {secondaryColumns.map(({ label, value, numeric, title }) => (
                       <span

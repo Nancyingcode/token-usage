@@ -4,7 +4,7 @@
  * 将 JSONL 会话记录转换为可聚合的用量会话，并收集无法解析或不完整记录的警告。
  */
 import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
-import getSessionId from '../shared/sessionId';
+import getSessionId, { getRolloutSessionId } from '../shared/sessionId';
 import { isRecord } from '../shared/runtimeTypes';
 import type { UsagePricingContext } from '../shared/conditionalPricingTypes';
 import {
@@ -21,6 +21,8 @@ import type {
   UsageTurnOutcome,
   UsageWarning,
 } from '../shared/usageTypes';
+import { createSessionEffortUsage, getRecordedEffortMetrics } from './sessionEffortUsage';
+import { createThreadSpeedHistory } from './threadSpeedHistory';
 
 interface ParsedLine {
   timestamp?: string;
@@ -155,8 +157,11 @@ const parseSessionBatches = function* (
   threadName?: string
 ): Generator<void, UsageSession, void> {
   const warnings: UsageWarning[] = [];
+  const effortUsage = createSessionEffortUsage();
+  const speedHistory = createThreadSpeedHistory(sourceFile);
 
-  let sessionId = getSessionId(sourceFile);
+  const rolloutId = getRolloutSessionId(sourceFile);
+  let sessionId = rolloutId ?? getSessionId(sourceFile);
   let projectPath = '';
   let startedAt = '';
   let endedAt = '';
@@ -170,6 +175,7 @@ const parseSessionBatches = function* (
   let summedUsage = emptyTokenUsage();
   let largestTotalUsage = emptyTokenUsage();
   let largestTotalSlice: UsageSlice | undefined;
+  let largestTotalEffortMetrics: ReturnType<typeof getRecordedEffortMetrics> | undefined;
   const incrementalSlices: UsageSlice[] = [];
   const turnOutcomes: UsageTurnOutcome[] = [];
   const turnOutcomeIndexes = new Map<string, number>();
@@ -233,16 +239,19 @@ const parseSessionBatches = function* (
 
     if (record.timestamp) {
       const timestampMs = Date.parse(record.timestamp);
-      if (startedAtMs === undefined || timestampMs < startedAtMs) {
-        startedAt = record.timestamp;
-        startedAtMs = timestampMs;
-      }
-      if (endedAtMs === undefined || timestampMs > endedAtMs) {
-        endedAt = record.timestamp;
-        endedAtMs = timestampMs;
+      if (Number.isFinite(timestampMs)) {
+        if (startedAtMs === undefined || timestampMs < startedAtMs) {
+          startedAt = record.timestamp;
+          startedAtMs = timestampMs;
+        }
+        if (endedAtMs === undefined || timestampMs > endedAtMs) {
+          endedAt = record.timestamp;
+          endedAtMs = timestampMs;
+        }
       }
     }
 
+    speedHistory.observe(record.type, record.payload, record.timestamp);
     const recordModelId = record.payload?.model;
 
     if (
@@ -254,10 +263,12 @@ const parseSessionBatches = function* (
     }
 
     if (record.type === 'session_meta') {
+      effortUsage.resetBoundary();
       const sessionIdValue = record.payload?.session_id ?? record.payload?.id;
       const projectPathValue = record.payload?.cwd;
 
-      if (typeof sessionIdValue === 'string') {
+      // 分叉会话可能重放父线程的元数据，规范文件名标识实际拥有该记录的线程。
+      if (!rolloutId && typeof sessionIdValue === 'string') {
         sessionId = sessionIdValue;
       }
 
@@ -268,11 +279,17 @@ const parseSessionBatches = function* (
       return;
     }
 
+    const turnId = getOptionalString(record.payload?.turn_id);
+    if (record.type === 'turn_context') {
+      effortUsage.context(turnId, record.payload?.effort);
+      return;
+    }
+
     const eventType =
       record.type === 'event_msg' ? getOptionalString(record.payload?.type) : undefined;
 
     if (eventType && TURN_STARTED_EVENT_TYPES.has(eventType)) {
-      const turnId = getOptionalString(record.payload?.turn_id);
+      effortUsage.start(turnId);
       activeTurn = {
         key: turnId ?? nextAnonymousTurnKey(),
         ...(turnId ? { turnId } : {}),
@@ -290,7 +307,7 @@ const parseSessionBatches = function* (
     }
 
     if (eventType && TURN_COMPLETE_EVENT_TYPES.has(eventType)) {
-      const turnId = getOptionalString(record.payload?.turn_id);
+      effortUsage.end(turnId);
       const identity = resolveTurnIdentity(turnId);
       const terminalError = toTurnError(record.payload?.error);
       const error =
@@ -312,7 +329,7 @@ const parseSessionBatches = function* (
     }
 
     if (eventType === 'turn_aborted') {
-      const turnId = getOptionalString(record.payload?.turn_id);
+      effortUsage.end(turnId);
       const identity = resolveTurnIdentity(turnId);
       const interruptReason = getOptionalString(record.payload?.reason);
 
@@ -353,6 +370,7 @@ const parseSessionBatches = function* (
 
       if (lastUsage) {
         hasIncrementalUsage = true;
+        effortUsage.increment(turnId, getRecordedEffortMetrics(lastTokenUsage));
         summedUsage = addTokenUsage(summedUsage, lastUsage);
         incrementalSlices.push({
           ...lastUsage,
@@ -364,6 +382,7 @@ const parseSessionBatches = function* (
 
       if (totalUsage && totalUsage.totalTokens >= largestTotalUsage.totalTokens) {
         largestTotalUsage = totalUsage;
+        largestTotalEffortMetrics = getRecordedEffortMetrics(totalTokenUsage);
         largestTotalSlice = {
           ...totalUsage,
           pricingContext: getPricingContext(totalTokenUsage, 'aggregate'),
@@ -416,6 +435,10 @@ const parseSessionBatches = function* (
     threadName,
     usageSlices,
     turnOutcomes,
+    reasoningEfforts: effortUsage.finish(
+      hasIncrementalUsage ? undefined : largestTotalEffortMetrics
+    ),
+    speedHistory: speedHistory.finish(),
     ...usage,
     eventCount,
     sourceFile,

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import React from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { describe, expect, it, vi } from 'vitest';
@@ -659,6 +659,129 @@ describe('analytics tables', () => {
 
     fireEvent.click(toggle);
     expect(details.open).toBe(false);
+  });
+
+  it('shows per-effort usage and the thread speed history for a session without a diagnosis', async () => {
+    const session = {
+      ...HIGH_TOKEN_SESSION,
+      warnings: [],
+      inputTokens: 7_500,
+      outputTokens: 4_673,
+      reasoningOutputTokens: 4_567,
+      totalTokens: 12_173,
+      reasoningEfforts: [
+        { effort: 'ultra', turnCount: 2, totalTokens: 12_123, reasoningOutputTokens: 4_567 },
+        { effort: 'low', turnCount: 1, totalTokens: 0, reasoningOutputTokens: 0 },
+        { effort: 'custom-effort', turnCount: 1, totalTokens: null, reasoningOutputTokens: null },
+        { effort: null, turnCount: 0, totalTokens: 50, reasoningOutputTokens: 0 },
+      ],
+      speedHistory: [
+        { serviceTier: 'default', occurredAt: '2026-07-24T10:00:00Z' },
+        { serviceTier: 'ultrafast', occurredAt: null },
+        { serviceTier: 'fast', occurredAt: null },
+        { serviceTier: 'future-tier', occurredAt: null },
+        { serviceTier: 'priority', occurredAt: '2026-07-24T10:04:00Z' },
+      ],
+    };
+    render(
+      <I18nextProvider i18n={createTestI18n('en')}>
+        <SessionsView
+          sessions={[session]}
+          selectedProjectPath={null}
+          onClearProjectFilter={vi.fn()}
+        />
+      </I18nextProvider>
+    );
+    const toggle = screen.getByLabelText('Details for High token session');
+    fireEvent.click(toggle);
+    const table = await screen.findByRole('table', { name: 'Reasoning effort' });
+    const cellsFor = (name: string) =>
+      within(within(table).getByRole('rowheader', { name }).closest('tr')!)
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent);
+    expect(cellsFor('ultra')).toEqual(['2', '12,123', '4,567']);
+    expect(cellsFor('low')).toEqual(['1', '0', '0']);
+    expect(cellsFor('custom-effort')).toEqual(['1', 'Not recorded', 'Not recorded']);
+    expect(cellsFor('Unknown')).toEqual(['0', '50', '0']);
+    expect(screen.getByText('Latest thread speed').nextElementSibling?.textContent).toBe('Fast');
+    expect(screen.getByText('Actual service tier').nextElementSibling?.textContent).toBe(
+      'Not recorded'
+    );
+    const history = screen.getByText('Speed history').closest('details')!;
+    expect(history.open).toBe(false);
+    fireEvent.click(within(history).getByText('Speed history'));
+    expect(history.open).toBe(true);
+    const changes = await within(history).findAllByRole('listitem');
+    expect(changes.map((change) => change.firstElementChild?.textContent)).toEqual([
+      'Standard',
+      'Ultrafast',
+      'Fast',
+      'future-tier',
+      'Fast',
+    ]);
+    expect(changes[0].querySelector('time')?.dateTime).toBe('2026-07-24T10:00:00Z');
+    expect(changes[1].textContent).toContain('Time not recorded');
+  });
+
+  it('mounts a long speed history only while expanded and keeps it open on refresh', async () => {
+    const speedHistory = Array.from({ length: 300 }, (_, index) => ({
+      serviceTier: index % 2 === 0 ? 'default' : 'priority',
+      occurredAt: null,
+    }));
+    const i18n = createTestI18n('en');
+    const view = (history: typeof speedHistory) => (
+      <I18nextProvider i18n={i18n}>
+        <SessionsView
+          sessions={[{ ...HIGH_TOKEN_SESSION, speedHistory: history }]}
+          selectedProjectPath={null}
+          onClearProjectFilter={vi.fn()}
+        />
+      </I18nextProvider>
+    );
+    const { rerender } = render(view(speedHistory));
+    const outer = screen.getByLabelText('Details for High token session');
+    expect(screen.queryByText('Speed history')).toBeNull();
+    fireEvent.click(outer);
+    const toggle = await screen.findByText('Speed history');
+    const details = toggle.closest('details')!;
+    expect(details.querySelector('ol')).toBeNull();
+    toggle.focus();
+    fireEvent.click(toggle);
+    await waitFor(() => expect(details.querySelectorAll('li')).toHaveLength(300));
+    rerender(view([...speedHistory, { serviceTier: 'ultrafast', occurredAt: null }]));
+    expect(details.querySelectorAll('li')).toHaveLength(301);
+    expect(details.open).toBe(true);
+    expect(document.activeElement).toBe(toggle);
+    expect(screen.getByText('Latest thread speed').nextElementSibling?.textContent).toBe(
+      'Ultrafast'
+    );
+    fireEvent.click(toggle);
+    await waitFor(() => expect(details.querySelector('ol')).toBeNull());
+    expect(document.activeElement).toBe(toggle);
+    expect(outer.closest('details')?.open).toBe(true);
+  });
+
+  it.each([
+    { name: 'a legacy snapshot', speedHistory: undefined },
+    { name: 'no speed events', speedHistory: [] },
+    { name: 'an empty tier', speedHistory: [{ serviceTier: null, occurredAt: null }] },
+  ])('shows unrecorded settings for an ordinary session with $name', async ({ speedHistory }) => {
+    const session = { ...HIGH_TOKEN_SESSION, speedHistory };
+    render(
+      <I18nextProvider i18n={createTestI18n('zh-CN')}>
+        <SessionsView
+          sessions={[session]}
+          selectedProjectPath={null}
+          onClearProjectFilter={vi.fn()}
+        />
+      </I18nextProvider>
+    );
+    fireEvent.click(screen.getByLabelText(/High token session/, { selector: 'summary' }));
+    const effort = await screen.findByText('思考强度');
+    expect(effort.parentElement?.textContent).toContain('未记录');
+    expect(screen.getByText('最近的线程速度设置').nextElementSibling?.textContent).toBe('未记录');
+    expect(screen.getByText('实际服务档位').nextElementSibling?.textContent).toBe('未记录');
+    expect(screen.queryByText('速度变化记录')).toBeNull();
   });
 
   it('keeps the session diagnosis button focused until a background update displaces its row', () => {
