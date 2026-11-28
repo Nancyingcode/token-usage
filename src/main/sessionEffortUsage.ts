@@ -1,5 +1,5 @@
 /**
- * @file 会话思考强度用量
+ * @file 会话模型与思考强度用量
  * @description 根据回合身份、上下文和请求增量归属用量，保留缺失字段和冲突证据。
  */
 import type { SessionEffortUsage } from '../shared/usageTypes';
@@ -7,17 +7,36 @@ import { isRecord } from '../shared/runtimeTypes';
 
 type Metrics = Pick<SessionEffortUsage, 'totalTokens' | 'reasoningOutputTokens'>;
 
+type ContextValue = string | null | undefined;
+
+interface EffortGroup {
+  turnCount: number;
+  usage?: Metrics;
+}
+
+const readLabel = (value: unknown): string | undefined =>
+  typeof value === 'string' ? value.trim() || undefined : undefined;
+
+// 字段无记录时仍可接受后续上下文，已冲突的字段不能由后续单条记录重新确认。
+const mergeContextValue = (current: ContextValue, next: ContextValue): ContextValue => {
+  if (current === undefined) return next;
+  if (next === undefined || next === current) return current;
+  return null;
+};
+
+const unknownLast = (first: string | null, second: string | null): number =>
+  Number(first === null) - Number(second === null);
+
 class EffortTurn {
-  effort: string | null = null;
-  conflicted = false;
+  modelId: ContextValue;
+  effort: ContextValue;
+  firstStartLine?: number;
   ended = false;
   usage?: Metrics;
 
-  recordEffort(effort: string | null): void {
-    if (effort !== null) {
-      this.conflicted ||= this.effort !== null && this.effort !== effort;
-      this.effort = effort;
-    }
+  recordContext(modelId: ContextValue, effort: ContextValue): void {
+    this.modelId = mergeContextValue(this.modelId, modelId);
+    this.effort = mergeContextValue(this.effort, effort);
   }
 }
 
@@ -70,8 +89,8 @@ export const createSessionEffortUsage = () => {
       if (!existing) {
         turns.set(id, anonymous);
       } else {
-        existing.recordEffort(anonymous.effort);
-        existing.conflicted ||= anonymous.conflicted;
+        existing.recordContext(anonymous.modelId, anonymous.effort);
+        existing.firstStartLine ??= anonymous.firstStartLine;
         if (anonymous.usage) existing.usage = addUsage(existing.usage, anonymous.usage);
         if (requestTurn === anonymous) requestTurn = existing;
       }
@@ -86,19 +105,19 @@ export const createSessionEffortUsage = () => {
 
   return {
     resetBoundary,
-    start(id?: string): void {
+    start(id: string | undefined, line: number): void {
       startedKey = id ?? Symbol();
       const turn = getTurn(startedKey);
+      turn.firstStartLine ??= line;
       if (requestTurn !== turn || turn.ended) requestTurn = undefined;
       turn.ended = false;
     },
-    context(id: string | undefined, rawEffort: unknown): void {
+    context(id: string | undefined, rawModel: unknown, rawEffort: unknown): void {
       const turn = resolveTurn(id);
-      const effort = typeof rawEffort === 'string' ? rawEffort.trim() || null : null;
-      turn?.recordEffort(effort);
+      turn?.recordContext(readLabel(rawModel), readLabel(rawEffort));
       // 上下文可独立标识一轮。若显式的开始事件与上下文不一致，紧随其后的用量没有唯一归属。
       const mismatchedStart = startedKey !== undefined && id !== undefined && startedKey !== id;
-      requestTurn = turn && !turn.ended && effort !== null && !mismatchedStart ? turn : undefined;
+      requestTurn = turn && !turn.ended && !mismatchedStart ? turn : undefined;
     },
     end(id?: string): void {
       const active = startedKey === undefined ? requestTurn : getTurn(startedKey);
@@ -122,29 +141,44 @@ export const createSessionEffortUsage = () => {
         unknownUsage = addUsage(unknownUsage, usage);
       }
     },
-    finish(aggregate?: Metrics): SessionEffortUsage[] {
-      const groups = new Map<string | null, { turnCount: number; usage?: Metrics }>();
-      const collect = (effort: string | null, count: number, usage?: Metrics): void => {
-        const group = groups.get(effort) ?? { turnCount: 0 };
+    finish(aggregate?: Metrics): {
+      reasoningEfforts: SessionEffortUsage[];
+      turnStartLines: Array<number | undefined>;
+    } {
+      const groups = new Map<string | null, Map<string | null, EffortGroup>>();
+      const turnStartLines: Array<number | undefined> = [];
+      const collect = (
+        modelId: string | null,
+        effort: string | null,
+        count: number,
+        usage?: Metrics
+      ): void => {
+        const efforts = groups.get(modelId) ?? new Map<string | null, EffortGroup>();
+        const group = efforts.get(effort) ?? { turnCount: 0 };
         group.turnCount += count;
         if (usage) group.usage = addUsage(group.usage, usage);
-        groups.set(effort, group);
+        efforts.set(effort, group);
+        groups.set(modelId, efforts);
       };
       for (const turn of turns.values()) {
-        collect(turn.conflicted ? null : turn.effort, 1, turn.usage);
+        collect(turn.modelId ?? null, turn.effort ?? null, 1, turn.usage);
+        turnStartLines.push(turn.firstStartLine);
       }
       // 累计回退包含多个回合，只能成为“未知”用量；所在记录的上下文仅标识最后一轮。
       const unassigned = aggregate ?? unknownUsage;
-      if (unassigned) collect(null, 0, unassigned);
-      const rows = Array.from(groups, ([effort, { turnCount, usage }]) => ({
-        effort,
-        turnCount,
-        totalTokens: usage?.totalTokens ?? null,
-        reasoningOutputTokens: usage?.reasoningOutputTokens ?? null,
-      }));
-      return rows.sort(
-        (first, second) => Number(first.effort === null) - Number(second.effort === null)
-      );
+      if (unassigned) collect(null, null, 0, unassigned);
+      const reasoningEfforts = Array.from(groups)
+        .sort(([first], [second]) => unknownLast(first, second))
+        .flatMap(([modelId, efforts]) =>
+          Array.from(efforts, ([effort, { turnCount, usage }]) => ({
+            modelId,
+            effort,
+            turnCount,
+            totalTokens: usage?.totalTokens ?? null,
+            reasoningOutputTokens: usage?.reasoningOutputTokens ?? null,
+          })).sort((first, second) => unknownLast(first.effort, second.effort))
+        );
+      return { reasoningEfforts, turnStartLines };
     },
   };
 };

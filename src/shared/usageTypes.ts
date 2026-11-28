@@ -44,6 +44,7 @@ export interface UsageTurnOutcome {
 }
 
 export interface SessionEffortUsage {
+  modelId: string | null;
   effort: string | null;
   turnCount: number;
   totalTokens: number | null;
@@ -53,6 +54,18 @@ export interface SessionEffortUsage {
 export interface ThreadSpeedChange {
   serviceTier: string | null;
   occurredAt: string | null;
+}
+
+export interface ThreadSpeedCounts {
+  standard: number;
+  fast: number;
+  ultrafast: number;
+  unknown: number;
+}
+
+export interface SessionSpeedUsage {
+  tokens: ThreadSpeedCounts;
+  turns: ThreadSpeedCounts;
 }
 
 export interface UsageSession extends TokenUsage {
@@ -66,6 +79,7 @@ export interface UsageSession extends TokenUsage {
   turnOutcomes: UsageTurnOutcome[];
   reasoningEfforts?: SessionEffortUsage[];
   speedHistory?: ThreadSpeedChange[];
+  speedUsage?: SessionSpeedUsage;
   eventCount: number;
   sourceFile: string;
   warnings: UsageWarning[];

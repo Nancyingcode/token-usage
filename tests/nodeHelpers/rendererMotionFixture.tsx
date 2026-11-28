@@ -72,12 +72,16 @@ const makeSession = (
     usageSlices: [{ ...usage, occurredAt: startedAt, modelId }],
     turnOutcomes: [],
     reasoningEfforts: [
-      { effort: 'ultra', turnCount: 1, totalTokens: tokens, reasoningOutputTokens: 0 },
+      { modelId, effort: 'ultra', turnCount: 1, totalTokens: tokens, reasoningOutputTokens: 0 },
     ],
     speedHistory: [
       { serviceTier: 'default', occurredAt: startedAt },
       { serviceTier: 'priority', occurredAt: startedAt },
     ],
+    speedUsage: {
+      tokens: { standard: 0, fast: tokens, ultrafast: 0, unknown: 0 },
+      turns: { standard: 0, fast: 1, ultrafast: 0, unknown: 0 },
+    },
     sourceFile: `${id}.jsonl`,
     eventCount: 1,
     warnings: [],

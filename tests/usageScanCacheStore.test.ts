@@ -91,7 +91,7 @@ describe('usage scan cache store', () => {
     await expect(createUsageScanCacheStore(cachePath).load()).resolves.toBeUndefined();
   });
 
-  it.each([2, 3])(
+  it.each([2, 3, 4])(
     'discards version %i even when the file fingerprint still matches',
     async (schemaVersion) => {
       const cache = makeCache();
@@ -102,20 +102,53 @@ describe('usage scan cache store', () => {
 
   it.each([
     { reasoningEfforts: undefined },
-    { reasoningEfforts: [{ effort: {}, turnCount: 1, totalTokens: 12, reasoningOutputTokens: 2 }] },
     {
       reasoningEfforts: [
-        { effort: null, turnCount: -1, totalTokens: null, reasoningOutputTokens: 0 },
+        { effort: 'high', turnCount: 1, totalTokens: 12, reasoningOutputTokens: 2 },
       ],
     },
     {
       reasoningEfforts: [
-        { effort: 'high', turnCount: 1, totalTokens: '12', reasoningOutputTokens: 0 },
+        { modelId: '', effort: 'high', turnCount: 1, totalTokens: 12, reasoningOutputTokens: 2 },
+      ],
+    },
+    {
+      reasoningEfforts: [
+        { modelId: 'gpt-5', effort: {}, turnCount: 1, totalTokens: 12, reasoningOutputTokens: 2 },
+      ],
+    },
+    {
+      reasoningEfforts: [
+        { modelId: null, effort: null, turnCount: -1, totalTokens: null, reasoningOutputTokens: 0 },
+      ],
+    },
+    {
+      reasoningEfforts: [
+        {
+          modelId: 'gpt-5',
+          effort: 'high',
+          turnCount: 1,
+          totalTokens: '12',
+          reasoningOutputTokens: 0,
+        },
       ],
     },
     { speedHistory: undefined },
     { speedHistory: [{ serviceTier: true, occurredAt: null }] },
     { speedHistory: [{ serviceTier: 'priority', occurredAt: 'invalid' }] },
+    { speedUsage: undefined },
+    {
+      speedUsage: {
+        tokens: { standard: 0, fast: -1, ultrafast: 0, unknown: 0 },
+        turns: { standard: 0, fast: 1, ultrafast: 0, unknown: 1 },
+      },
+    },
+    {
+      speedUsage: {
+        tokens: { standard: 0, fast: 12, ultrafast: 0, unknown: 0 },
+        turns: { standard: 0, fast: 0.5, ultrafast: 0, unknown: 1 },
+      },
+    },
   ])('rebuilds malformed effort or speed data instead of hydrating it', async (invalidFields) => {
     const cache = makeCache();
     Object.assign(Object.values(cache.entries)[0].session, invalidFields);
@@ -143,10 +176,14 @@ const makeSession = (): UsageSession => ({
   ],
   turnOutcomes: [{ occurredAt: '2026-08-12T00:00:01.000Z', status: 'completed' }],
   reasoningEfforts: [
-    { effort: 'high', turnCount: 1, totalTokens: 12, reasoningOutputTokens: 0 },
-    { effort: null, turnCount: 1, totalTokens: null, reasoningOutputTokens: null },
+    { modelId: 'gpt-5', effort: 'high', turnCount: 1, totalTokens: 12, reasoningOutputTokens: 0 },
+    { modelId: null, effort: null, turnCount: 1, totalTokens: null, reasoningOutputTokens: null },
   ],
   speedHistory: [{ serviceTier: 'priority', occurredAt: null }],
+  speedUsage: {
+    tokens: { standard: 0, fast: 12, ultrafast: 0, unknown: 0 },
+    turns: { standard: 0, fast: 1, ultrafast: 0, unknown: 1 },
+  },
   inputTokens: 10,
   cachedInputTokens: 0,
   outputTokens: 2,

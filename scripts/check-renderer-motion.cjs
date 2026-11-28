@@ -323,12 +323,15 @@ const checkRendererMotion = async (browserWindow, directory, pressKey) => {
         if (!details?.checkVisibility()) return false;
         const bounds = details.getBoundingClientRect();
         const row = details.closest('[role="row"]').getBoundingClientRect();
+        const shares = [...details.querySelectorAll('.session-fast-shares dd')];
         return (
           bounds.left >= row.left - 1 &&
           bounds.right <= row.right + 1 &&
           details.scrollWidth <= details.clientWidth + 1 &&
-          details.innerText.includes('ultra') &&
-          details.innerText.includes('Fast')
+          details.querySelector('.session-effort-table tbody th')?.innerText === 'motion-test' &&
+          details.querySelector('.session-effort-table tbody td')?.innerText === 'ultra' &&
+          shares.length === 2 &&
+          shares.every((share) => share.checkVisibility() && share.innerText.includes('100.00%'))
         );
       });
     assert.ok(await settingsVisible(), 'Session execution details should fit the row');

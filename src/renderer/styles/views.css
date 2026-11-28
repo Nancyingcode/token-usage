@@ -3973,6 +3973,12 @@ code {
   grid-column: 1;
 }
 
+.session-models {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-label);
+  font-weight: 400;
+}
+
 .session-table .usage-row-details {
   display: block;
   grid-column: 1 / -1;
@@ -4017,7 +4023,7 @@ code {
 }
 
 .session-effort-table caption,
-.session-effort-table th:first-child {
+.session-effort-table tr > :nth-child(-n + 2) {
   text-align: start;
 }
 
@@ -4033,6 +4039,26 @@ code {
 }
 
 .session-effort-table thead {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-label);
+}
+
+.session-execution-details .session-fast-shares {
+  grid-template-columns: minmax(0, 1fr);
+  margin-bottom: var(--space-3);
+}
+
+.session-fast-shares dd {
+  display: grid;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.session-fast-shares strong {
+  font-size: var(--font-size-body);
+}
+
+.session-fast-shares small {
   color: var(--color-text-muted);
   font-size: var(--font-size-label);
 }

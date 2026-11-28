@@ -130,12 +130,21 @@ describe('compressed usage integration', () => {
     };
   };
 
-  it('rebuilds version 2 live and imported caches and reuses the reconstructed session details', async () => {
+  it('rebuilds version 4 live and imported caches and reuses the reconstructed session details', async () => {
     const threadId = 'a757cb27-c219-40d0-881e-8f6d84b5ff25';
     const timestamp = '2026-11-27T00:00:00.000Z';
     const content = [
       { type: 'session_meta', payload: { id: threadId } },
-      { type: 'turn_context', payload: { turn_id: 'turn-1', effort: 'ultra' } },
+      {
+        type: 'event_msg',
+        payload: {
+          type: 'thread_settings_applied',
+          thread_id: threadId,
+          thread_settings: { service_tier: 'default' },
+        },
+      },
+      { type: 'event_msg', payload: { type: 'task_started', turn_id: 'turn-1' } },
+      { type: 'turn_context', payload: { turn_id: 'turn-1', model: 'model-a', effort: 'ultra' } },
       {
         type: 'event_msg',
         payload: {
@@ -151,6 +160,15 @@ describe('compressed usage integration', () => {
           type: 'thread_settings_applied',
           thread_id: threadId,
           thread_settings: { service_tier: 'priority' },
+        },
+      },
+      {
+        type: 'event_msg',
+        payload: {
+          type: 'token_count',
+          info: {
+            last_token_usage: { total_tokens: 30, output_tokens: 6, reasoning_output_tokens: 4 },
+          },
         },
       },
     ]
@@ -170,19 +188,36 @@ describe('compressed usage integration', () => {
     for (const path of [liveCachePath, importedCachePath]) {
       const cache = await createUsageScanCacheStore(path).load();
       expect(cache).toBeDefined();
-      const version2 = JSON.stringify({ ...cache, schemaVersion: 2 }, (key, value: unknown) =>
-        key === 'reasoningEfforts' || key === 'speedHistory' ? undefined : value
-      );
-      await writeFile(path, version2);
+      const version4 = JSON.stringify({ ...cache, schemaVersion: 4 }, (key, value: unknown) => {
+        if (key === 'speedUsage') return undefined;
+        if (key === 'reasoningEfforts') {
+          return [{ effort: 'ultra', turnCount: 1, totalTokens: 50, reasoningOutputTokens: 7 }];
+        }
+        return value;
+      });
+      await writeFile(path, version4);
     }
     await unlink(archive);
 
     const expected = {
-      totalTokens: 20,
+      totalTokens: 50,
       reasoningEfforts: [
-        { effort: 'ultra', turnCount: 1, totalTokens: 20, reasoningOutputTokens: 3 },
+        {
+          modelId: 'model-a',
+          effort: 'ultra',
+          turnCount: 1,
+          totalTokens: 50,
+          reasoningOutputTokens: 7,
+        },
       ],
-      speedHistory: [{ serviceTier: 'priority', occurredAt: timestamp }],
+      speedHistory: [
+        { serviceTier: 'default', occurredAt: timestamp },
+        { serviceTier: 'priority', occurredAt: timestamp },
+      ],
+      speedUsage: {
+        tokens: { standard: 20, fast: 30, ultrafast: 0, unknown: 0 },
+        turns: { standard: 1, fast: 0, ultrafast: 0, unknown: 0 },
+      },
     };
     const scanner = createUsageScanner({ cacheStore: liveCache });
     const store = createCompressedSessionStore({ storageDir });

@@ -9,7 +9,9 @@ import { dirname } from 'node:path';
 import { isRecord } from '../shared/runtimeTypes';
 import type {
   SessionEffortUsage,
+  SessionSpeedUsage,
   ThreadSpeedChange,
+  ThreadSpeedCounts,
   TokenUsage,
   UsageSession,
   UsageSlice,
@@ -18,8 +20,8 @@ import type {
   UsageWarningCode,
 } from '../shared/usageTypes';
 
-// 普通会话和压缩会话都需要从原文重算相同累计值重复上报的用量。
-export const USAGE_SCAN_CACHE_SCHEMA_VERSION = 4;
+// 普通会话和压缩会话都需要从原文重算相同累计值重复上报的用量，并补齐模型与速度统计。
+export const USAGE_SCAN_CACHE_SCHEMA_VERSION = 5;
 
 const JSON_INDENT_SPACES = 2;
 const TEMP_FILE_SUFFIX = '.tmp';
@@ -29,6 +31,12 @@ const TOKEN_USAGE_KEYS: Array<keyof TokenUsage> = [
   'outputTokens',
   'reasoningOutputTokens',
   'totalTokens',
+];
+const SPEED_COUNT_KEYS: Array<keyof ThreadSpeedCounts> = [
+  'standard',
+  'fast',
+  'ultrafast',
+  'unknown',
 ];
 const WARNING_CODES = new Set<UsageWarningCode>([
   'malformed-jsonl',
@@ -72,6 +80,7 @@ const isRecordedLabel = (value: unknown): value is string | null =>
 
 const isEffortUsage = (value: unknown): value is SessionEffortUsage =>
   isRecord(value) &&
+  isRecordedLabel(value.modelId) &&
   isRecordedLabel(value.effort) &&
   isFiniteNonNegativeNumber(value.turnCount) &&
   Number.isInteger(value.turnCount) &&
@@ -83,6 +92,15 @@ const isSpeedChange = (value: unknown): value is ThreadSpeedChange =>
   isRecordedLabel(value.serviceTier) &&
   (value.occurredAt === null ||
     (typeof value.occurredAt === 'string' && Number.isFinite(Date.parse(value.occurredAt))));
+
+const isSpeedCounts = (value: unknown): value is ThreadSpeedCounts =>
+  isRecord(value) && SPEED_COUNT_KEYS.every((key) => isFiniteNonNegativeNumber(value[key]));
+
+const isSpeedUsage = (value: unknown): value is SessionSpeedUsage =>
+  isRecord(value) &&
+  isSpeedCounts(value.tokens) &&
+  isSpeedCounts(value.turns) &&
+  Object.values(value.turns).every(Number.isInteger);
 
 const isWarning = (value: unknown): value is UsageWarning =>
   isRecord(value) &&
@@ -137,6 +155,7 @@ const isUsageSession = (value: unknown, sourceFile: string): value is UsageSessi
   value.reasoningEfforts.every(isEffortUsage) &&
   Array.isArray(value.speedHistory) &&
   value.speedHistory.every(isSpeedChange) &&
+  isSpeedUsage(value.speedUsage) &&
   Number.isInteger(value.eventCount) &&
   Number(value.eventCount) >= 0 &&
   value.sourceFile === sourceFile &&

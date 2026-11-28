@@ -1,19 +1,22 @@
 /**
- * @file 会话思考强度与线程速度
+ * @file 会话模型、思考强度与线程速度
  * @description 展示按回合归属的用量和线程设置记录，线程设置无法证明某次请求使用的服务档位。
  */
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SupportedLocale } from '../../shared/i18n/locale';
-import type { ThreadSpeedChange, UsageSession } from '../../shared/usageTypes';
-import { formatNumber, formatShortDateTime } from '../utils/formatters';
+import type { ThreadSpeedChange, ThreadSpeedCounts, UsageSession } from '../../shared/usageTypes';
+import { formatNumber, formatPercent, formatShortDateTime } from '../utils/formatters';
 
 interface SessionExecutionDetailsProps extends Pick<
   UsageSession,
-  'reasoningEfforts' | 'speedHistory'
+  'reasoningEfforts' | 'speedHistory' | 'speedUsage' | 'totalTokens'
 > {
   locale: SupportedLocale;
 }
+
+const PERCENT_SCALE = 100;
+const SHARE_FRACTION_DIGITS = 2;
 
 interface SpeedHistoryProps {
   changes: ThreadSpeedChange[];
@@ -56,12 +59,75 @@ const SpeedHistory = ({ changes, locale, speedLabel }: SpeedHistoryProps) => {
   );
 };
 
+const FastShares = ({
+  speedUsage,
+  totalTokens,
+  locale,
+}: Pick<SessionExecutionDetailsProps, 'speedUsage' | 'totalTokens' | 'locale'>) => {
+  const { t } = useTranslation('analytics', { keyPrefix: 'sessions.execution' });
+  const tokens = speedUsage?.tokens;
+  const turns = speedUsage?.turns;
+  const totalTurns = turns ? turns.standard + turns.fast + turns.ultrafast + turns.unknown : 0;
+  const unknownTokens = tokens?.unknown ?? 0;
+  const unknownTurns = turns?.unknown ?? 0;
+
+  const formatShare = (
+    key: 'fastTokenShareValue' | 'fastTurnShareValue',
+    counts: ThreadSpeedCounts | undefined,
+    total: number
+  ): string => {
+    if (!counts || total <= counts.unknown) return t('shareUnavailable');
+    return t(key, {
+      count: total,
+      percent: formatPercent((counts.fast / total) * PERCENT_SCALE, locale, SHARE_FRACTION_DIGITS),
+      value: formatNumber(counts.fast, locale),
+      total: formatNumber(total, locale),
+    });
+  };
+
+  return (
+    <dl className="session-fast-shares">
+      <div>
+        <dt>{t('fastTokenShare')}</dt>
+        <dd>
+          <strong>{formatShare('fastTokenShareValue', tokens, totalTokens)}</strong>
+          {unknownTokens > 0 ? (
+            <small>
+              {t('unknownSpeedTokens', {
+                count: unknownTokens,
+                value: formatNumber(unknownTokens, locale),
+              })}
+            </small>
+          ) : null}
+        </dd>
+      </div>
+      <div>
+        <dt>{t('fastTurnShare')}</dt>
+        <dd>
+          <span>{formatShare('fastTurnShareValue', turns, totalTurns)}</span>
+          {unknownTurns > 0 ? (
+            <small>
+              {t('unknownSpeedTurns', {
+                count: unknownTurns,
+                value: formatNumber(unknownTurns, locale),
+              })}
+            </small>
+          ) : null}
+        </dd>
+      </div>
+    </dl>
+  );
+};
+
 const SessionExecutionDetails = ({
   reasoningEfforts = [],
   speedHistory = [],
+  speedUsage,
+  totalTokens,
   locale,
 }: SessionExecutionDetailsProps) => {
   const { t } = useTranslation('analytics', { keyPrefix: 'sessions.execution' });
+  const { t: tCommon } = useTranslation('common');
   const missing = t('notRecorded');
   const tokenCount = (count: number | null) =>
     count === null ? missing : formatNumber(count, locale);
@@ -80,6 +146,7 @@ const SessionExecutionDetails = ({
           <caption>{t('reasoningEffort')}</caption>
           <thead>
             <tr>
+              <th scope="col">{t('model')}</th>
               <th scope="col">{t('effort')}</th>
               <th scope="col">{t('turns')}</th>
               <th scope="col">{t('totalTokens')}</th>
@@ -87,14 +154,17 @@ const SessionExecutionDetails = ({
             </tr>
           </thead>
           <tbody>
-            {reasoningEfforts.map(({ effort, turnCount, totalTokens, reasoningOutputTokens }) => (
-              <tr key={effort ?? ''}>
-                <th scope="row">{effort ?? t('unknown')}</th>
-                <td>{formatNumber(turnCount, locale)}</td>
-                <td>{tokenCount(totalTokens)}</td>
-                <td>{tokenCount(reasoningOutputTokens)}</td>
-              </tr>
-            ))}
+            {reasoningEfforts.map(
+              ({ modelId, effort, turnCount, totalTokens: groupTokens, reasoningOutputTokens }) => (
+                <tr key={JSON.stringify([modelId, effort])}>
+                  <th scope="row">{modelId ?? tCommon('value.unknownModel')}</th>
+                  <td>{effort ?? t('unknown')}</td>
+                  <td>{formatNumber(turnCount, locale)}</td>
+                  <td>{tokenCount(groupTokens)}</td>
+                  <td>{tokenCount(reasoningOutputTokens)}</td>
+                </tr>
+              )
+            )}
           </tbody>
         </table>
       ) : (
@@ -104,6 +174,7 @@ const SessionExecutionDetails = ({
         </dl>
       )}
       <div>
+        <FastShares speedUsage={speedUsage} totalTokens={totalTokens} locale={locale} />
         <dl>
           <dt>{t('latestSpeed')}</dt>
           <dd>{speedLabel(latestSpeed)}</dd>

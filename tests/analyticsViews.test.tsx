@@ -661,7 +661,42 @@ describe('analytics tables', () => {
     expect(details.open).toBe(false);
   });
 
-  it('shows per-effort usage and the thread speed history for a session without a diagnosis', async () => {
+  it('shows each recorded model once in the session row and its details', () => {
+    const usageSlices = ['gpt-model-a', 'gpt-model-b', 'gpt-model-a', undefined].map((modelId) => ({
+      ...SESSION,
+      occurredAt: SESSION.startedAt,
+      modelId,
+    }));
+    const session = {
+      ...HIGH_TOKEN_SESSION,
+      usageSlices,
+      reasoningEfforts: [
+        {
+          modelId: 'gpt-model-c',
+          effort: 'low',
+          turnCount: 1,
+          totalTokens: null,
+          reasoningOutputTokens: null,
+        },
+      ],
+    };
+    render(
+      <I18nextProvider i18n={createTestI18n('en')}>
+        <SessionsView
+          sessions={[session]}
+          selectedProjectPath={null}
+          onClearProjectFilter={vi.fn()}
+        />
+      </I18nextProvider>
+    );
+    const row = screen.getByRole('rowheader', { name: HIGH_TOKEN_SESSION.threadName });
+    const models = 'gpt-model-a · gpt-model-b · Unknown model · gpt-model-c';
+    expect(within(row).getByText(models, { selector: 'span' })).toBeTruthy();
+    fireEvent.click(within(row).getByText('Details'));
+    expect(within(row).getByText('Session models').nextElementSibling?.textContent).toBe(models);
+  });
+
+  it('shows model and effort groups, both Fast shares and the thread speed history', async () => {
     const session = {
       ...HIGH_TOKEN_SESSION,
       warnings: [],
@@ -670,11 +705,40 @@ describe('analytics tables', () => {
       reasoningOutputTokens: 4_567,
       totalTokens: 12_173,
       reasoningEfforts: [
-        { effort: 'ultra', turnCount: 2, totalTokens: 12_123, reasoningOutputTokens: 4_567 },
-        { effort: 'low', turnCount: 1, totalTokens: 0, reasoningOutputTokens: 0 },
-        { effort: 'custom-effort', turnCount: 1, totalTokens: null, reasoningOutputTokens: null },
-        { effort: null, turnCount: 0, totalTokens: 50, reasoningOutputTokens: 0 },
+        {
+          modelId: 'gpt-model-a',
+          effort: 'ultra',
+          turnCount: 2,
+          totalTokens: 12_073,
+          reasoningOutputTokens: 4_567,
+        },
+        {
+          modelId: 'gpt-model-b',
+          effort: 'ultra',
+          turnCount: 1,
+          totalTokens: 50,
+          reasoningOutputTokens: 0,
+        },
+        {
+          modelId: 'gpt-model-a',
+          effort: 'low',
+          turnCount: 1,
+          totalTokens: 0,
+          reasoningOutputTokens: 0,
+        },
+        {
+          modelId: 'gpt-model-b',
+          effort: 'custom-effort',
+          turnCount: 1,
+          totalTokens: null,
+          reasoningOutputTokens: null,
+        },
+        { modelId: null, effort: null, turnCount: 0, totalTokens: 50, reasoningOutputTokens: 0 },
       ],
+      speedUsage: {
+        tokens: { standard: 8_000, fast: 4_000, ultrafast: 123, unknown: 50 },
+        turns: { standard: 3, fast: 1, ultrafast: 0, unknown: 1 },
+      },
       speedHistory: [
         { serviceTier: 'default', occurredAt: '2026-07-24T10:00:00Z' },
         { serviceTier: 'ultrafast', occurredAt: null },
@@ -694,15 +758,26 @@ describe('analytics tables', () => {
     );
     const toggle = screen.getByLabelText('Details for High token session');
     fireEvent.click(toggle);
-    const table = await screen.findByRole('table', { name: 'Reasoning effort' });
-    const cellsFor = (name: string) =>
-      within(within(table).getByRole('rowheader', { name }).closest('tr')!)
-        .getAllByRole('cell')
-        .map((cell) => cell.textContent);
-    expect(cellsFor('ultra')).toEqual(['2', '12,123', '4,567']);
-    expect(cellsFor('low')).toEqual(['1', '0', '0']);
-    expect(cellsFor('custom-effort')).toEqual(['1', 'Not recorded', 'Not recorded']);
-    expect(cellsFor('Unknown')).toEqual(['0', '50', '0']);
+    const table = await screen.findByRole('table', { name: 'Model and reasoning effort' });
+    expect(within(table).getByRole('columnheader', { name: 'Model' })).toBeTruthy();
+    expect(within(table).getByRole('columnheader', { name: 'Effort' })).toBeTruthy();
+    expect(
+      Array.from(table.querySelectorAll('tbody tr'), (row) =>
+        Array.from(row.children, (cell) => cell.textContent)
+      )
+    ).toEqual([
+      ['gpt-model-a', 'ultra', '2', '12,073', '4,567'],
+      ['gpt-model-b', 'ultra', '1', '50', '0'],
+      ['gpt-model-a', 'low', '1', '0', '0'],
+      ['gpt-model-b', 'custom-effort', '1', 'Not recorded', 'Not recorded'],
+      ['Unknown model', 'Unknown', '0', '50', '0'],
+    ]);
+    const tokenShare = screen.getByText('Token share while set to Fast').nextElementSibling;
+    const turnShare = screen.getByText('Turns that started with Fast enabled').nextElementSibling;
+    expect(tokenShare?.firstElementChild?.textContent).toBe('32.86% (4,000 / 12,173 tokens)');
+    expect(tokenShare?.textContent).toContain('Unknown speed for 50 tokens');
+    expect(turnShare?.firstElementChild?.textContent).toBe('20.00% (1 / 5 turns)');
+    expect(turnShare?.textContent).toContain('Unknown start setting for 1 turn');
     expect(screen.getByText('Latest thread speed').nextElementSibling?.textContent).toBe('Fast');
     expect(screen.getByText('Actual service tier').nextElementSibling?.textContent).toBe(
       'Not recorded'
@@ -721,6 +796,62 @@ describe('analytics tables', () => {
     ]);
     expect(changes[0].querySelector('time')?.dateTime).toBe('2026-07-24T10:00:00Z');
     expect(changes[1].textContent).toContain('Time not recorded');
+  });
+
+  it.each([
+    {
+      name: 'zero denominators',
+      totalTokens: 0,
+      speedUsage: {
+        tokens: { standard: 0, fast: 0, ultrafast: 0, unknown: 0 },
+        turns: { standard: 0, fast: 0, ultrafast: 0, unknown: 0 },
+      },
+      tokenShare: '无法计算',
+      turnShare: '无法计算',
+    },
+    {
+      name: 'entirely unknown settings',
+      totalTokens: 1_300,
+      speedUsage: {
+        tokens: { standard: 0, fast: 0, ultrafast: 0, unknown: 1_300 },
+        turns: { standard: 0, fast: 0, ultrafast: 0, unknown: 2 },
+      },
+      tokenShare: '无法计算',
+      turnShare: '无法计算',
+    },
+    {
+      name: 'known non-Fast usage with some unknown settings',
+      totalTokens: 1_300,
+      speedUsage: {
+        tokens: { standard: 1_000, fast: 0, ultrafast: 200, unknown: 100 },
+        turns: { standard: 0, fast: 0, ultrafast: 1, unknown: 1 },
+      },
+      tokenShare: '0.00%（0 / 1,300 Token）',
+      turnShare: '0.00%（0 / 2 轮）',
+    },
+  ])('renders the shares for $name', async ({ totalTokens, speedUsage, tokenShare, turnShare }) => {
+    const session = { ...HIGH_TOKEN_SESSION, totalTokens, speedUsage };
+    render(
+      <I18nextProvider i18n={createTestI18n('zh-CN')}>
+        <SessionsView
+          sessions={[session]}
+          selectedProjectPath={null}
+          onClearProjectFilter={vi.fn()}
+        />
+      </I18nextProvider>
+    );
+    fireEvent.click(screen.getByLabelText(/High token session/, { selector: 'summary' }));
+    const tokenValue = (await screen.findByText('Fast 设置期间记录的 Token 占比'))
+      .nextElementSibling;
+    const turnValue = screen.getByText('开始时设置为 Fast 的回合').nextElementSibling;
+    expect(tokenValue?.firstElementChild?.textContent).toBe(tokenShare);
+    expect(turnValue?.firstElementChild?.textContent).toBe(turnShare);
+    if (speedUsage.tokens.unknown > 0) {
+      expect(tokenValue?.textContent).toContain(
+        `速度设置未知 ${speedUsage.tokens.unknown.toLocaleString('zh-CN')} Token`
+      );
+      expect(turnValue?.textContent).toContain(`起始速度设置未知 ${speedUsage.turns.unknown} 轮`);
+    }
   });
 
   it('mounts a long speed history only while expanded and keeps it open on refresh', async () => {
@@ -777,8 +908,9 @@ describe('analytics tables', () => {
       </I18nextProvider>
     );
     fireEvent.click(screen.getByLabelText(/High token session/, { selector: 'summary' }));
-    const effort = await screen.findByText('思考强度');
+    const effort = await screen.findByText('模型与思考强度');
     expect(effort.parentElement?.textContent).toContain('未记录');
+    expect(screen.getByText('会话模型').nextElementSibling?.textContent).toBe('未记录');
     expect(screen.getByText('最近的线程速度设置').nextElementSibling?.textContent).toBe('未记录');
     expect(screen.getByText('实际服务档位').nextElementSibling?.textContent).toBe('未记录');
     expect(screen.queryByText('速度变化记录')).toBeNull();

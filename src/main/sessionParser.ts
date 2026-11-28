@@ -157,10 +157,9 @@ const parseSessionBatches = function* (
   threadName?: string
 ): Generator<void, UsageSession, void> {
   const warnings: UsageWarning[] = [];
-  const effortUsage = createSessionEffortUsage();
-  const speedHistory = createThreadSpeedHistory(sourceFile);
-
   const rolloutId = getRolloutSessionId(sourceFile);
+  const effortUsage = createSessionEffortUsage();
+  const speedHistory = createThreadSpeedHistory(rolloutId);
   let sessionId = rolloutId ?? getSessionId(sourceFile);
   let projectPath = '';
   let startedAt = '';
@@ -252,7 +251,7 @@ const parseSessionBatches = function* (
       }
     }
 
-    speedHistory.observe(record.type, record.payload, record.timestamp);
+    speedHistory.observe(record, index, summedUsage.totalTokens);
     const recordModelId = record.payload?.model;
 
     if (
@@ -282,7 +281,7 @@ const parseSessionBatches = function* (
 
     const turnId = getOptionalString(record.payload?.turn_id);
     if (record.type === 'turn_context') {
-      effortUsage.context(turnId, record.payload?.effort);
+      effortUsage.context(turnId, recordModelId, record.payload?.effort);
       return;
     }
 
@@ -290,7 +289,7 @@ const parseSessionBatches = function* (
       record.type === 'event_msg' ? getOptionalString(record.payload?.type) : undefined;
 
     if (eventType && TURN_STARTED_EVENT_TYPES.has(eventType)) {
-      effortUsage.start(turnId);
+      effortUsage.start(turnId, index);
       activeTurn = {
         key: turnId ?? nextAnonymousTurnKey(),
         ...(turnId ? { turnId } : {}),
@@ -433,6 +432,14 @@ const parseSessionBatches = function* (
     : largestTotalSlice
       ? [largestTotalSlice]
       : [];
+  const { reasoningEfforts, turnStartLines } = effortUsage.finish(
+    hasIncrementalUsage ? undefined : largestTotalEffortMetrics
+  );
+  const speed = speedHistory.finish({
+    totalTokens: usage.totalTokens,
+    hasIncrementalUsage,
+    turnStartLines,
+  });
 
   return {
     sessionId,
@@ -443,10 +450,8 @@ const parseSessionBatches = function* (
     threadName,
     usageSlices,
     turnOutcomes,
-    reasoningEfforts: effortUsage.finish(
-      hasIncrementalUsage ? undefined : largestTotalEffortMetrics
-    ),
-    speedHistory: speedHistory.finish(),
+    reasoningEfforts,
+    ...speed,
     ...usage,
     eventCount,
     sourceFile,

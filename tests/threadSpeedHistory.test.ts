@@ -22,7 +22,120 @@ const snapshot = (id: string, tier: unknown, timestamp?: string) => ({
 const parse = (records: unknown[], sourceFile = rollout) =>
   parseSessionJsonl(sourceFile, records.map((record) => JSON.stringify(record)).join('\n'));
 
+const turnEvent = (type: string, turnId?: string) => ({
+  type: 'event_msg',
+  payload: { type, turn_id: turnId },
+});
+const context = (turnId: string) => ({
+  type: 'turn_context',
+  payload: { turn_id: turnId, effort: 'max' },
+});
+const tokenCount = (increment?: number, cumulative?: number) => ({
+  type: 'event_msg',
+  timestamp: firstTime,
+  payload: {
+    type: 'token_count',
+    info: {
+      last_token_usage: increment === undefined ? undefined : { total_tokens: increment },
+      total_token_usage: cumulative === undefined ? undefined : { total_tokens: cumulative },
+    },
+  },
+});
+
 describe('thread speed settings in rollout history', () => {
+  it('attributes accepted increments in file order and turns by the setting at their first start', () => {
+    const session = parse([
+      turnEvent('task_started', 'a'),
+      tokenCount(100, 100),
+      snapshot(threadId, 'priority', firstTime),
+      tokenCount(400, 500),
+      snapshot(threadId, 'fast', secondTime),
+      tokenCount(400, 500),
+      snapshot(threadId, 'default', firstTime),
+      tokenCount(500, 1000),
+      turnEvent('task_complete', 'a'),
+      turnEvent('turn_started', 'b'),
+      tokenCount(200, 1200),
+      turnEvent('turn_complete', 'b'),
+      snapshot(threadId, 'fast', firstTime),
+      turnEvent('task_started', 'c'),
+      tokenCount(300, 1500),
+      snapshot(threadId, 'default', thirdTime),
+      turnEvent('turn_started', 'c'),
+    ]);
+    expect(session.totalTokens).toBe(1500);
+    expect(session.speedUsage).toEqual({
+      tokens: { standard: 700, fast: 700, ultrafast: 0, unknown: 100 },
+      turns: { standard: 1, fast: 1, ultrafast: 0, unknown: 1 },
+    });
+  });
+
+  it('uses only the settings of a uniquely identifiable thread, including settings before metadata', () => {
+    const records = [
+      snapshot(parentId, 'priority'),
+      tokenCount(20),
+      snapshot(threadId, 'default'),
+      turnEvent('task_started', 'a'),
+      tokenCount(30),
+      snapshot(parentId, 'ultrafast'),
+      tokenCount(25),
+      snapshot(threadId, 'priority'),
+      turnEvent('task_complete', 'a'),
+      context('b'),
+      tokenCount(75),
+      meta(threadId),
+    ];
+    const expected = {
+      tokens: { standard: 55, fast: 75, ultrafast: 0, unknown: 20 },
+      turns: { standard: 1, fast: 0, ultrafast: 0, unknown: 1 },
+    };
+    expect(parse(records, 'renamed.jsonl').speedUsage).toEqual(expected);
+    expect(parse([...records, meta(parentId)]).speedUsage).toEqual(expected);
+    expect(parse([...records, meta(parentId)], 'renamed.jsonl').speedUsage).toEqual({
+      tokens: { standard: 0, fast: 0, ultrafast: 0, unknown: 150 },
+      turns: { standard: 0, fast: 0, ultrafast: 0, unknown: 2 },
+    });
+  });
+
+  it('keeps Ultrafast separate and counts blank or unrecognized settings as unknown', () => {
+    const session = parse([
+      snapshot(threadId, 'ultrafast'),
+      turnEvent('task_started', 'a'),
+      tokenCount(20),
+      turnEvent('task_complete', 'a'),
+      snapshot(threadId, 'future-tier'),
+      turnEvent('task_started', 'b'),
+      tokenCount(30),
+      snapshot(threadId, null),
+      tokenCount(40),
+      snapshot(threadId, 'fast'),
+      context('c'),
+      tokenCount(10),
+    ]);
+    expect(session.speedUsage).toEqual({
+      tokens: { standard: 0, fast: 10, ultrafast: 20, unknown: 70 },
+      turns: { standard: 0, fast: 0, ultrafast: 1, unknown: 2 },
+    });
+  });
+
+  it('counts a late-identified start once while leaving cumulative-only tokens unknown', () => {
+    const session = parse([
+      context('a'),
+      snapshot(threadId, 'priority'),
+      turnEvent('task_started'),
+      snapshot(threadId, 'default'),
+      context('a'),
+      turnEvent('turn_complete', 'a'),
+      turnEvent('turn_complete', 'a'),
+      tokenCount(undefined, 120),
+    ]);
+    expect(session.totalTokens).toBe(120);
+    expect(session.speedUsage).toEqual({
+      tokens: { standard: 0, fast: 0, ultrafast: 0, unknown: 120 },
+      turns: { standard: 0, fast: 1, ultrafast: 0, unknown: 0 },
+    });
+  });
+
   it.each([rollout, `${rollout}.zst`])(
     'retains only changes for the owning rollout even after inherited metadata in %s',
     (sourceFile) => {

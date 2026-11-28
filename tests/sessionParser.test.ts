@@ -182,8 +182,20 @@ describe('sessionParser', () => {
       { modelId: 'model-b', occurredAt: secondAt, totalTokens: 12 },
     ]);
     expect(session.reasoningEfforts).toEqual([
-      { effort: 'ultra', turnCount: 1, totalTokens: 13, reasoningOutputTokens: 1 },
-      { effort: 'max', turnCount: 1, totalTokens: 12, reasoningOutputTokens: 2 },
+      {
+        modelId: 'model-a',
+        effort: 'ultra',
+        turnCount: 1,
+        totalTokens: 13,
+        reasoningOutputTokens: 1,
+      },
+      {
+        modelId: 'model-b',
+        effort: 'max',
+        turnCount: 1,
+        totalTokens: 12,
+        reasoningOutputTokens: 2,
+      },
     ]);
   });
 

@@ -413,6 +413,14 @@ const SessionsView: React.FC<SessionsViewProps> = ({
             >
               {pagination.items.map((session) => {
                 const name = session.threadName || shortId(session.sessionId);
+                const models = new Set<string>();
+                for (const { modelId } of session.usageSlices) {
+                  models.add(modelId?.trim() || tCommon('value.unknownModel'));
+                }
+                for (const { modelId } of session.reasoningEfforts ?? []) {
+                  if (modelId !== null) models.add(modelId);
+                }
+                const modelList = Array.from(models).join(' · ');
                 const secondaryColumns = [
                   {
                     label: t('sessions.project'),
@@ -445,7 +453,16 @@ const SessionsView: React.FC<SessionsViewProps> = ({
                   },
                 ];
                 const [projectDetails, dateDetails, ...tokenDetails] = secondaryColumns;
-                const details = [...tokenDetails, dateDetails, projectDetails];
+                const details = [
+                  {
+                    label: t('sessions.execution.models'),
+                    value: modelList || t('sessions.execution.notRecorded'),
+                    fullWidth: true,
+                  },
+                  ...tokenDetails,
+                  dateDetails,
+                  projectDetails,
+                ];
                 const detailFields = session.projectPath
                   ? [
                       ...details,
@@ -478,6 +495,11 @@ const SessionsView: React.FC<SessionsViewProps> = ({
                     >
                       <div className="primary-cell session-primary-cell">
                         <span title={session.threadName}>{name}</span>
+                        {modelList ? (
+                          <span className="session-models" title={modelList}>
+                            {modelList}
+                          </span>
+                        ) : null}
                         {diagnosisAction ? (
                           <button
                             type="button"
@@ -496,6 +518,8 @@ const SessionsView: React.FC<SessionsViewProps> = ({
                         <SessionExecutionDetails
                           reasoningEfforts={session.reasoningEfforts}
                           speedHistory={session.speedHistory}
+                          speedUsage={session.speedUsage}
+                          totalTokens={session.totalTokens}
                           locale={locale}
                         />
                       </UsageRowDetails>
