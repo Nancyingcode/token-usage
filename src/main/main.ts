@@ -16,7 +16,6 @@ import {
 } from 'electron';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { AppNsisUpdater } from './appNsisUpdater';
 import { createAppUpdateService, type AppUpdateService } from './appUpdateService';
 import { createAppUpdateEngine } from './appUpdateEngine';
 import { registerAppUpdateIpc } from './appUpdateIpc';
@@ -296,18 +295,11 @@ const initializeApplication = async (): Promise<void> => {
   else if (process.platform !== 'win32' || process.arch !== 'x64') unavailableReason = 'platform';
   else if (!__APP_UPDATE_PUBLISHER__) unavailableReason = 'publisher-missing';
 
-  const engine = unavailableReason
-    ? {
-        check: async () => undefined,
-        download: async () => {
-          throw new Error('Online updates are unavailable.');
-        },
-        install: () => {
-          throw new Error('Online updates are unavailable.');
-        },
-        destroy: () => undefined,
-      }
-    : createAppUpdateEngine(
+  const currentAppUpdateService = createAppUpdateService({
+    currentVersion: app.getVersion(),
+    engine: async () => {
+      const { AppNsisUpdater } = await import('./appNsisUpdater');
+      return createAppUpdateEngine(
         new AppNsisUpdater({
           provider: 'github',
           owner: 'Nancyingcode',
@@ -317,9 +309,7 @@ const initializeApplication = async (): Promise<void> => {
         }),
         __APP_UPDATE_PUBLISHER__
       );
-  const currentAppUpdateService = createAppUpdateService({
-    currentVersion: app.getVersion(),
-    engine,
+    },
     unavailableReason,
     prepareForInstall: createAppUpdatePreparation(
       operationGate,

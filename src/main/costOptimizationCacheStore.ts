@@ -6,6 +6,7 @@
 import { hasValidPricingMetadata } from '../shared/conditionalPricingValidation';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import {
   COST_OPTIMIZATION_INDEX_SCHEMA_VERSION,
   rebuildCostOptimizationIndex,
@@ -20,7 +21,6 @@ import type {
 import { isRecord } from '../shared/runtimeTypes';
 import type { TokenUsage } from '../shared/usageTypes';
 
-const JSON_INDENT_SPACES = 2;
 const TEMP_FILE_SUFFIX = '.tmp';
 const REBUILD_WARNING = 'Cost optimization cache will be rebuilt.';
 const TOKEN_USAGE_KEYS: Array<keyof TokenUsage> = [
@@ -166,36 +166,28 @@ const getBucketTotals = (buckets: Record<string, IndexedUsageBucket>): TokenUsag
 const tokenUsageEquals = (first: TokenUsage, second: TokenUsage): boolean =>
   TOKEN_USAGE_KEYS.every((key) => first[key] === second[key]);
 
-const getSortedCountEntries = (counts: Record<string, number>): Array<[string, number]> =>
-  Object.entries(counts).sort(([firstKey], [secondKey]) => firstKey.localeCompare(secondKey));
-
-const getCanonicalBuckets = (
-  buckets: Record<string, IndexedUsageBucket>
-): Array<readonly [string, readonly unknown[]]> =>
-  Object.entries(buckets)
-    .sort(([firstId], [secondId]) => firstId.localeCompare(secondId))
-    .map(([id, bucket]) => [
-      id,
-      [
-        bucket.id,
-        bucket.date ?? null,
-        bucket.projectPath ?? null,
-        bucket.projectName ?? null,
-        bucket.sessionId ?? null,
-        bucket.occurredAt ?? null,
-        bucket.modelId ?? null,
-        ...TOKEN_USAGE_KEYS.map((key) => bucket[key]),
-        Object.entries(bucket.pricingRequests ?? {}).sort(([a], [b]) => a.localeCompare(b)),
-        getSortedCountEntries(bucket.memberCounts),
-        getSortedCountEntries(bucket.contributionCounts),
-      ],
-    ]);
-
 const bucketRecordsEqual = (
-  first: Record<string, IndexedUsageBucket>,
-  second: Record<string, IndexedUsageBucket>
+  restored: Record<string, IndexedUsageBucket>,
+  rebuilt: Record<string, IndexedUsageBucket>
 ): boolean =>
-  JSON.stringify(getCanonicalBuckets(first)) === JSON.stringify(getCanonicalBuckets(second));
+  Object.keys(restored).length === Object.keys(rebuilt).length &&
+  Object.entries(rebuilt).every(([id, bucket]) => {
+    const cached = restored[id];
+    // JSON 对象的键序不影响计价；逐桶核对可以避免在启动时复制、排序并序列化全部请求。
+    return (
+      cached?.id === id &&
+      cached.date === bucket.date &&
+      cached.projectPath === bucket.projectPath &&
+      cached.projectName === bucket.projectName &&
+      cached.sessionId === bucket.sessionId &&
+      cached.occurredAt === bucket.occurredAt &&
+      cached.modelId === bucket.modelId &&
+      tokenUsageEquals(cached, bucket) &&
+      isDeepStrictEqual(cached.memberCounts, bucket.memberCounts) &&
+      isDeepStrictEqual(cached.contributionCounts, bucket.contributionCounts) &&
+      isDeepStrictEqual(cached.pricingRequests ?? {}, bucket.pricingRequests ?? {})
+    );
+  });
 
 const toSourceChange = (
   sourceFile: string,
@@ -320,7 +312,7 @@ export const createCostOptimizationCacheStore = (cachePath: string): CostOptimiz
     await mkdir(dirname(cachePath), { recursive: true });
 
     try {
-      await writeFile(tempPath, `${JSON.stringify(index, null, JSON_INDENT_SPACES)}\n`, 'utf8');
+      await writeFile(tempPath, `${JSON.stringify(index)}\n`, 'utf8');
       await rename(tempPath, cachePath);
     } finally {
       await rm(tempPath, { force: true });

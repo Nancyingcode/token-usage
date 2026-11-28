@@ -7,22 +7,41 @@ const PERCENT_BASE = 100;
 const USD_MINIMUM_FRACTION_DIGITS = 2;
 const USD_MAXIMUM_FRACTION_DIGITS = 4;
 
+const createLocalizedNumberFormatter = (options?: Intl.NumberFormatOptions) => {
+  // 每种固定格式仅为已使用的界面语言创建实例，随渲染进程释放；数值变化无需重新初始化 ICU。
+  const formatters = new Map<SupportedLocale, Intl.NumberFormat>();
+  return (value: number, locale: SupportedLocale = 'en'): string => {
+    let formatter = formatters.get(locale);
+    if (!formatter) {
+      formatter = new Intl.NumberFormat(locale, options);
+      formatters.set(locale, formatter);
+    }
+    return formatter.format(value);
+  };
+};
+
+const formatCompactInteger = createLocalizedNumberFormatter({
+  notation: 'compact',
+  maximumFractionDigits: 0,
+});
+const formatCompactDecimal = createLocalizedNumberFormatter({
+  notation: 'compact',
+  maximumFractionDigits: 1,
+});
+
 export const formatCompactNumber = (value: number, locale: SupportedLocale = 'en'): string =>
-  new Intl.NumberFormat(locale, {
-    notation: 'compact',
-    maximumFractionDigits: value >= COMPACT_NUMBER_THRESHOLD ? 1 : 0,
-  }).format(value);
+  value >= COMPACT_NUMBER_THRESHOLD
+    ? formatCompactDecimal(value, locale)
+    : formatCompactInteger(value, locale);
 
-export const formatNumber = (value: number, locale: SupportedLocale = 'en'): string =>
-  new Intl.NumberFormat(locale).format(value);
+export const formatNumber = createLocalizedNumberFormatter();
 
-export const formatUsd = (value: number, locale: SupportedLocale = 'en'): string =>
-  new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: USD_MINIMUM_FRACTION_DIGITS,
-    maximumFractionDigits: USD_MAXIMUM_FRACTION_DIGITS,
-  }).format(value);
+export const formatUsd = createLocalizedNumberFormatter({
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: USD_MINIMUM_FRACTION_DIGITS,
+  maximumFractionDigits: USD_MAXIMUM_FRACTION_DIGITS,
+});
 
 export const formatPercent = (
   value: number,

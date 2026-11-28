@@ -2,6 +2,26 @@ import { describe, expect, it } from 'vitest';
 import parseSessionJsonl, { parseSessionJsonlAsync } from '../src/main/sessionParser';
 
 describe('sessionParser', () => {
+  it('keeps the original timestamp at each boundary when records arrive out of order', () => {
+    const earliest = '2026-07-11T08:00:00+08:00';
+    const latest = '2026-07-11T02:00:00Z';
+    const content = [
+      '2026-07-11T01:00:00Z',
+      latest,
+      earliest,
+      'invalid',
+      '2026-07-11T00:00:00Z',
+      '2026-07-11T10:00:00+08:00',
+    ]
+      .map((timestamp) => JSON.stringify({ timestamp }))
+      .join('\n');
+
+    expect(parseSessionJsonl('timestamps.jsonl', content)).toMatchObject({
+      startedAt: earliest,
+      endedAt: latest,
+    });
+  });
+
   it('preserves turn and model state across parsing batches', async () => {
     const timestamp = '2026-07-11T01:00:00.000Z';
     const content = [

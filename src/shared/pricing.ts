@@ -39,8 +39,11 @@ export type UsagePricingResult =
 
 export type UsageCostBreakdown = ConditionalCostBreakdown;
 
-export const normalizeModelId = (modelId: string): string =>
-  modelId.trim().toLocaleLowerCase('en-US');
+export const normalizeModelId = (modelId: string): string => {
+  const trimmed = modelId.trim();
+  // 常见模型名只含 ASCII，逐请求匹配可省去区域转换；自定义别名保留原有的英文大小写规则。
+  return /\P{ASCII}/u.test(trimmed) ? trimmed.toLocaleLowerCase('en-US') : trimmed.toLowerCase();
+};
 
 const toOverrideEntry = (
   override: ModelPricingOverride,

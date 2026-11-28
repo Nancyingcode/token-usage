@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -50,6 +50,12 @@ describe('cost optimization cache store', () => {
       evaluateModelCosts(restored.index!, { period: 'total' }, [astraPricing])[0].pricedCostUsd
     ).toBeCloseTo(6.0135, 8);
     const requests = Object.values(index.dayModelBuckets)[0].pricingRequests!;
+    const [id, request] = Object.entries(requests)[0];
+    const { pricingContext, ...usage } = request;
+    requests[id] = { pricingContext, ...usage };
+    await writeFile(cachePath, JSON.stringify(index, null, 2), 'utf8');
+    await expect(store.load()).resolves.toEqual({ index, warning: undefined });
+
     Object.values(requests)[0].pricingContext!.mode = 'fast';
     await writeFile(cachePath, JSON.stringify(index), 'utf8');
     expect((await store.load()).warning).toBe(REBUILD_WARNING);
@@ -161,6 +167,7 @@ describe('cost optimization cache store', () => {
 
     await store.save(index);
 
+    await expect(readFile(cachePath, 'utf8')).resolves.toBe(`${JSON.stringify(index)}\n`);
     await expect(store.load()).resolves.toEqual({ index, warning: undefined });
     await expect(readdir(testDirectory)).resolves.toEqual([CACHE_FILE_NAME]);
   });
@@ -196,6 +203,29 @@ describe('cost optimization cache store', () => {
       warning: REBUILD_WARNING,
     });
   });
+
+  it.each(['memberCounts', 'contributionCounts'] as const)(
+    'rejects altered %s even when all token totals still match',
+    async (field) => {
+      const index = applyUsageChangeSet(
+        createEmptyCostOptimizationIndex('fixtures', FIXED_NOW),
+        {
+          upserted: [makeSourceChange('usage.jsonl', '1', 100)],
+          removedSourceFiles: [],
+          requiresFullRebuild: false,
+        },
+        FIXED_NOW
+      );
+      const counts = Object.values(index.dayModelBuckets)[0][field];
+      counts[Object.keys(counts)[0]] += 1;
+      await writeFile(cachePath, JSON.stringify(index), 'utf8');
+
+      await expect(createCostOptimizationCacheStore(cachePath).load()).resolves.toEqual({
+        index: undefined,
+        warning: REBUILD_WARNING,
+      });
+    }
+  );
 
   it('does not rebuild the complete index while saving an incremental cache update', async () => {
     const rebuildSpy = vi.spyOn(costOptimizationIndexModule, 'rebuildCostOptimizationIndex');

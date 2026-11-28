@@ -22,6 +22,7 @@ import {
   calculateEstimatedCost,
   createPricingContext,
   getSessionUsageSlices,
+  normalizeModelId,
   priceTokenUsage,
 } from './pricing';
 import type { UsageSession, UsageSlice } from './usageTypes';
@@ -227,7 +228,7 @@ const buildUnpricedModels = (
       return;
     }
 
-    const normalizedModelId = slice.modelId?.trim().toLocaleLowerCase('en-US');
+    const normalizedModelId = normalizeModelId(slice.modelId ?? '');
     const key = normalizedModelId || UNKNOWN_MODEL_KEY;
     const current = summariesByModel.get(key);
     summariesByModel.set(key, {

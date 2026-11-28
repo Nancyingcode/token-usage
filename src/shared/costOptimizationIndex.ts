@@ -7,7 +7,7 @@
  * - 每次替换来源前必须先撤销该来源的旧贡献
  * - 聚合桶必须保留成员与贡献计数，避免删除共享桶
  */
-import { getSessionUsageSlices } from './pricing';
+import { getSessionUsageSlices, normalizeModelId } from './pricing';
 import type {
   CostOptimizationIndex,
   IndexedUsageBucket,
@@ -40,7 +40,7 @@ const TOKEN_USAGE_KEYS: Array<keyof TokenUsage> = [
 ];
 
 const getModelKey = (modelId: string | undefined): string =>
-  modelId?.trim().toLocaleLowerCase('en-US') || UNKNOWN_MODEL_KEY;
+  normalizeModelId(modelId ?? '') || UNKNOWN_MODEL_KEY;
 
 const getDayModelBucketId = (date: string, modelId: string | undefined): string =>
   ['day-model', date, getModelKey(modelId)].join(KEY_SEPARATOR);

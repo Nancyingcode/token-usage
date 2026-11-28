@@ -184,8 +184,10 @@ describe('usageScanner', () => {
     expect(result.summary.sessions).toEqual([]);
   });
 
-  it('hydrates unchanged sessions from the persistent cache without reading JSONL again', async () => {
-    const sessionFile = join(testDirectory, 'cached.jsonl');
+  it('hydrates unchanged sessions without rereading JSONL or rewriting their persistent cache', async () => {
+    const sessionsDir = join(testDirectory, 'sessions');
+    await mkdir(sessionsDir);
+    const sessionFile = join(sessionsDir, 'cached.jsonl');
     const sessionIndexPath = join(testDirectory, 'session-index.jsonl');
     const content = validSession('cached', '2026-07-16T00:00:00.000Z');
     await writeFile(sessionFile, content);
@@ -194,15 +196,12 @@ describe('usageScanner', () => {
       JSON.stringify({ id: 'cached', thread_name: 'Latest thread name' })
     );
     const seedScanner = createUsageScanner();
-    const seedCycle = await seedScanner.scanCycle({
-      sessionsDir: testDirectory,
-      sessionIndexPath,
-    });
+    const seedCycle = await seedScanner.scanCycle({ sessionsDir, sessionIndexPath });
     const fileStat = await stat(sessionFile);
     const cacheStore: UsageScanCacheStore = {
       load: async () => ({
         schemaVersion: USAGE_SCAN_CACHE_SCHEMA_VERSION,
-        sessionsDir: testDirectory,
+        sessionsDir,
         entries: {
           [sessionFile]: {
             fingerprint: `${fileStat.size}:${fileStat.mtimeMs}`,
@@ -224,11 +223,11 @@ describe('usageScanner', () => {
       },
     });
 
-    const result = await scanner.scan({ sessionsDir: testDirectory, sessionIndexPath });
+    const result = await scanner.scan({ sessionsDir, sessionIndexPath });
 
     expect(sessionReadCount).toBe(0);
     expect(result.summary.sessions[0]?.threadName).toBe('Latest thread name');
-    await vi.waitFor(() => expect(cacheStore.save).toHaveBeenCalledOnce());
+    expect(cacheStore.save).not.toHaveBeenCalled();
   });
 
   it('does not fail a successful scan when the persistent cache cannot be saved', async () => {

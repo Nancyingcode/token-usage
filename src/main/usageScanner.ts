@@ -109,6 +109,7 @@ export const createUsageScanner = (
         Object.entries(persistedCache.entries).forEach(([sourceFile, entry]) => {
           cache.set(sourceFile, entry);
         });
+        cacheDirty = false;
       })
       .catch(onCacheError);
 

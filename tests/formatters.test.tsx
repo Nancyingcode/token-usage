@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { SupportedLocale } from '../src/shared/i18n/locale';
 import {
   createCalendarDateRangeFormatter,
   formatCompactNumber,
@@ -9,6 +10,34 @@ import {
 } from '../src/renderer/utils/formatters';
 
 describe('renderer formatters', () => {
+  it('reuses overview number formats for new values and when switching languages', () => {
+    const formatOverviewValues = (locale: SupportedLocale, value: number): string[] => [
+      formatNumber(value, locale),
+      formatCompactNumber(value / 100, locale),
+      formatCompactNumber(value, locale),
+      formatUsd(value / 1_000, locale),
+    ];
+    expect(formatOverviewValues('en', 12_345)).toEqual(['12,345', '123', '12.3K', '$12.345']);
+    expect(formatOverviewValues('zh-CN', 12_345)).toEqual(['12,345', '123', '1.2万', 'US$12.345']);
+
+    const NumberFormatter = Intl.NumberFormat;
+    const formats = vi.spyOn(Intl, 'NumberFormat').mockImplementation(function (locales, options) {
+      return new NumberFormatter(locales, options);
+    });
+    try {
+      expect(formatOverviewValues('en', 23_456)).toEqual(['23,456', '235', '23.5K', '$23.456']);
+      expect(formatOverviewValues('zh-CN', 23_456)).toEqual([
+        '23,456',
+        '235',
+        '2.3万',
+        'US$23.456',
+      ]);
+      expect(formats).not.toHaveBeenCalled();
+    } finally {
+      formats.mockRestore();
+    }
+  });
+
   it('formats regular and compact token values', () => {
     expect(formatNumber(1_234, 'en')).toBe('1,234');
     expect(formatCompactNumber(1_200, 'en')).toBe('1.2K');

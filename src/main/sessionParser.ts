@@ -160,6 +160,8 @@ const parseSessionBatches = function* (
   let projectPath = '';
   let startedAt = '';
   let endedAt = '';
+  let startedAtMs: number | undefined;
+  let endedAtMs: number | undefined;
   let eventCount = 0;
   let hasIncrementalUsage = false;
   let activeModelId: string | undefined;
@@ -230,8 +232,15 @@ const parseSessionBatches = function* (
     }
 
     if (record.timestamp) {
-      startedAt = earliestTimestamp(startedAt, record.timestamp);
-      endedAt = latestTimestamp(endedAt, record.timestamp);
+      const timestampMs = Date.parse(record.timestamp);
+      if (startedAtMs === undefined || timestampMs < startedAtMs) {
+        startedAt = record.timestamp;
+        startedAtMs = timestampMs;
+      }
+      if (endedAtMs === undefined || timestampMs > endedAtMs) {
+        endedAt = record.timestamp;
+        endedAtMs = timestampMs;
+      }
     }
 
     const recordModelId = record.payload?.model;
@@ -445,20 +454,4 @@ export const parseSessionJsonlAsync = async (
     result = parser.next();
   }
   return result.value;
-};
-
-const earliestTimestamp = (current: string, candidate: string): string => {
-  if (!current) {
-    return candidate;
-  }
-
-  return new Date(candidate).getTime() < new Date(current).getTime() ? candidate : current;
-};
-
-const latestTimestamp = (current: string, candidate: string): string => {
-  if (!current) {
-    return candidate;
-  }
-
-  return new Date(candidate).getTime() > new Date(current).getTime() ? candidate : current;
 };

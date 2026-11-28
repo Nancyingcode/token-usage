@@ -20,7 +20,7 @@ const deferred = <Value>() => {
   return { promise, resolve, reject };
 };
 
-const createFixture = () => {
+const createFixture = (loadEngine?: () => Promise<void>) => {
   let installErrorListener: (() => void) | undefined;
   const unsubscribeError = vi.fn();
   const engine = {
@@ -43,7 +43,12 @@ const createFixture = () => {
   const prepareForInstall = vi.fn<() => Promise<() => void>>().mockResolvedValue(resume);
   const service = createAppUpdateService({
     currentVersion: '0.9.0',
-    engine,
+    engine: loadEngine
+      ? async () => {
+          await loadEngine();
+          return engine;
+        }
+      : engine,
     confirmInstall,
     prepareForInstall,
   });
@@ -64,6 +69,64 @@ const makeDownloaded = async (fixture: ReturnType<typeof createFixture>): Promis
 };
 
 describe('application update service', () => {
+  it('loads the engine once on the first explicit check and reuses it across operations', async () => {
+    const loading = deferred<void>();
+    const loadEngine = vi.fn(() => loading.promise);
+    const fixture = createFixture(loadEngine);
+    expect(fixture.service.getSnapshot().phase).toBe('idle');
+    await fixture.service.download();
+    await fixture.service.install();
+    expect(loadEngine).not.toHaveBeenCalled();
+    const first = fixture.service.check();
+    expect(fixture.service.check()).toBe(first);
+    await Promise.resolve();
+    expect(loadEngine).toHaveBeenCalledOnce();
+    expect(fixture.service.getSnapshot().phase).toBe('checking');
+    expect(fixture.engine.check).not.toHaveBeenCalled();
+    loading.resolve();
+    expect((await first).phase).toBe('available');
+    expect(fixture.engine.check).toHaveBeenCalledOnce();
+    expect((await fixture.service.check()).phase).toBe('available');
+    expect((await fixture.service.download()).phase).toBe('downloaded');
+    expect((await fixture.service.install()).phase).toBe('installing');
+    fixture.emitInstallError();
+    expect(fixture.resume).toHaveBeenCalledOnce();
+    fixture.service.destroy();
+    expect(loadEngine).toHaveBeenCalledOnce();
+    expect(fixture.engine.onInstallError).toHaveBeenCalledOnce();
+    expect(fixture.unsubscribeError).toHaveBeenCalledOnce();
+    expect(fixture.engine.destroy).toHaveBeenCalledOnce();
+  });
+
+  it('retries engine initialization on the next check after a load failure', async () => {
+    const loadEngine = vi
+      .fn<() => Promise<void>>()
+      .mockRejectedValueOnce(new Error('load failed'))
+      .mockResolvedValue(undefined);
+    const fixture = createFixture(loadEngine);
+    expect(await fixture.service.check()).toMatchObject({ phase: 'error', error: 'check-failed' });
+    expect(fixture.engine.check).not.toHaveBeenCalled();
+    expect((await fixture.service.check()).phase).toBe('available');
+    expect(loadEngine).toHaveBeenCalledTimes(2);
+    expect(fixture.engine.check).toHaveBeenCalledOnce();
+  });
+
+  it('disposes a late engine without starting a network check after shutdown', async () => {
+    const loading = deferred<void>();
+    const loadEngine = vi.fn(() => loading.promise);
+    const fixture = createFixture(loadEngine);
+    const check = fixture.service.check();
+    await Promise.resolve();
+    expect(loadEngine).toHaveBeenCalledOnce();
+    fixture.service.destroy();
+    const snapshot = fixture.service.getSnapshot();
+    loading.resolve();
+    expect(await check).toEqual(snapshot);
+    expect(fixture.engine.check).not.toHaveBeenCalled();
+    expect(fixture.engine.onInstallError).not.toHaveBeenCalled();
+    expect(fixture.engine.destroy).toHaveBeenCalledOnce();
+  });
+
   it('checks without downloading or installing and requires explicit calls', async () => {
     const fixture = createFixture();
     expect(fixture.service.getSnapshot()).toMatchObject({ phase: 'idle', currentVersion: '0.9.0' });
@@ -90,9 +153,10 @@ describe('application update service', () => {
     'never calls the updater when unavailable because of %s',
     async (unavailableReason) => {
       const fixture = createFixture();
+      const loadEngine = vi.fn(async () => fixture.engine);
       const service = createAppUpdateService({
         currentVersion: '0.9.0',
-        engine: fixture.engine,
+        engine: loadEngine,
         unavailableReason,
         confirmInstall: fixture.confirmInstall,
         prepareForInstall: fixture.prepareForInstall,
@@ -100,6 +164,7 @@ describe('application update service', () => {
       await service.check();
       await service.download();
       expect(await service.install()).toMatchObject({ phase: 'unavailable', unavailableReason });
+      expect(loadEngine).not.toHaveBeenCalled();
       expect(fixture.engine.check).not.toHaveBeenCalled();
       expect(fixture.engine.download).not.toHaveBeenCalled();
       expect(fixture.engine.install).not.toHaveBeenCalled();

@@ -29,7 +29,7 @@ export interface AppUpdateEngine {
 
 export interface AppUpdateServiceDependencies {
   currentVersion: string;
-  engine: AppUpdateEngine;
+  engine: AppUpdateEngine | (() => Promise<AppUpdateEngine>);
   unavailableReason?: AppUpdateUnavailableReason;
   confirmInstall: () => Promise<boolean>;
   prepareForInstall: () => Promise<() => void>;
@@ -69,7 +69,7 @@ const normalizeProgress = (value: AppUpdateProgress): AppUpdateProgress | undefi
 
 export const createAppUpdateService = ({
   currentVersion,
-  engine,
+  engine: initialEngine,
   unavailableReason,
   confirmInstall,
   prepareForInstall,
@@ -117,12 +117,15 @@ export const createAppUpdateService = ({
     fail('install-failed');
   };
 
-  const unsubscribeInstallError = engine.onInstallError?.(() => {
+  const onInstallError = (): void => {
     // updater 的同一 error 事件也用于检查与下载，只有启动安装期间才恢复暂停的业务。
     if (!destroyed && snapshot.phase === 'installing') {
       restoreAfterInstallFailure();
     }
-  });
+  };
+  let engine = initialEngine;
+  let unsubscribeInstallError =
+    typeof engine === 'function' ? undefined : engine.onInstallError?.(onInstallError);
 
   const isCurrent = (generation: number): boolean =>
     !destroyed && generation === operationGeneration;
@@ -177,6 +180,16 @@ export const createAppUpdateService = ({
         return fail('invalid-release');
       }
       try {
+        if (typeof engine === 'function') {
+          // 检查操作已单飞。加载期间若应用退出，直接释放新实例，避免退出后发起网络请求。
+          const loaded = await engine();
+          if (!isCurrent(generation)) {
+            loaded.destroy();
+            return getSnapshot();
+          }
+          engine = loaded;
+          unsubscribeInstallError = loaded.onInstallError?.(onInstallError);
+        }
         const release = await engine.check();
         if (!isCurrent(generation)) {
           return getSnapshot();
@@ -210,7 +223,8 @@ export const createAppUpdateService = ({
     const canRetry = snapshot.phase === 'error' && snapshot.error === 'download-failed';
     const targetVersion = snapshot.targetVersion;
     const canDownload = snapshot.phase === 'available' || canRetry;
-    if (!canDownload || !targetVersion) {
+    const checkedEngine = engine;
+    if (!canDownload || !targetVersion || typeof checkedEngine === 'function') {
       return Promise.resolve(getSnapshot());
     }
     return run('download', async (generation) => {
@@ -220,7 +234,7 @@ export const createAppUpdateService = ({
         return getSnapshot();
       }
       try {
-        await engine.download((value) => {
+        await checkedEngine.download((value) => {
           const progress = normalizeProgress(value);
           if (isCurrent(generation) && snapshot.phase === 'downloading' && progress) {
             publish({ progress });
@@ -247,7 +261,8 @@ export const createAppUpdateService = ({
       (snapshot.error === 'save-failed' || snapshot.error === 'install-failed');
     const canInstall = snapshot.phase === 'downloaded' || canRetry;
     const hasMatchingDownload = downloadedVersion && downloadedVersion === snapshot.targetVersion;
-    if (!canInstall || !hasMatchingDownload) {
+    const checkedEngine = engine;
+    if (!canInstall || !hasMatchingDownload || typeof checkedEngine === 'function') {
       return Promise.resolve(getSnapshot());
     }
     return run('install', async (generation) => {
@@ -280,7 +295,7 @@ export const createAppUpdateService = ({
         return getSnapshot();
       }
       try {
-        await engine.install();
+        await checkedEngine.install();
       } catch {
         if (isCurrent(generation)) {
           restoreAfterInstallFailure();
@@ -310,7 +325,7 @@ export const createAppUpdateService = ({
       listeners.clear();
       unsubscribeInstallError?.();
       resumeApplication = undefined;
-      engine.destroy();
+      if (typeof engine !== 'function') engine.destroy();
     },
   };
 };

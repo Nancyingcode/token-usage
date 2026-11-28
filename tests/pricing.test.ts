@@ -134,6 +134,18 @@ describe('pricing', () => {
 
   it('normalizes model ids for shared price matching', () => {
     expect(normalizeModelId('  GPT-Test  ')).toBe('gpt-test');
+    expect(normalizeModelId('  İ-ΟΣ  ')).toBe('i\u0307-ος');
+  });
+
+  it('matches ASCII model ids without invoking locale conversion for every usage slice', () => {
+    const convert = vi.spyOn(String.prototype, 'toLocaleLowerCase');
+    try {
+      const normalized = normalizeModelId('  GPT-5.6-SOL  ');
+      expect(convert).not.toHaveBeenCalled();
+      expect(normalized).toBe('gpt-5.6-sol');
+    } finally {
+      convert.mockRestore();
+    }
   });
 
   it('prices cached input separately and does not add reasoning twice', () => {
